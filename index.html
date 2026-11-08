@@ -14488,8 +14488,9 @@ function playSound(n) {
 
 
 // =====================================================================
-//  MILITAR Y GUERRA: mapamundi por países, fuerzas propias, diplomacia,
-//  declaración de guerra, conflicto día a día, agresiones y paz.
+//  MILITAR Y GUERRA (v2): mapamundi con zonas, fuerzas y tecnología,
+//  diplomacia, motivos de guerra, operaciones con enfriamiento,
+//  suministros, bajas, términos de paz, territorios y parte de guerra.
 //  (El mapa se descarga una vez de jsDelivr y queda en caché; sin
 //  conexión se muestra un mapa simplificado de burbujas.)
 // =====================================================================
@@ -14513,11 +14514,12 @@ function playSound(n) {
   const BY = {}; C.forEach(c => BY[c.id] = c);
   const ALLIED = c => /UE|OTAN/.test(c.b);
   const X = lon => (lon + 180) * 2.7778, Y = lat => (84 - lat) * 2.7778;
-  const I = () => { if (!gameState.wr) gameState.wr = { t: 30, m: 25, a: 28, rel: {}, war: null, hist: [], sel: null, lastEv: 0, last: 0 }; return gameState.wr; };
+  const TECH = [['dron', 'Drones de combate', 'fa-plane-up'], ['cyber', 'Ciberguerra', 'fa-microchip'], ['logis', 'Logística avanzada', 'fa-truck-fast']];
+  const I = () => { const W = gameState.wr || (gameState.wr = {}); const d = { t: 30, m: 25, a: 28, rel: {}, war: null, hist: [], sel: null, last: 0, speed: 1, pane: 'op', view: 'w', log: [], tech: { dron: 0, cyber: 0, logis: 0 }, terr: [], sanc: 0 }; Object.keys(d).forEach(k => { if (W[k] == null) W[k] = d[k]; }); return W; };
   const rel = c => { const W = I(); if (W.rel[c.id] == null) W.rel[c.id] = c.r0; return W.rel[c.id]; };
   const cap = () => { goalsInit(); return gameState.goals; };
   const moral = () => 0.7 + ((gameState.metrics || { mil: 50 }).mil) / 200;
-  const power = c => { const W = I(), b = c.p >= .7 ? (W.t + W.m + W.a) / 3 : (W.m + W.a) / 2; return b * moral() * c.p; };
+  const power = c => { const W = I(), b = c.p >= .7 ? (W.t + W.m + W.a) / 3 : (W.m + W.a) / 2; return b * moral() * c.p * (1 + 0.04 * W.tech.dron); };
 
   // ---------- mapa ----------
   let WORLD = null, LOADING = false;
@@ -14536,18 +14538,30 @@ function playSound(n) {
     if (LOADING || WORLD) return; LOADING = true;
     fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json').then(r => r.json()).then(t => { WORLD = decode(t); if (gameState.activeTab === 'war') render(); }).catch(() => { LOADING = false; WORLD = null; });
   }
+  const VIEWS = { w: '0 0 1000 395', e: '430 50 250 130', am: '120 60 320 340', as: '560 60 360 200' };
+  const VNAME = { w: 'Mundo', e: 'Europa y Mediterráneo', am: 'Américas', as: 'Asia' };
+  const dstr = () => gameState.currentDate && gameState.currentDate.toLocaleDateString ? gameState.currentDate.toLocaleDateString('es-ES') : 'Día ' + (gameState.daysInOffice || 0);
+  const log = t => { const W = I(); W.log.unshift(dstr() + ' · ' + t); W.log = W.log.slice(0, 12); };
   function col(id) {
     const W = I(), c = BY[id];
     if (id === 724) return '#15803d';
     if (!c) return '#1e293b';
     if (W.war && W.war.id === id) return '#ef4444';
+    if (W.terr.some(t => t.id === id)) return '#a16207';
     const r = rel(c); return r >= 70 ? '#1d4ed8' : r <= 30 ? '#991b1b' : '#475569';
   }
   function mapSvg() {
-    const W = I(); load();
-    const sel = W.sel;
-    if (WORLD) return `<svg viewBox="0 0 1000 395" class="w-full bg-slate-950 rounded border border-slate-800">${WORLD.map(w => `<path d="${w.d}" fill="${col(w.id)}" stroke="${sel === w.id ? '#fbbf24' : '#0f172a'}" stroke-width="${sel === w.id ? 1.6 : .4}" ${BY[w.id] ? `onclick="warSel(${w.id})" style="cursor:pointer"` : ''}><title>${w.id === 724 ? 'España' : BY[w.id] ? BY[w.id].n : ''}</title></path>`).join('')}</svg>`;
-    return `<svg viewBox="0 0 1000 395" class="w-full bg-slate-950 rounded border border-slate-800"><text x="500" y="14" fill="#64748b" font-size="10" text-anchor="middle">${LOADING ? 'Cargando mapa mundial…' : 'Mapa simplificado (sin conexión)'}</text>${C.concat([{ id: 724, n: 'España', s: 28, lat: 40, lon: -4 }]).map(c => `<circle cx="${X(c.lon)}" cy="${Y(c.lat)}" r="${4 + c.s / 14}" fill="${col(c.id)}" stroke="${sel === c.id ? '#fbbf24' : '#0f172a'}" stroke-width="1.5" ${c.id !== 724 ? `onclick="warSel(${c.id})" style="cursor:pointer"` : ''}><title>${c.n}</title></circle>`).join('')}</svg>`;
+    const W = I(), w = W.war; load(); const zoom = W.view !== 'w', sp = [X(-4), Y(40)];
+    let base;
+    if (WORLD) base = WORLD.map(p => `<path d="${p.d}" fill="${col(p.id)}" stroke="${W.sel === p.id ? '#fbbf24' : '#0f172a'}" stroke-width="${W.sel === p.id ? 1.4 : .4}" ${BY[p.id] ? `onclick="warSel(${p.id})" style="cursor:pointer"` : ''}><title>${p.id === 724 ? 'España' : BY[p.id] ? BY[p.id].n : ''}</title></path>`).join('');
+    else base = `<text x="500" y="14" fill="#64748b" font-size="10" text-anchor="middle">${LOADING ? 'Cargando mapa mundial…' : 'Mapa simplificado (sin conexión)'}</text>` + C.map(c => `<circle cx="${X(c.lon)}" cy="${Y(c.lat)}" r="${4 + c.s / 14}" fill="${col(c.id)}" stroke="${W.sel === c.id ? '#fbbf24' : '#0f172a'}" stroke-width="1.5" onclick="warSel(${c.id})" style="cursor:pointer"><title>${c.n}</title></circle>`).join('');
+    const lab = C.filter(c => zoom || c.id === W.sel || (w && w.id === c.id)).map(c => `<text x="${X(c.lon)}" y="${Y(c.lat) + 2}" font-size="${zoom ? 5.5 : 8}" fill="#e2e8f0" text-anchor="middle" style="pointer-events:none;paint-order:stroke;stroke:#020617;stroke-width:1.2px">${c.n}</text>`).join('');
+    let over = `<circle cx="${sp[0]}" cy="${sp[1]}" r="3.5" fill="#22c55e" stroke="#fff" stroke-width="1"/>`;
+    if (w) { const c = BY[w.id], tx = X(c.lon), ty = Y(c.lat), f = (w.prog + 100) / 200;
+      over += `<line x1="${sp[0]}" y1="${sp[1]}" x2="${tx}" y2="${ty}" stroke="#fbbf24" stroke-width="1.2" stroke-dasharray="4 3"><animate attributeName="stroke-dashoffset" from="14" to="0" dur="1s" repeatCount="indefinite"/></line>
+      <circle cx="${tx}" cy="${ty}" r="6" fill="none" stroke="#ef4444" stroke-width="1.5"><animate attributeName="r" from="4" to="16" dur="1.4s" repeatCount="indefinite"/><animate attributeName="opacity" from="1" to="0" dur="1.4s" repeatCount="indefinite"/></circle>
+      <circle cx="${sp[0] + (tx - sp[0]) * f}" cy="${sp[1] + (ty - sp[1]) * f}" r="3.5" fill="#fff" stroke="#ef4444" stroke-width="1.5"/>`; }
+    return `<svg viewBox="${VIEWS[W.view]}" class="w-full bg-slate-950 rounded border border-slate-800" style="aspect-ratio:${W.view === 'w' ? '1000/395' : '16/9'}">${base}${over}${lab}</svg>`;
   }
 
   // ---------- diálogos ----------
@@ -14555,76 +14569,107 @@ function playSound(n) {
   function close() { const m = document.getElementById('xm-modal'); if (m) m.remove(); setGameSpeed(I().speed || 1); }
   const btn = (fn, t, h) => `<button onclick="${fn}" class="w-full text-left p-3 rounded bg-slate-900 hover:bg-slate-800 border border-red-900/60 hover:border-red-400 cursor-pointer"><b class="text-xs text-slate-100">${t}</b>${h ? `<div class="text-[10px] text-slate-500 mt-0.5">${h}</div>` : ''}</button>`;
   const busy = () => document.getElementById('xm-modal') || document.getElementById('council-modal') || document.getElementById('crisis-modal') || gameState.activeDynamicEvent || gameState.activeNewsPopup;
+  const spend = (txt, n) => registerFinancialTransaction(txt, -n);
+  const money = () => Number(gameState.treasury) || 0;
 
   window.warSel = id => { I().sel = id; render(); };
-  window.warBuild = k => {
-    const W = I(); if (W[k] >= 90) return goalsToast('Capacidad máxima alcanzada.', '#ef4444');
-    if ((Number(gameState.treasury) || 0) < 1000) return goalsToast('Fondos insuficientes (1.000 M€).', '#ef4444');
-    registerFinancialTransaction('Rearme: ' + ({ t: 'Ejército de Tierra', m: 'Armada', a: 'Ejército del Aire' })[k], -1000); W[k] += 5; focusMetricAdd('mil', 1); render();
-  };
-  window.warPact = id => { const c = BY[id]; if ((Number(gameState.treasury) || 0) < 400) return goalsToast('Fondos insuficientes (400 M€).', '#ef4444'); registerFinancialTransaction('Pacto de cooperación con ' + c.n, -400); I().rel[id] = Math.min(100, rel(c) + 15); render(); };
+  window.warView = v => { I().view = v; render(); };
+  window.warPane = p => { I().pane = p; render(); };
+  window.warBuild = k => { const W = I(); if (W[k] >= 90) return goalsToast('Capacidad máxima alcanzada.', '#ef4444'); if (money() < 1000) return goalsToast('Fondos insuficientes (1.000 M€).', '#ef4444'); spend('Rearme: ' + ({ t: 'Ejército de Tierra', m: 'Armada', a: 'Ejército del Aire' })[k], 1000); W[k] += 5; focusMetricAdd('mil', 1); render(); };
+  window.warTech = k => { const W = I(); if (W.tech[k] >= 3) return; if (money() < 2500) return goalsToast('Fondos insuficientes (2.500 M€).', '#ef4444'); spend('Investigación militar: ' + k, 2500); W.tech[k]++; fxPlay('ok'); render(); };
+  window.warPact = id => { const c = BY[id]; if (money() < 400) return goalsToast('Fondos insuficientes (400 M€).', '#ef4444'); spend('Pacto de cooperación con ' + c.n, 400); I().rel[id] = Math.min(100, rel(c) + 15); render(); };
   window.warSanction = id => { const c = BY[id]; I().rel[id] = Math.max(0, rel(c) - 15); focusMetricAdd('apr', 1); if (ALLIED(c)) focusMetricAdd('eco', -1); render(); };
 
+  // ---------- declaración y desarrollo ----------
   window.warAsk = id => {
-    const c = BY[id], W = I(); if (W.war) return;
-    W.speed = gameState.gameSpeed || 1; fxPlay('guerra');
-    modal(`<span class="bg-red-600 text-black text-[10px] px-2 py-0.5 rounded font-bold">DECLARACIÓN DE GUERRA</span><h3 class="font-hoi-header text-2xl text-red-400">¿Guerra contra ${c.n}?</h3>
-      <p class="text-xs text-slate-300 font-sans">Fuerza enemiga ${c.s} frente a tu poder efectivo ${Math.round(power(c))}. Cuesta 25 de capital político y mantener el conflicto vacía las arcas.${c.nuke ? ' <b class="text-red-400">¡Es una potencia nuclear!</b>' : ''}</p>${btn(`warGo(${id},false)`, 'Declarar la guerra', 'Efecto rally inicial; después, desgaste')}${btn('warCancel()', 'Retirar la propuesta')}`);
+    const c = BY[id], W = I(); if (W.war) return; W.speed = gameState.gameSpeed || 1; fxPlay('guerra');
+    modal(`<span class="bg-red-600 text-black text-[10px] px-2 py-0.5 rounded font-bold">DECLARACIÓN DE GUERRA</span><h3 class="font-hoi-header text-2xl text-red-400">${c.n}: ¿con qué motivo?</h3>
+      <p class="text-xs text-slate-300 font-sans">Fuerza enemiga ${c.s} frente a tu poder efectivo ${Math.round(power(c))}. Cuesta 25 de capital político.${c.nuke ? ' <b class="text-red-400">Es una potencia nuclear.</b>' : ''}${c.b === 'BRICS' ? ' <b class="text-amber-400">Su bloque impondrá sanciones.</b>' : ''}</p>
+      ${btn(`warGo(${id},'terr')`, 'Reclamación territorial', 'Permite anexionar territorio al ganar · rally +3')}${btn(`warGo(${id},'human')`, 'Intervención humanitaria', 'Rally +6, pero la guerra cuesta un 30 % más')}${btn(`warGo(${id},'prev')`, 'Guerra preventiva', 'Un 20 % más barata; la comunidad internacional protesta (Economía −2)')}${btn('warCancel()', 'Retirar la propuesta')}`);
   };
   window.warCancel = close;
-  window.warGo = (id, def) => {
-    const c = BY[id], W = I(), day = gameState.daysInOffice || 0;
+  window.warGo = (id, goal) => {
+    const c = BY[id], W = I(), day = gameState.daysInOffice || 0, def = goal === 'def';
     if (!def) {
-      if (ALLIED(c)) { close(); return goalsToast('Atacar a un socio de la UE/OTAN es inviable: activaría la defensa colectiva.', '#ef4444'); }
+      if (ALLIED(c)) { close(); return goalsToast('Atacar a un socio de la UE/OTAN es inviable.', '#ef4444'); }
       if (cap().capital < 25) { close(); return goalsToast('Capital político insuficiente (25).', '#ef4444'); }
       if ((gameState.metrics.mil || 0) < 25) { close(); return goalsToast('El Ejército se niega a combatir (Lealtad < 25).', '#ef4444'); }
-      cap().capital -= 25; focusMetricAdd('apr', 5);
-      try { ['SUMAR', 'PODEMOS'].forEach(p => updatePartnerLoyalty(p, -8)); ['VOX'].forEach(p => updatePartnerLoyalty(p, 3)); } catch (e) {}
+      cap().capital -= 25; focusMetricAdd('apr', { terr: 3, human: 6, prev: 2 }[goal]); if (goal === 'prev') focusMetricAdd('eco', -2);
+      if (c.b === 'BRICS') { W.sanc = day + 120; log('Sanciones del bloque BRICS contra España.'); }
+      try { ['SUMAR', 'PODEMOS'].forEach(p => updatePartnerLoyalty(p, -8)); updatePartnerLoyalty('VOX', 3); } catch (e) {}
     }
-    W.war = { id, start: day, prog: def ? 10 : 0, def: !!def, nuke: c.nuke, nextEv: day + 12 };
-    fxPlay('guerra'); goalsToast('<i class="fa-solid fa-person-rifle text-red-400"></i> <b>' + (def ? 'España es atacada por ' : 'Guerra contra ') + c.n + '</b>', '#ef4444');
+    W.war = { id, start: day, prog: def ? 10 : 0, goal, k: goal === 'human' ? 1.3 : goal === 'prev' ? 0.8 : 1, nuke: c.nuke, nextEv: day + 12, sup: 80, baj: 0, cd: {}, buff: 0, deb: 0 };
+    log((def ? 'España es atacada por ' : 'España declara la guerra a ') + c.n + '.'); W.sel = id; W.pane = 'op'; fxPlay('guerra');
+    goalsToast('<i class="fa-solid fa-person-rifle text-red-400"></i> <b>' + (def ? 'España es atacada por ' : 'Guerra contra ') + c.n + '</b>', '#ef4444');
     if (document.getElementById('xm-modal')) close(); else render();
   };
+  const OPS = [
+    { id: 'air', t: 'Ataque aéreo de precisión', ic: 'fa-jet-fighter', cost: 500, cd: 20, h: '+6 al frente (más con mejor Aire)', run: (w, W) => { w.prog += 6 * (1 + W.a / 100); w.baj += 2; } },
+    { id: 'sea', t: 'Bloqueo naval', ic: 'fa-ship', cost: 400, cd: 30, h: 'Asfixia al enemigo: +0,3/día durante 25 días', run: w => { w.buff = 25; } },
+    { id: 'land', t: 'Ofensiva terrestre', ic: 'fa-person-rifle', cost: 700, cd: 25, h: 'Riesgo alto: +14 / −10 · gasta 25 de suministros', run: (w, W, c) => { const ok = Math.random() < Math.min(.85, Math.max(.2, .5 + (power(c) - c.s) / 100)); w.prog += ok ? 14 : -10; w.sup -= 25; w.baj += ok ? 6 : 12; focusMetricAdd('mil', ok ? 2 : -3); } },
+    { id: 'cyber', t: 'Ciberataque', ic: 'fa-microchip', cost: 300, cd: 30, req: 'cyber', h: 'Debilita un 10 % al enemigo durante 20 días', run: w => { w.deb = 20; w.prog += 3; } },
+    { id: 'log', t: 'Convoy logístico', ic: 'fa-truck-fast', cost: 300, cd: 15, h: '+30 de suministros', run: w => { w.sup = Math.min(100, w.sup + 30); } },
+    { id: 'prop', t: 'Campaña informativa', ic: 'fa-bullhorn', cost: 200, cd: 20, h: '+2 de Aprobación', run: () => focusMetricAdd('apr', 2) }
+  ];
+  const opState = (o, w) => { const day = gameState.daysInOffice || 0, W = I(); return o.req && !W.tech[o.req] ? 'Requiere ' + o.req : (w.cd[o.id] || 0) > day ? 'Espera ' + (w.cd[o.id] - day) + 'd' : money() < o.cost ? 'Sin fondos' : ''; };
+  window.warOp = (id, fromModal) => {
+    const W = I(), w = W.war, o = OPS.find(x => x.id === id); if (!w || !o) return fromModal && close();
+    const why = opState(o, w); if (why) return goalsToast(o.t + ': ' + why, '#ef4444');
+    spend('Operación: ' + o.t, o.cost); o.run(w, W, BY[w.id]); w.cd[id] = (gameState.daysInOffice || 0) + o.cd; w.prog = Math.max(-100, Math.min(100, w.prog)); w.sup = Math.max(0, w.sup);
+    log(o.t + ' contra ' + BY[w.id].n + '.'); fxPlay('op'); if (fromModal) { w.nextEv = (gameState.daysInOffice || 0) + 14; close(); } else render();
+  };
+  window.warPeace = () => { if (I().war) end('peace'); };
+  window.warTerm = k => {
+    const W = I(), c = BY[W.pend]; W.pend = null; focusMetricAdd('apr', 8); focusMetricAdd('mil', 6); cap().capital = Math.min(100, cap().capital + 12);
+    if (k === 'rep') { registerFinancialTransaction('Reparaciones de guerra: ' + c.n, 8000); focusMetricAdd('apr', 2); }
+    if (k === 'anex') { W.terr.push({ id: c.id, n: c.n }); focusMetricAdd('eco', 3); focusMetricAdd('est', -3); Object.keys(W.rel).forEach(i => { if (ALLIED(BY[i])) W.rel[i] = Math.max(0, W.rel[i] - 10); }); }
+    if (k === 'gob') { W.rel[c.id] = 85; focusMetricAdd('est', 2); }
+    W.hist.unshift(c.n + ': VICTORIA (' + { rep: 'reparaciones', anex: 'anexión', gob: 'gobierno afín' }[k] + ')'); W.hist = W.hist.slice(0, 8); W.last = gameState.daysInOffice || 0;
+    log('Victoria sobre ' + c.n + '.'); fxPlay('victoria'); goalsToast('<b>VICTORIA SOBRE ' + c.n.toUpperCase() + '</b>', '#10b981'); close();
+  };
+  function winTerms() {
+    const W = I(), w = W.war, c = BY[w.id]; W.speed = gameState.gameSpeed || 1; W.pend = w.id; const g = w.goal; W.war = null;
+    modal(`<span class="bg-emerald-500 text-black text-[10px] px-2 py-0.5 rounded font-bold">VICTORIA</span><h3 class="font-hoi-header text-2xl text-emerald-400">Términos de paz con ${c.n}</h3>${btn("warTerm('rep')", 'Exigir reparaciones de guerra', '+8.000 M€ y +2 de Aprobación')}
+      ${g === 'terr' && c.p >= .85 ? btn("warTerm('anex')", 'Anexionar territorio fronterizo', 'Ingresos mensuales y +3 Economía, pero inestabilidad y rechazo de los aliados europeos') : ''}${btn("warTerm('gob')", 'Imponer un gobierno afín', 'Relación con ' + c.n + ' al 85 %, +2 Estabilidad')}`);
+  }
   function end(kind) {
     const W = I(), w = W.war, c = BY[w.id], days = (gameState.daysInOffice || 0) - w.start;
-    const R = { win: { fx: { apr: 8, mil: 6, eco: 2 }, money: 6000, cp: 15, t: 'VICTORIA', s: 'victoria', cl: '#10b981' }, peace: { fx: w.prog >= 20 ? { apr: 3 } : { apr: -4, mil: -2 }, money: w.prog >= 20 ? 2000 : 0, cp: 0, t: 'ALTO EL FUEGO', s: 'paz', cl: '#d9a726' },
-      lose: { fx: { apr: -10, est: -10, mil: -8, eco: -4 }, money: -3000, cp: -15, t: 'DERROTA', s: 'derrota', cl: '#ef4444' } }[kind];
-    Object.keys(R.fx).forEach(k => focusMetricAdd(k, R.fx[k]));
-    if (R.money) registerFinancialTransaction('Guerra contra ' + c.n + ': ' + R.t.toLowerCase(), R.money);
+    const R = { peace: { fx: w.prog >= 20 ? { apr: 3 } : { apr: -4, mil: -2 }, mo: w.prog >= 20 ? 2000 : 0, cp: 0, t: 'ALTO EL FUEGO', s: 'paz', cl: '#d9a726' }, lose: { fx: { apr: -10, est: -10, mil: -8, eco: -4 }, mo: -3000, cp: -15, t: 'DERROTA', s: 'derrota', cl: '#ef4444' } }[kind];
+    Object.keys(R.fx).forEach(k => focusMetricAdd(k, R.fx[k])); if (R.mo) registerFinancialTransaction('Guerra contra ' + c.n + ': ' + R.t.toLowerCase(), R.mo);
     goalsInit(); gameState.goals.capital = Math.max(0, Math.min(100, gameState.goals.capital + R.cp));
-    if (kind === 'win') W.rel[c.id] = Math.max(0, rel(c) - 20);
-    W.hist.unshift(`${c.n}: ${R.t} (${days} días)`); W.hist = W.hist.slice(0, 6); W.last = gameState.daysInOffice || 0; W.war = null;
-    fxPlay(R.s); goalsToast('<b>GUERRA CONTRA ' + c.n.toUpperCase() + ': ' + R.t + '</b>', R.cl); render();
+    W.hist.unshift(`${c.n}: ${R.t} (${days} días, ${Math.round(w.baj)} bajas)`); W.hist = W.hist.slice(0, 8); W.last = gameState.daysInOffice || 0; W.war = null;
+    log(R.t + ' frente a ' + c.n + '.'); fxPlay(R.s); goalsToast('<b>GUERRA CONTRA ' + c.n.toUpperCase() + ': ' + R.t + '</b>', R.cl); render();
   }
-  window.warPeace = () => { if (I().war) end('peace'); };
-
-  function warEvent() {
-    const W = I(), w = W.war, c = BY[w.id]; W.speed = gameState.gameSpeed || 1; fxPlay('event');
-    modal(`<span class="bg-red-600 text-black text-[10px] px-2 py-0.5 rounded font-bold animate-pulse">PARTE DE GUERRA · ${c.n}</span><h3 class="font-hoi-header text-2xl text-red-400">Estado de las operaciones</h3>
-      <p class="text-xs text-slate-300 font-sans">Frente a ${c.n}: ${w.prog > 20 ? 'ventaja española' : w.prog < -20 ? 'situación comprometida' : 'frente igualado'} (${Math.round(w.prog)}). El Estado Mayor espera órdenes.</p>
-      ${btn('warOrder(0)', 'Ofensiva general', 'Riesgo alto, recompensa alta · 600 M€')}${btn('warOrder(1)', 'Consolidar posiciones', 'Avance lento y seguro')}${btn('warOrder(2)', 'Pedir apoyo aéreo aliado', 'Sin coste, pero gasta 5 de capital político')}${btn('warOrder(3)', 'Abrir negociaciones de paz', 'Termina el conflicto')}`);
+  function briefing() {
+    const W = I(), w = W.war, c = BY[w.id], day = gameState.daysInOffice || 0; W.speed = gameState.gameSpeed || 1; fxPlay('event');
+    const rec = OPS.filter(o => !opState(o, w)).sort((a, b) => (b.id === 'log' && w.sup < 45 ? 9 : 0) + (w.prog < 0 && b.id !== 'prop' ? 2 : 0) + Math.random() - ((a.id === 'log' && w.sup < 45 ? 9 : 0) + (w.prog < 0 && a.id !== 'prop' ? 2 : 0) + Math.random())).slice(0, 3);
+    modal(`<span class="bg-red-600 text-black text-[10px] px-2 py-0.5 rounded font-bold animate-pulse">ESTADO MAYOR · ${c.n}</span><h3 class="font-hoi-header text-2xl text-red-400">Parte de operaciones</h3>
+      <p class="text-xs text-slate-300 font-sans">Frente ${Math.round(w.prog)} · suministros ${Math.round(w.sup)} · bajas ${Math.round(w.baj)}. El Estado Mayor propone:</p>${rec.map(o => btn(`warOp('${o.id}',true)`, o.t + ' · ' + o.cost + ' M€', o.h)).join('')}${btn('warOpen()', 'Seguir sin cambios')}${btn('warPeace();warCancel()', 'Abrir negociaciones de paz')}`);
   }
-  window.warOrder = i => {
-    const W = I(), w = W.war; if (!w) return close();
-    if (i === 3) { close(); return end('peace'); }
-    if (i === 0) { registerFinancialTransaction('Ofensiva general', -600); const p = Math.min(.85, Math.max(.2, .5 + (power(BY[w.id]) - BY[w.id].s) / 100)); w.prog += Math.random() < p ? 14 : -10; focusMetricAdd('mil', Math.random() < p ? 2 : -3); }
-    if (i === 1) { w.prog += 4; focusMetricAdd('est', 1); }
-    if (i === 2) { if (cap().capital < 5) goalsToast('Capital político insuficiente.', '#ef4444'); else { cap().capital -= 5; w.prog += 9; } }
-    w.prog = Math.max(-100, Math.min(100, w.prog)); w.nextEv = (gameState.daysInOffice || 0) + 14; close();
-  };
+  window.warOpen = () => { const w = I().war; if (w) w.nextEv = (gameState.daysInOffice || 0) + 14; close(); };
 
+  const FL = { pos: ['Las tropas españolas avanzan sobre {c}.', 'Cae una base logística enemiga en {c}.', 'Los cazas españoles dominan el espacio aéreo de {c}.'], neg: ['{c} contraataca y recupera terreno.', 'Fuertes combates y retrocesos en el frente.', 'Las líneas españolas sufren una dura presión.'], mid: ['Frente estabilizado: combates de desgaste con {c}.', 'Escaramuzas y artillería sin cambios decisivos.'] };
   function tick() {
     if (gameState.step !== 4 || gameState.coupActive || !gameState.metrics) return;
-    const W = I(), day = gameState.daysInOffice || 0, w = W.war;
+    const W = I(), day = gameState.daysInOffice || 0, w = W.war, F = focusInit();
+    if (W.sanc > day) focusAccum(F, 'eco', -0.03);
+    if (day % 30 === 0) { if (W.sanc > day) spend('Sanciones internacionales', 150); if (W.terr.length) { registerFinancialTransaction('Ingresos de territorios ocupados', 50 * W.terr.length); focusAccum(F, 'est', -0.4 * W.terr.length); } }
     if (w) {
-      const c = BY[w.id], d = power(c) * (w.def && W.rel && Object.keys(W.rel).some(k => BY[k] && ALLIED(BY[k]) && W.rel[k] >= 70) ? 1.15 : 1) - c.s * (w.def ? 0.9 : 1.05);
-      w.prog = Math.max(-100, Math.min(100, w.prog + d / 15 + (Math.random() - 0.5) * 1.6));
-      const F = focusInit(); focusAccum(F, 'apr', w.prog < 0 ? -0.1 : -0.04); focusAccum(F, 'est', -0.03); focusAccum(F, 'eco', -0.04); focusAccum(F, 'mil', w.prog > 0 ? 0.03 : -0.05);
-      if (day % 10 === 0) registerFinancialTransaction('Costes de guerra (' + c.n + ')', -(150 + c.s * 3));
+      const c = BY[w.id], T = W.tech;
+      if (w.sup == null) { w.sup = 80; w.baj = 0; w.cd = {}; w.buff = 0; w.deb = 0; w.k = 1; }
+      w.sup = Math.max(0, w.sup - (0.7 - 0.15 * T.logis)); if (w.sup < 25 && !w.warned) { w.warned = 1; goalsToast('<b>Suministros críticos:</b> las tropas pierden eficacia.', '#ef4444'); } if (w.sup > 40) w.warned = 0;
+      const allied = Object.keys(W.rel).some(k => BY[k] && ALLIED(BY[k]) && W.rel[k] >= 70), def = w.goal === 'def';
+      const mine = power(c) * (w.sup < 25 ? .75 : 1) * (def && allied ? 1.15 : 1), foe = c.s * (def ? .9 : 1.05) * (w.deb > 0 ? .9 : 1) * (1 - 0.03 * T.cyber);
+      w.prog = Math.max(-100, Math.min(100, w.prog + (mine - foe) / 15 + (w.buff > 0 ? .3 : 0) + (Math.random() - .5) * 1.6));
+      if (w.buff > 0) w.buff--; if (w.deb > 0) w.deb--;
+      w.baj += (0.5 + c.s / 60) * (w.prog < 0 ? 1.4 : 1);
+      focusAccum(F, 'apr', -(0.03 + w.baj / 5000) - (w.prog < 0 ? 0.05 : 0)); focusAccum(F, 'est', -0.03); focusAccum(F, 'eco', -0.04); focusAccum(F, 'mil', w.prog > 0 ? 0.03 : -0.05);
+      if (day % 10 === 0) spend('Costes de guerra (' + c.n + ')', Math.round((150 + c.s * 3) * w.k));
+      if (day % 6 === 0) { const a = w.prog > 20 ? FL.pos : w.prog < -20 ? FL.neg : FL.mid; log(a[Math.floor(Math.random() * a.length)].replace('{c}', c.n)); }
       if (w.nuke && day % 30 === 0 && Math.random() < 0.12) { ['eco', 'est', 'apr'].forEach(k => focusMetricAdd(k, -25)); fxPlay('derrota'); goalsToast('<b>ATAQUE NUCLEAR:</b> el país queda devastado.', '#ef4444'); return end('lose'); }
-      if (w.prog >= 100) return end('win');
+      if (w.prog >= 100) { if (!busy()) winTerms(); return; }
       if (w.prog <= -100) return end('lose');
-      if (day >= w.nextEv && !busy()) warEvent();
+      if (day >= w.nextEv && !busy()) briefing();
     } else if (day >= 60 && day % 20 === 0 && day - W.last >= 120 && !busy()) {
       const hs = C.filter(c => c.p >= .7 && !ALLIED(c) && rel(c) < 35);
       if (hs.length && Math.random() < 0.35) {
@@ -14638,36 +14683,55 @@ function playSound(n) {
     const c = BY[id], W = I(); W.last = gameState.daysInOffice || 0;
     if (o === 1) { focusMetricAdd('apr', -5); focusMetricAdd('est', -2); W.rel[id] = rel(c) + 12; return close(); }
     if (o === 2) { cap().capital = Math.max(0, cap().capital - 5); if (Math.random() < 0.5) { W.rel[id] = rel(c) + 15; goalsToast('La mediación internacional evita el conflicto.', '#10b981'); return close(); } }
-    window.warGo(id, true);
+    window.warGo(id, 'def');
   };
 
-  // ---------- pestaña ----------
-  const bar = (v, c) => `<div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800"><div class="h-full ${c}" style="width:${Math.min(100, Math.round(v))}%"></div></div>`;
+  // ---------- interfaz ----------
+  const bar = (v, c) => `<div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800"><div class="h-full ${c}" style="width:${Math.max(0, Math.min(100, Math.round(v)))}%"></div></div>`;
+  const chip = (l, v, c) => `<div class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2"><div class="text-[9px] text-slate-500 tracking-wider">${l}</div><b class="${c || 'text-slate-100'} text-base">${v}</b></div>`;
   function renderWar() {
-    const W = I(), c = BY[W.sel], w = W.war;
-    const forces = [['t', 'Ejército de Tierra', 'fa-person-rifle'], ['m', 'Armada', 'fa-ship'], ['a', 'Ejército del Aire', 'fa-jet-fighter']].map(([k, n, ic]) => `<div class="space-y-1"><div class="flex justify-between text-xs"><span class="text-slate-200"><i class="fa-solid ${ic} text-amber-400 mr-1.5"></i>${n}</span><b>${W[k]}</b></div>${bar(W[k], 'bg-amber-500')}<button onclick="warBuild('${k}')" class="hoi-button-gold px-2 py-1 rounded text-[10px] cursor-pointer">+5 · 1.000 M€</button></div>`).join('');
-    let info = '<p class="text-xs text-slate-500 font-sans">Pulsa un país del mapa para ver sus datos y actuar.</p>';
-    if (c) {
-      const r = rel(c), why = w ? 'Ya hay una guerra en curso' : ALLIED(c) ? 'Socio de la UE/OTAN: inviable' : '';
-      info = `<div class="flex justify-between"><b class="text-sm text-slate-100">${c.n}</b><span class="text-[10px] text-slate-400">${c.b}${c.nuke ? ' · ☢ nuclear' : ''}</span></div>
-        <div class="text-[11px] text-slate-400">Fuerza ${c.s} · tu poder efectivo ${Math.round(power(c))}</div>
-        <div class="text-[10px] text-slate-500">Relación ${Math.round(r)}% ${r >= 70 ? '(aliado)' : r <= 30 ? '(hostil)' : ''}</div>${bar(r, r >= 70 ? 'bg-sky-500' : r <= 30 ? 'bg-red-500' : 'bg-slate-500')}
-        <div class="flex flex-wrap gap-2 pt-1"><button onclick="warPact(${c.id})" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer">Pacto · 400 M€</button><button onclick="warSanction(${c.id})" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer text-amber-300">Sanciones</button>
-        <button ${why ? 'disabled' : ''} onclick="warAsk(${c.id})" class="px-2 py-1 rounded text-[10px] font-bold ${why ? 'bg-slate-800 text-slate-500' : 'bg-red-700 text-white cursor-pointer'}">${why || 'DECLARAR LA GUERRA'}</button></div>`;
+    const W = I(), c = BY[W.sel], w = W.war, day = gameState.daysInOffice || 0, own = Math.round((W.t + W.m + W.a) / 3);
+    const head = `<div class="grid grid-cols-2 md:grid-cols-5 gap-2 text-center">${chip('PODER MILITAR', own, 'text-amber-400')}${chip('MORAL', '×' + moral().toFixed(2))}${chip('TESORERÍA', fmt(money()) + ' M€')}${chip('TERRITORIOS', W.terr.length)}${chip('SANCIONES', W.sanc > day ? 'ACTIVAS' : 'No', W.sanc > day ? 'text-red-400' : 'text-slate-400')}</div>`;
+    const tabs = [['op', 'Operaciones', 'fa-crosshairs'], ['army', 'Ejército y tecnología', 'fa-shield-halved'], ['arch', 'Archivo', 'fa-book']].map(([k, n, ic]) => `<button onclick="warPane('${k}')" class="px-3 py-1.5 rounded text-[11px] cursor-pointer ${W.pane === k ? 'hoi-button-gold' : 'bg-slate-900 border border-slate-700 text-slate-300'}"><i class="fa-solid ${ic} mr-1"></i>${n}</button>`).join('');
+    let body = '';
+    if (W.pane === 'op') {
+      let info = '<p class="text-xs text-slate-500 font-sans">Pulsa un país del mapa para ver sus datos y actuar.</p>';
+      if (c) {
+        const r = rel(c), why = w ? 'Ya hay una guerra en curso' : ALLIED(c) ? 'Socio UE/OTAN: inviable' : '';
+        info = `<div class="flex justify-between"><b class="text-sm text-slate-100">${c.n}</b><span class="text-[10px] text-slate-400">${c.b}${c.nuke ? ' · ☢ nuclear' : ''}</span></div><div class="text-[11px] text-slate-400">Fuerza ${c.s} · tu poder efectivo ${Math.round(power(c))} · proyección ${Math.round(c.p * 100)}%</div>
+          <div class="text-[10px] text-slate-500">Relación ${Math.round(r)}% ${r >= 70 ? '(aliado)' : r <= 30 ? '(hostil)' : ''}</div>${bar(r, r >= 70 ? 'bg-sky-500' : r <= 30 ? 'bg-red-500' : 'bg-slate-500')}
+          <div class="flex flex-wrap gap-2 pt-1"><button onclick="warPact(${c.id})" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer">Pacto · 400 M€</button><button onclick="warSanction(${c.id})" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer text-amber-300">Sanciones</button>
+          <button ${why ? 'disabled' : ''} onclick="warAsk(${c.id})" class="px-2 py-1 rounded text-[10px] font-bold ${why ? 'bg-slate-800 text-slate-500' : 'bg-red-700 text-white cursor-pointer'}">${why || 'DECLARAR LA GUERRA'}</button></div>`;
+      }
+      let wp = '';
+      if (w) wp = `<div class="bg-slate-950 border border-red-700 rounded-lg p-3 space-y-2"><b class="text-sm text-red-400"><i class="fa-solid fa-explosion mr-1.5"></i>GUERRA CONTRA ${BY[w.id].n.toUpperCase()}</b>
+        <div class="text-[10px] text-slate-400">Frente ${Math.round(w.prog)} · ${day - w.start} días</div>${bar((w.prog + 100) / 2, w.prog >= 0 ? 'bg-emerald-500' : 'bg-red-500')}
+        <div class="text-[10px] text-slate-400">Suministros ${Math.round(w.sup)}%</div>${bar(w.sup, w.sup < 25 ? 'bg-red-500' : 'bg-sky-500')}<div class="text-[10px] text-slate-400">Bajas acumuladas: ${Math.round(w.baj)}</div>
+        <div class="grid grid-cols-2 gap-1.5 pt-1">${OPS.map(o => { const y = opState(o, w); return `<button onclick="warOp('${o.id}')" title="${o.h}" class="text-left p-1.5 rounded border ${y ? 'border-slate-800 opacity-50' : 'border-red-900 hover:border-red-400'} bg-slate-900 cursor-pointer"><div class="text-[10px] text-slate-100"><i class="fa-solid ${o.ic} text-red-400 mr-1"></i>${o.t}</div><div class="text-[9px] text-slate-500">${y || o.cost + ' M€'}</div></button>`; }).join('')}</div>
+        <button onclick="warPeace()" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer">Negociar la paz</button></div>`;
+      const views = Object.keys(VIEWS).map(k => `<button onclick="warView('${k}')" class="px-2 py-1 rounded text-[10px] cursor-pointer ${W.view === k ? 'hoi-button-gold' : 'bg-slate-900 border border-slate-700 text-slate-300'}">${VNAME[k]}</button>`).join('');
+      body = `<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2 space-y-2"><div class="flex flex-wrap gap-1.5">${views}</div>${mapSvg()}
+        <div class="text-[10px] text-slate-500 font-sans">Verde: España · azul: aliados · rojo oscuro: hostiles · rojo vivo: enemigo · ocre: territorio anexionado.</div>
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1"><b class="text-sm text-slate-100"><i class="fa-solid fa-radio mr-1.5 text-amber-400"></i>Parte de guerra</b>${W.log.length ? W.log.slice(0, 6).map(x => `<div class="text-[11px] text-slate-300">${x}</div>`).join('') : '<div class="text-[11px] text-slate-500">Sin novedades.</div>'}</div></div>
+        <div class="space-y-3"><div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1">${info}</div>${wp}</div></div>`;
+    } else if (W.pane === 'army') {
+      const forces = [['t', 'Ejército de Tierra', 'fa-person-rifle'], ['m', 'Armada', 'fa-ship'], ['a', 'Ejército del Aire', 'fa-jet-fighter']].map(([k, n, ic]) => `<div class="space-y-1"><div class="flex justify-between text-xs"><span class="text-slate-200"><i class="fa-solid ${ic} text-amber-400 mr-1.5"></i>${n}</span><b>${W[k]}</b></div>${bar(W[k], 'bg-amber-500')}<button onclick="warBuild('${k}')" class="hoi-button-gold px-2 py-1 rounded text-[10px] cursor-pointer">+5 · 1.000 M€</button></div>`).join('');
+      const tech = TECH.map(([k, n, ic]) => `<div class="space-y-1"><div class="flex justify-between text-xs"><span class="text-slate-200"><i class="fa-solid ${ic} text-sky-400 mr-1.5"></i>${n}</span><b>Nv. ${W.tech[k]}/3</b></div>${bar(W.tech[k] / 3 * 100, 'bg-sky-500')}<button onclick="warTech('${k}')" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer">${W.tech[k] >= 3 ? 'Máximo' : 'Investigar · 2.500 M€'}</button></div>`).join('');
+      const rank = C.map(x => ({ n: x.n, s: x.s })).concat([{ n: 'ESPAÑA', s: own, me: 1 }]).sort((a, b) => b.s - a.s);
+      const pos = rank.findIndex(x => x.me) + 1;
+      body = `<div class="grid grid-cols-1 md:grid-cols-3 gap-4"><div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-3"><b class="text-sm text-slate-100">Fuerzas armadas</b>${forces}</div>
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-3"><b class="text-sm text-slate-100">Tecnología</b>${tech}<p class="text-[10px] text-slate-500 font-sans">Drones: +4 % de poder por nivel · Ciberguerra: desbloquea el ciberataque y resta 3 % al enemigo · Logística: reduce el consumo de suministros.</p></div>
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1"><b class="text-sm text-slate-100">Ranking mundial · España nº ${pos}</b>${rank.slice(0, 10).map((x, i) => `<div class="flex justify-between text-[11px] ${x.me ? 'text-emerald-400 font-bold' : 'text-slate-300'}"><span>${i + 1}. ${x.n}</span><span>${x.s}</span></div>`).join('')}</div></div>`;
+    } else {
+      body = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1"><b class="text-sm text-slate-100">Historial de conflictos</b>${W.hist.length ? W.hist.map(x => `<div class="text-[11px] text-slate-300">• ${x}</div>`).join('') : '<div class="text-[11px] text-slate-500">Sin conflictos previos.</div>'}</div>
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1"><b class="text-sm text-slate-100">Territorios ocupados</b>${W.terr.length ? W.terr.map(t => `<div class="text-[11px] text-amber-300">• ${t.n} (+50 M€/mes, inestabilidad)</div>`).join('') : '<div class="text-[11px] text-slate-500">Ninguno.</div>'}</div></div>`;
     }
-    const wp = w ? `<div class="bg-slate-950 border border-red-700 rounded-lg p-3 space-y-2"><b class="text-sm text-red-400"><i class="fa-solid fa-explosion mr-1.5"></i>${w.def ? 'GUERRA DEFENSIVA' : 'GUERRA'} CONTRA ${BY[w.id].n.toUpperCase()}</b>
-      <div class="text-[10px] text-slate-400">Frente: ${Math.round(w.prog)} (−100 derrota · +100 victoria) · ${(gameState.daysInOffice || 0) - w.start} días</div>${bar((w.prog + 100) / 2, w.prog >= 0 ? 'bg-emerald-500' : 'bg-red-500')}<button onclick="warPeace()" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer">Negociar la paz</button></div>` : '';
-    const hist = W.hist.length ? W.hist.map(x => `<div class="text-[11px] text-slate-300">• ${x}</div>`).join('') : '<div class="text-[11px] text-slate-500">Sin conflictos previos.</div>';
-    return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech"><div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-red-400"><i class="fa-solid fa-earth-europe mr-2"></i>MILITAR Y GUERRA</h3>
-      <p class="text-xs text-slate-400 font-sans">Verde: España · azul: aliados · rojo oscuro: hostiles · rojo vivo: enemigo en guerra. Los socios de la UE/OTAN no se pueden atacar.</p></div>
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2">${mapSvg()}</div><div class="space-y-3">
-        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-3"><b class="text-sm text-slate-100">Fuerzas armadas · moral ×${moral().toFixed(2)}</b>${forces}</div>
-        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1">${info}</div>${wp}</div></div>
-      <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1"><b class="text-sm text-slate-100">Historial de conflictos</b>${hist}</div></div>`;
+    return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech"><div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-red-400"><i class="fa-solid fa-earth-europe mr-2"></i>MILITAR Y GUERRA</h3></div>${head}<div class="flex flex-wrap gap-2">${tabs}</div>${body}</div>`;
   }
 
   SOUNDS.guerra = () => { for (let i = 0; i < 10; i++) sKick(i * 0.22, 0.3); sNoise(2, 0.1, 180, 0, 'lowpass'); sTone(110, 2, 'sawtooth', 0.06, 0, 70); };
   SOUNDS.paz = () => [523, 659, 784, 1047].forEach((f, i) => sTone(f, 0.5, 'sine', 0.1, i * 0.18));
+  SOUNDS.op = () => { sNoise(0.5, 0.25, 1200, 0); sKick(0.05, 0.35); sTone(300, 0.4, 'sawtooth', 0.05, 0.1, 80); };
   ['guerra', 'paz'].forEach(k => { EFECTOS_ARCHIVO[k] = k; });
   const nav = document.getElementById('tab-btn-goals');
   if (nav && !document.getElementById('tab-btn-war')) { const b = document.createElement('button'); b.id = 'tab-btn-war'; b.className = 'nav-tab-btn'; b.setAttribute('onclick', "switchTab('war')"); b.innerHTML = '<i class="fa-solid fa-earth-europe w-4 text-center text-red-400"></i><span>Militar y Guerra</span>'; nav.parentNode.insertBefore(b, nav); }
