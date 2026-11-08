@@ -11897,7 +11897,7 @@ function bdeAmortizeFromEvent(o) {
   const _fin = renderFinTab;
   renderFinTab = function () {
     const h = _fin(), p = bdePrima(), extra = +(Math.max(0, p - 60) / 100 * 0.5).toFixed(2);
-    const note = `<div class="mb-3 text-[11px] font-sans bg-slate-950 border border-slate-800 rounded p-2 text-slate-300"><i class="fa-solid fa-building-columns text-yellow-300 mr-1"></i>Prima de riesgo <b>${p} pb</b> (${bdePeseta() ? 'peseta' : 'euro'}): añade <b>${extra}%</b> al tipo de la deuda. <a href="#" onclick="switchTab('bde');return false" class="text-amber-400 underline">Banco de España</a></div>`;
+    const note = `<div class="mb-3 text-[11px] font-sans bg-slate-950 border border-slate-800 rounded p-2 text-slate-300"><i class="fa-solid fa-building-columns text-yellow-300 mr-1"></i>Prima de riesgo <b>${p} pb</b> (${bdePeseta() ? 'peseta' : 'euro'}): el exceso sobre los 60 pb normales (${Math.max(0, p - 60)} pb) se traslada a la mitad al coste medio de la deuda (vencimiento medio ≈ 8 años): <b>+${extra.toString().replace('.', ',')} puntos</b>. <a href="#" onclick="switchTab('bde');return false" class="text-amber-400 underline">Banco de España</a></div>`;
     return h.replace(/(<div class="grid grid-cols-2 md:grid-cols-4)/, note + '$1');
   };
   // 6) HUD superior
@@ -13184,7 +13184,7 @@ function playSound(n) {
   // ---------- Parámetros (ajustables) ----------
   const REAL_DEBT = { amount: 100000, pib: 100300 };   // Escala de juego: la deuda real (99,7 % del PIB) se reduce a la proporción del presupuesto de 100.000 M€   // Banco de España, agosto de 2026: 100.000 M€, 99,7 % del PIB
   const LEGACY_SERVICE = 1.0;     // fracción del coste real de intereses que se carga a la Tesorería (escala de juego)
-  const LEGACY_DRAG = 0.010;       // puntos de Economía al día por cada 100 % de deuda/PIB
+  const LEGACY_DRAG = 0.004;       // puntos de Economía al día por cada 100 % de deuda/PIB
   const EXIT_DAYS = 180, EXIT_FAST_DAYS = 60;
   const PTS_PER_EURO = 166.386;
   const EXIT_CAPITAL = 20, TRADE_CAPITAL = 12;
@@ -14909,14 +14909,14 @@ function playSound(n) {
     const revenue = Y * 0.42 * (0.9 + 0.2 * m.emp / 100) * (m.est < 40 ? 0.96 : 1); // presión fiscal ≈ 42 % PIB
     const yrs = (gameState.daysInOffice || 0) / 365;
     const pensions = Y * 0.12 * (1 + 0.02 * yrs);                                    // pensiones ≈ 12 % PIB, indexadas
-    const other = Y * 0.14;                                                          // sueldos públicos y transferencias
+    const other = Y * 0.225;                                                          // sueldos públicos y transferencias
     const paro = Y * 0.0125 * Math.max(0, 60 - m.emp) / 10;                          // prestación por desempleo (estabilizador)
     const debt = (D.legacy || 0) + (D.amount || 0);
     const rate = typeof debtRate === 'function' ? debtRate() : 2;
     const interest = debt * rate / 1200;                                             // ya lo cobran proDailyTick/legacy
     const minis = typeof ministryMonthlyCost === 'function' ? ministryMonthlyCost() : 0;
     const balance = revenue - pensions - other - paro - minis - interest;
-    const defPct = -balance * 12 / PIB * 100;
+    const defPct = -balance * 12 / PIB * 100;   // >0 = déficit, <0 = superávit
     return { Y, revenue, pensions, other, paro, minis, interest, balance, defPct,
       growth: 2 + (m.eco - 50) * 0.07,
       unemp: 4 + 0.15 * (100 - m.emp),
@@ -14935,7 +14935,7 @@ function playSound(n) {
     if (x.defPct > 4.5) m.eco = clamp(m.eco - 0.5); else if (x.defPct < 1) m.eco = clamp(m.eco + 0.3);
     gameState.macro = x;
     if (typeof goalsToast === 'function')
-      goalsToast(`<i class="fa-solid fa-scale-balanced text-amber-400"></i> <b>Cierre fiscal:</b> déficit ${x.defPct.toFixed(1).replace('.', ',')} % PIB · paro ${x.unemp.toFixed(1).replace('.', ',')} % · IPC ${x.infl.toFixed(1).replace('.', ',')} %`, x.defPct > 4.5 ? '#ef4444' : '#10b981');
+      goalsToast(`<i class="fa-solid fa-scale-balanced text-amber-400"></i> <b>Cierre fiscal:</b> ${x.defPct > 0 ? 'déficit' : 'superávit'} ${Math.abs(x.defPct).toFixed(1).replace('.', ',')} % PIB · paro ${x.unemp.toFixed(1).replace('.', ',')} % · IPC ${x.infl.toFixed(1).replace('.', ',')} %`, x.defPct > 4.5 ? '#ef4444' : '#10b981');
   }
 
   // Ministerios a escala real (≈ 15 % del PIB entre todos) y PGE con déficit estructural ≈ 3 %
@@ -14950,7 +14950,7 @@ function playSound(n) {
     const c = (cond) => cond ? 'text-red-400' : 'text-emerald-400';
     const card = (l, v, cl) => `<div class="bg-slate-950 border border-slate-800 rounded-lg p-2"><div class="text-[9px] text-slate-500">${l}</div><b class="${cl || 'text-slate-100'} text-sm">${v}</b></div>`;
     const panel = `<div class="hoi-box p-4 rounded-xl mb-3 font-hoi-tech"><h4 class="font-hoi-header text-lg text-amber-400 mb-2"><i class="fa-solid fa-chart-pie mr-2"></i>MACROECONOMÍA (escala: PIB ${n(PIB)} M€)</h4>
-      <div class="grid grid-cols-3 md:grid-cols-6 gap-2 text-center">${card('CRECIMIENTO PIB', f(x.growth) + ' %', c(x.growth < 0.5))}${card('PARO', f(x.unemp) + ' %', c(x.unemp > 14))}${card('INFLACIÓN', f(x.infl) + ' %', c(x.infl > 4))}${card('DÉFICIT', f(x.defPct) + ' % PIB', c(x.defPct > 3))}${card('DEUDA', f(x.debtPct, 0) + ' % PIB', c(x.debtPct > 100))}${card('PRIMA RIESGO', x.prima == null ? '—' : x.prima + ' pb', c(x.prima > 150))}</div>
+      <div class="grid grid-cols-3 md:grid-cols-6 gap-2 text-center">${card('CRECIMIENTO PIB', f(x.growth) + ' %', c(x.growth < 0.5))}${card('PARO', f(x.unemp) + ' %', c(x.unemp > 14))}${card('INFLACIÓN', f(x.infl) + ' %', c(x.infl > 4))}${card('SALDO PRESUPUESTARIO', (x.defPct > 0 ? '−' : '+') + f(Math.abs(x.defPct)) + ' % PIB', c(x.defPct > 3))}${card('DEUDA', f(x.debtPct, 1) + ' % PIB', c(x.debtPct > 100))}${card('PRIMA RIESGO', x.prima == null ? '—' : x.prima + ' pb', c(x.prima > 150))}</div>
       <div class="text-[10px] text-slate-500 mt-2">Flujo mensual: ingresos ${n(x.revenue)} − pensiones ${n(x.pensions)} − transferencias ${n(x.other)} − paro ${n(x.paro)} − ministerios ${n(x.minis)} − intereses ${n(x.interest)} = <b class="${x.balance < 0 ? 'text-red-400' : 'text-emerald-400'}">${n(x.balance)} M€</b></div></div>`;
     return panel + html;
   };
