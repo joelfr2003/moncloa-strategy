@@ -14497,6 +14497,42 @@ function playSound(n) {
 (function () {
   'use strict';
   // [id numérico ISO, nombre, fuerza, bloque, proyección, relación inicial, nuclear, lat, lon]
+  const EXTRA = [
+    
+    [4,'Afganistán',12,'—',0.5,25,0,34.0,66.0],[8,'Albania',6,'OTAN',0.85,70,0,41.0,20.0],[24,'Angola',14,'—',0.5,50,0,-12.0,18.0],[51,'Armenia',9,'—',0.65,55,0,40.0,45.0],
+    [40,'Austria',14,'UE',1.0,78,0,47.5,14.5],[31,'Azerbaiyán',18,'—',0.65,50,0,40.0,47.5],[44,'Bahamas',2,'—',0.5,58,0,24.0,-77.0],[50,'Bangladés',22,'—',0.35,50,0,24.0,90.0],
+    [112,'Bielorrusia',24,'—',0.65,25,0,53.5,28.0],[56,'Bélgica',18,'UE·OTAN',1.0,78,0,50.7,4.6],[84,'Belice',2,'—',0.35,58,0,17.0,-88.7],[204,'Benín',4,'—',0.65,50,0,9.5,2.3],
+    [64,'Bután',2,'—',0.35,50,0,27.4,90.4],[68,'Bolivia',9,'—',0.35,58,0,-17.0,-65.0],[70,'Bosnia y Herzegovina',5,'—',0.85,50,0,44.0,17.8],[72,'Botsuana',4,'—',0.5,50,0,-22.0,24.0],
+    [96,'Brunéi',3,'—',0.35,50,0,4.5,114.7],[100,'Bulgaria',12,'UE·OTAN',0.85,78,0,42.7,25.5],[854,'Burkina Faso',5,'—',0.85,50,0,12.3,-1.6],[108,'Burundi',4,'—',0.5,50,0,-3.4,29.9],
+    [116,'Camboya',7,'—',0.35,50,0,12.5,105.0],[120,'Camerún',8,'—',0.65,50,0,6.0,12.5],[140,'Rep. Centroafricana',2,'—',0.65,50,0,6.6,20.5],[148,'Chad',6,'—',0.65,50,0,15.5,18.7],
+    [152,'Chile',20,'—',0.35,58,0,-30.0,-71.0],[178,'República del Congo',4,'—',0.65,50,0,-1.0,15.8],[180,'RD del Congo',10,'—',0.5,45,0,-3.0,23.6],[188,'Costa Rica',2,'—',0.35,58,0,10.0,-84.0],
+    [384,'Costa de Marfil',8,'—',0.65,50,0,7.6,-5.5],[191,'Croacia',8,'UE·OTAN',1.0,78,0,45.1,15.2],[196,'Chipre',3,'UE',0.65,78,0,35.0,33.0],[203,'Chequia',14,'UE·OTAN',0.85,78,0,49.8,15.5],
+    [208,'Dinamarca',18,'UE·OTAN',0.85,78,0,56.0,10.0],[262,'Yibuti',2,'—',0.5,50,0,11.8,42.6],[214,'República Dominicana',7,'—',0.5,58,0,19.0,-70.5],[218,'Ecuador',9,'—',0.35,58,0,-1.5,-78.0],
+    [222,'El Salvador',4,'—',0.35,58,0,13.7,-88.9],[226,'Guinea Ecuatorial',2,'—',0.65,62,0,1.6,10.3],[232,'Eritrea',7,'—',0.65,30,0,15.2,39.8],[233,'Estonia',5,'UE·OTAN',0.85,78,0,58.7,25.5],
+    [748,'Esuatini',2,'—',0.5,50,0,-26.5,31.5],[231,'Etiopía',20,'—',0.5,50,0,8.6,39.6],[242,'Fiyi',2,'—',0.35,50,0,-17.7,178.0],[246,'Finlandia',22,'UE·OTAN',0.85,78,0,64.0,26.0],
+    [266,'Gabón',3,'—',0.65,50,0,-0.8,11.6],[270,'Gambia',2,'—',0.85,50,0,13.4,-15.4],[268,'Georgia',6,'—',0.65,50,0,42.0,43.5],[288,'Ghana',9,'—',0.65,50,0,7.9,-1.2],
+    [320,'Guatemala',6,'—',0.35,58,0,15.5,-90.3],[324,'Guinea',4,'—',0.65,50,0,10.5,-11.0],[624,'Guinea-Bisáu',2,'—',0.85,62,0,12.0,-15.0],[328,'Guyana',2,'—',0.5,58,0,5.0,-59.0],
+    [332,'Haití',2,'—',0.5,58,0,19.0,-72.5],[340,'Honduras',4,'—',0.35,58,0,14.8,-86.6],[348,'Hungría',14,'UE·OTAN',0.85,78,0,47.0,19.5],[352,'Islandia',2,'OTAN',0.85,70,0,65.0,-18.5],
+    [372,'Irlanda',9,'UE',1.0,78,0,53.2,-8.0],[388,'Jamaica',2,'—',0.5,58,0,18.1,-77.3],[400,'Jordania',14,'—',0.65,52,0,31.0,36.8],[398,'Kazajistán',20,'—',0.65,50,0,48.0,67.0],
+    [404,'Kenia',14,'—',0.5,50,0,-0.5,37.9],[414,'Kuwait',10,'—',0.65,52,0,29.3,47.6],[417,'Kirguistán',5,'—',0.5,50,0,41.5,74.5],[418,'Laos',5,'—',0.35,50,0,19.8,102.5],
+    [428,'Letonia',5,'UE·OTAN',0.85,78,0,56.9,24.8],[422,'Líbano',8,'—',0.65,52,0,33.9,35.9],[426,'Lesoto',2,'—',0.5,50,0,-29.6,28.3],[430,'Liberia',2,'—',0.65,50,0,6.4,-9.4],
+    [440,'Lituania',6,'UE·OTAN',0.85,78,0,55.2,23.9],[442,'Luxemburgo',2,'UE·OTAN',1.0,78,0,49.8,6.1],[450,'Madagascar',4,'—',0.5,50,0,-19.0,46.8],[454,'Malaui',3,'—',0.5,50,0,-13.2,34.3],
+    [458,'Malasia',17,'—',0.35,50,0,4.0,102.0],[466,'Mali',7,'—',0.85,50,0,17.5,-3.5],[498,'Moldavia',4,'—',0.85,50,0,47.2,28.5],[496,'Mongolia',5,'—',0.5,50,0,46.9,103.8],
+    [499,'Montenegro',2,'OTAN',0.85,70,0,42.7,19.3],[508,'Mozambique',6,'—',0.5,50,0,-18.5,35.0],[104,'Myanmar',20,'—',0.35,35,0,21.0,96.0],[516,'Namibia',5,'—',0.5,50,0,-22.0,17.0],
+    [524,'Nepal',10,'—',0.5,50,0,28.3,84.0],[528,'Países Bajos',22,'UE·OTAN',1.0,78,0,52.2,5.5],[554,'Nueva Zelanda',8,'—',0.35,70,0,-41.0,172.0],[558,'Nicaragua',5,'—',0.35,58,0,12.9,-85.0],
+    [562,'Níger',5,'—',0.85,50,0,17.4,9.4],[807,'Macedonia del Norte',4,'OTAN',0.85,70,0,41.6,21.7],[578,'Noruega',18,'OTAN',0.85,70,0,62.0,9.0],[512,'Omán',12,'—',0.5,52,0,21.0,57.0],
+    [591,'Panamá',3,'—',0.35,58,0,8.5,-80.0],[598,'Papúa Nueva Guinea',4,'—',0.35,50,0,-6.3,145.0],[600,'Paraguay',6,'—',0.35,58,0,-23.4,-58.4],[604,'Perú',14,'—',0.35,58,0,-9.2,-75.0],
+    [608,'Filipinas',16,'—',0.35,62,0,12.8,122.0],[634,'Catar',8,'—',0.5,52,0,25.3,51.2],[642,'Rumanía',18,'UE·OTAN',0.85,78,0,45.9,25.0],[646,'Ruanda',7,'—',0.5,50,0,-2.0,29.9],
+    [686,'Senegal',6,'—',0.85,50,0,14.4,-14.5],[688,'Serbia',12,'—',0.85,50,0,44.0,21.0],[694,'Sierra Leona',2,'—',0.65,50,0,8.5,-11.8],[703,'Eslovaquia',9,'UE·OTAN',0.85,78,0,48.7,19.5],
+    [705,'Eslovenia',4,'UE·OTAN',1.0,78,0,46.1,14.8],[90,'Islas Salomón',1,'—',0.35,50,0,-9.6,160.0],[706,'Somalia',4,'—',0.5,50,0,5.2,46.2],[728,'Sudán del Sur',5,'—',0.65,40,0,7.5,30.0],
+    [144,'Sri Lanka',10,'—',0.35,50,0,7.9,80.7],[729,'Sudán',14,'—',0.65,35,0,15.6,30.0],[740,'Surinam',2,'—',0.5,58,0,4.0,-56.0],[752,'Suecia',22,'UE·OTAN',0.85,78,0,62.0,15.0],
+    [756,'Suiza',16,'—',1.0,70,0,46.8,8.2],[158,'Taiwán',30,'—',0.35,45,0,23.7,121.0],[762,'Tayikistán',6,'—',0.5,50,0,38.9,71.0],[834,'Tanzania',11,'—',0.5,50,0,-6.4,34.9],
+    [764,'Tailandia',24,'—',0.35,50,0,15.5,101.0],[626,'Timor Oriental',2,'—',0.35,50,0,-8.8,125.7],[768,'Togo',3,'—',0.65,50,0,8.6,0.8],[780,'Trinidad y Tobago',2,'—',0.5,58,0,10.5,-61.3],
+    [788,'Túnez',10,'—',1.0,50,0,34.0,9.5],[795,'Turkmenistán',6,'—',0.65,50,0,39.0,59.5],[800,'Uganda',8,'—',0.5,50,0,1.4,32.3],[784,'Emiratos Árabes',20,'—',0.5,52,0,24.0,54.0],
+    [858,'Uruguay',7,'—',0.35,58,0,-32.8,-56.0],[860,'Uzbekistán',14,'—',0.5,50,0,41.4,64.6],[548,'Vanuatu',1,'—',0.35,50,0,-16.0,167.0],[704,'Vietnam',26,'—',0.35,50,0,16.0,107.8],
+    [887,'Yemen',10,'—',0.5,30,0,15.5,47.5],[894,'Zambia',5,'—',0.5,50,0,-13.5,27.8],[716,'Zimbabue',6,'—',0.5,50,0,-19.0,29.9],[732,'Sáhara Occidental',1,'—',0.85,50,0,24.5,-13.0],
+    [275,'Palestina',2,'—',0.65,50,0,31.9,35.2]
+  ];
   const C = [
     [250,'Francia',66,'UE·OTAN',1,80,1,46,2],[620,'Portugal',22,'UE·OTAN',1,85,0,39.5,-8],[504,'Marruecos',38,'—',1,40,0,32,-6],
     [12,'Argelia',46,'—',1,35,0,28,2],[478,'Mauritania',10,'—',.85,50,0,20,-10],[434,'Libia',18,'—',.8,35,0,27,17],[818,'Egipto',45,'—',.8,55,0,27,30],
@@ -14510,8 +14546,9 @@ function playSound(n) {
     [124,'Canadá',44,'OTAN',.5,75,0,58,-100],[484,'México',30,'—',.5,60,0,23,-102],[192,'Cuba',15,'—',.6,35,0,22,-79],
     [862,'Venezuela',30,'—',.5,30,0,7,-66],[170,'Colombia',28,'—',.5,55,0,4,-73],[76,'Brasil',48,'BRICS',.45,60,0,-10,-52],
     [32,'Argentina',28,'—',.45,60,0,-35,-65],[566,'Nigeria',28,'—',.5,50,0,9,8],[710,'Sudáfrica',32,'BRICS',.35,55,0,-29,24]
-  ].map(a => ({ id: a[0], n: a[1], s: a[2], b: a[3], p: a[4], r0: a[5], nuke: !!a[6], lat: a[7], lon: a[8] }));
+  ].concat(EXTRA).map(a => ({ id: a[0], n: a[1], s: a[2], b: a[3], p: a[4], r0: a[5], nuke: !!a[6], lat: a[7], lon: a[8] }));
   const BY = {}; C.forEach(c => BY[c.id] = c);
+  window.WAR_C = C;
   const ALLIED = c => /UE|OTAN/.test(c.b);
   const X = lon => (lon + 180) * 2.7778, Y = lat => (84 - lat) * 2.7778;
   const TECH = [['dron', 'Drones de combate', 'fa-plane-up'], ['cyber', 'Ciberguerra', 'fa-microchip'], ['logis', 'Logística avanzada', 'fa-truck-fast']];
@@ -15168,6 +15205,174 @@ function playSound(n) {
     if (gameState.daysInOffice !== b && gameState.step === 4 && M() && !gameState.coupActive && gameState.daysInOffice % 30 === 7) {
       try { monthlyIntl(); } catch (e) { console.error(e); }
     }
+  };
+})();
+
+// =====================================================================
+//  EXTERIOR ⇄ MAPA MILITAR: relaciones unificadas, ejército y guerras según relaciones
+// =====================================================================
+(function () {
+  const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
+  const toast = (h, c) => { if (typeof goalsToast === 'function') goalsToast(h, c); };
+  const M = () => gameState.metrics;
+  // país del módulo exterior → países del mapa militar (id ISO)
+  const MAP = { us: [840], ma: [504], dz: [12], cn: [156], fr: [250], de: [276], uk: [826], ue: [620, 380, 300, 616, 40, 56, 100, 191, 196, 203, 208, 233, 246, 348, 372, 428, 440, 442, 528, 642, 703, 705, 752], la: [484, 192, 862, 170, 76, 32, 152, 604, 218, 68, 600, 858, 591, 188, 558, 340, 222, 320, 214] };
+  const ISO2 = {}; Object.keys(MAP).forEach(k => MAP[k].forEach(i => ISO2[i] = k));
+  // posibles agresores: [id, nombre, fuerza, bloque, proyección, relación inicial]
+  const FOES = window.WAR_C.map(c => [c.id, c.n, c.s, c.b, c.p, c.r0]);   // todos los países del mapa
+  const relOf = f => { const W = gameState.wr, k = ISO2[f[0]]; if (W && W.rel && W.rel[f[0]] != null) return W.rel[f[0]]; if (k && gameState.intl) return gameState.intl.rel[k]; return f[5]; };
+  const own = () => { const W = gameState.wr; return W ? (W.t + W.m + W.a) / 3 * (0.7 + (M().mil || 50) / 200) : 30; };
+  const allied = f => /UE|OTAN/.test(f[3]);
+  function risk(f) {                       // probabilidad relativa de ataque según relación, debilidad y alcance
+    const r = relOf(f), lim = allied(f) ? 10 : 30; if (r > lim) return 0;
+    const ratio = own() / f[2], weak = ratio < .6 ? 1.5 : ratio > 1.3 ? .4 : 1;
+    return clamp((lim + 1 - r) / (lim + 1) * weak * f[4], 0, 1);
+  }
+
+  // ---- 1. Relaciones unificadas (cambios en un lado se reflejan en el otro) ----
+  function sync() {
+    const W = gameState.wr; if (!W || !gameState.intl || W.t == null) return;
+    const I = intlInit(), S = W._sync || (W._sync = { i: {}, w: {}, init: 0 }); W.rel = W.rel || {}; FOES.forEach(f => { if (W.rel[f[0]] == null) W.rel[f[0]] = f[5]; });
+    Object.keys(MAP).forEach(k => {
+      const ids = MAP[k];
+      if (!S.init && ids.length === 1 && W.rel[ids[0]] != null) { W.rel[ids[0]] = I.rel[k]; S.w[ids[0]] = I.rel[k]; }
+      const dI = I.rel[k] - (S.i[k] != null ? S.i[k] : I.rel[k]); let e = 0, n = 0;
+      ids.forEach(i => { if (W.rel[i] == null) return; e += W.rel[i] - (S.w[i] != null ? S.w[i] : W.rel[i]); n++; });
+      ids.forEach(i => { if (W.rel[i] == null) return; W.rel[i] = clamp(W.rel[i] + dI); S.w[i] = W.rel[i]; });
+      if (n && Math.abs(e / n) >= .01) I.rel[k] = clamp(I.rel[k] + e / n);
+      S.i[k] = I.rel[k];
+    });
+    S.init = 1;
+  }
+
+  // ---- 2. La guerra y la paz cambian las relaciones exteriores ----
+  const _go = window.warGo;
+  window.warGo = function (id, goal) {
+    const had = gameState.wr && gameState.wr.war, r = _go.apply(this, arguments);
+    try {
+      if (!had && gameState.wr && gameState.wr.war && gameState.wr.war.id === id) {
+        const k = ISO2[id], def = goal === 'def';
+        if (k) intlShift(k, -30, 'Guerra con ' + INTL[k].name, true);
+        intlShift('ue', def ? 6 : -8, def ? 'Solidaridad europea ante la agresión' : 'La UE condena la guerra', true);
+        intlShift('us', def ? 6 : -6, def ? 'Washington respalda a España' : 'Washington pide contención', true);
+        if (!def) intlShift('la', -3, 'Rechazo iberoamericano a la guerra', true);
+      }
+    } catch (e) { console.error(e); }
+    return r;
+  };
+  const _pc = window.warPeace;
+  window.warPeace = function () {
+    const id = gameState.wr && gameState.wr.war && gameState.wr.war.id, r = _pc.apply(this, arguments);
+    try { if (id && !gameState.wr.war && ISO2[id]) intlShift(ISO2[id], 20, 'Alto el fuego', true); } catch (e) {}
+    return r;
+  };
+  const _wt = window.warTerm;
+  window.warTerm = function (k) {
+    const id = gameState.wr && gameState.wr.pend, r = _wt.apply(this, arguments);
+    try { if (id && ISO2[id]) intlShift(ISO2[id], k === 'gob' ? 40 : k === 'anex' ? -15 : 10, 'Fin de la guerra', true); } catch (e) {}
+    return r;
+  };
+
+  // ---- 3. Movilización general (ejército temporal ampliado) ----
+  window.warMob = function () {
+    const W = gameState.wr; if (!W || W.t == null) return;
+    const day = gameState.daysInOffice || 0; goalsInit(); const g = gameState.goals;
+    if ((W.mobCd || 0) > day) return toast('Movilización en enfriamiento (' + (W.mobCd - day) + ' días).', '#ef4444');
+    if (g.capital < 10) return toast('Capital político insuficiente (10).', '#ef4444');
+    g.capital -= 10; W.mobCd = day + 150; W.mob = { until: day + 60, add: { t: 8, m: 5, a: 5 } };
+    ['t', 'm', 'a'].forEach(k => W[k] = Math.min(100, W[k] + W.mob.add[k]));
+    M().apr = clamp(M().apr - 3); M().est = clamp(M().est - 1.5); M().mil = clamp(M().mil + 4);
+    toast('<i class="fa-solid fa-person-military-rifle text-amber-400"></i> <b>MOVILIZACIÓN GENERAL</b><br><span class="text-xs">+8 Tierra · +5 Armada · +5 Aire durante 60 días. Aprobación −3, Estabilidad −1,5.</span>', '#d9a726');
+    render();
+  };
+
+  // ---- 4. Panel exterior ⇄ defensa en la pestaña militar ----
+  const _rtc = renderTabContent;
+  renderTabContent = function () {
+    const h = _rtc.apply(this, arguments);
+    if (gameState.activeTab !== 'war' || !gameState.intl) return h;
+    try {
+      const I = intlInit(), W = gameState.wr || {};
+      const rows = Object.keys(MAP).map(k => { const r = Math.round(I.rel[k]); return `<div class="bg-slate-900 border border-slate-800 rounded p-2"><div class="flex justify-between text-[10px]"><span class="text-slate-300">${INTL[k].name}</span><b class="${r >= 70 ? 'text-sky-400' : r <= 30 ? 'text-red-400' : 'text-slate-300'}">${r}%</b></div><div class="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden mt-1"><div class="h-full ${r >= 70 ? 'bg-sky-500' : r <= 30 ? 'bg-red-500' : 'bg-slate-500'}" style="width:${r}%"></div></div></div>`; }).join('');
+      const th = FOES.map(f => [f, risk(f)]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, 5)
+        .map(([f, p]) => `<div class="flex justify-between text-[11px]"><span class="text-slate-300">${f[1]} <span class="text-slate-500">(rel. ${Math.round(relOf(f))}%, fuerza ${f[2]})</span></span><b class="${p > .5 ? 'text-red-400' : 'text-amber-400'}">${Math.round(p * 100)}% riesgo</b></div>`).join('') || '<div class="text-[11px] text-emerald-400">Sin amenazas inmediatas: ningún país te es lo bastante hostil.</div>';
+      const day = gameState.daysInOffice || 0, cd = (W.mobCd || 0) > day;
+      return h + `<div class="hoi-box p-5 rounded-xl space-y-3 font-hoi-tech mt-4"><h3 class="font-hoi-header text-xl text-amber-400"><i class="fa-solid fa-link mr-2"></i>RELACIONES EXTERIORES ⇄ DEFENSA</h3>
+        <p class="text-[11px] text-slate-400 font-sans">Las relaciones son las mismas en ambas pestañas. Si un país te es hostil (≤30 %) y tu ejército es débil, puede declararte la guerra; con una ruptura total (≤15 %) lo hará sin avisar. Un ejército fuerte disuade. Las guerras, pactos y sanciones cambian tus relaciones exteriores.</p>
+        <div class="grid grid-cols-3 md:grid-cols-5 gap-2">${rows}</div>
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1"><b class="text-sm text-slate-100">Mayores amenazas (tu poder: ${Math.round(own())})</b>${th}</div>
+        <button onclick="warMob()" class="${cd ? 'bg-slate-800 text-slate-500' : 'hoi-button-gold cursor-pointer'} px-3 py-2 rounded text-xs font-bold">${cd ? 'Movilización en enfriamiento (' + (W.mobCd - day) + ' d)' : 'MOVILIZACIÓN GENERAL · 10 capital político · +8/+5/+5 fuerzas durante 60 días'}</button></div>`;
+    } catch (e) { console.error(e); return h; }
+  };
+
+  // ---- 5. Mantenimiento, fin de movilización y declaraciones de guerra de la IA ----
+  const busy = () => document.getElementById('xm-modal') || document.getElementById('council-modal') || document.getElementById('crisis-modal') || gameState.activeDynamicEvent || gameState.activeNewsPopup;
+  // ---- 6. Deriva diplomática mundial: incidentes con cualquier país ----
+  const PN = ['{n} expulsa a varios diplomáticos españoles', '{n} critica duramente a España en la ONU', 'Incidente diplomático con {n}', '{n} congela su cooperación con España'];
+  const PP = ['{n} refuerza sus lazos con España', '{n} apoya a España en un foro internacional', 'Visita de cortesía de {n} a Madrid'];
+  function drift() {
+    const W = gameState.wr; if (!W || !W.rel) return;
+    const pool = FOES.filter(f => !ISO2[f[0]] && !(W.war && W.war.id === f[0]));
+    for (let i = 0; i < 3; i++) {
+      const f = pool[Math.floor(Math.random() * pool.length)], old = W.rel[f[0]] != null ? W.rel[f[0]] : f[5];
+      const nv = clamp(old + (f[5] - old) * .12 + (Math.random() * 10 - 5.5)); W.rel[f[0]] = nv;
+      const down = nv < old, ph = (down ? PN : PP)[Math.floor(Math.random() * (down ? PN : PP).length)].replace('{n}', f[1]);
+      if ((old > 30 && nv <= 30) || (old > 15 && nv <= 15)) { try { addNewsToTicker(ph + (nv <= 15 ? ': ruptura de relaciones' : ''), 'EFE EXTERIOR'); } catch (e) {} toast('<i class="fa-solid fa-earth-europe text-sky-400"></i> <b>' + f[1] + '</b>: relación ' + Math.round(nv) + '%<br><span class="text-xs">' + ph + '</span>', '#ef4444'); }
+    }
+  }
+  function daily() {
+    const W = gameState.wr, day = gameState.daysInOffice || 0; if (!W || W.t == null) return;
+    sync();
+    if (day % 30 === 0 && typeof registerFinancialTransaction === 'function') registerFinancialTransaction('Mantenimiento de las Fuerzas Armadas', -Math.round(1.1 * (W.t + W.m + W.a)), 'defensa');
+    if (W.mob && day >= W.mob.until) { ['t', 'm', 'a'].forEach(k => W[k] = Math.max(0, W[k] - W.mob.add[k])); W.mob = null; toast('Fin de la movilización: los reservistas vuelven a casa.', '#94a3b8'); }
+    // vecinos inquietos con un ejército enorme / socios tranquilos con uno sólido
+    if (day % 30 === 11) { const p = own(); if (p > 60) { intlShift('ma', -1.5, 'Rearme español', true); intlShift('dz', -1, 'Rearme español', true); } if (p > 40) intlShift('us', .8, 'España cumple con la defensa', true); if (p < 22) intlShift('us', -1, 'España descuida su defensa', true); }
+    if (day % 30 === 19) { try { drift(); } catch (e) { console.error(e); } }
+    if (W.war || day < 45 || day % 15 !== 0 || day - (W.last || 0) < 90 || busy() || gameState.coupActive) return;
+    const cands = FOES.map(f => [f, risk(f)]).filter(x => x[1] > 0 && relOf(x[0]) <= 15 && x[0][4] >= .5).sort((a, b) => b[1] - a[1]);
+    if (cands.length && Math.random() < cands[0][1] * 0.55) {
+      const f = cands[0][0], msg = `${f[1]} DECLARA LA GUERRA A ESPAÑA tras la ruptura de relaciones`;
+      gameState.lastNews = msg; gameState.latestNews = msg;
+      try { addNewsToTicker(msg, 'EFE EXTERIOR'); } catch (e) {}
+      window.warGo(f[0], 'def');
+    }
+  }
+
+  // ---- 7. Relaciones Exteriores: todos los países del mundo ----
+  const XW = () => gameState.xw || (gameState.xw = { q: '', f: 'all', n: 24 });
+  const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  window.xwSet = (k, v) => { const x = XW(); x[k] = v; x.n = 24; render(); };
+  window.xwMore = () => { XW().n += 30; render(); };
+  window.xwMap = id => { window.warSel(id); switchTab('war'); };
+  const _rit = window.renderIntlTab;
+  window.renderIntlTab = function () {
+    const h = _rit.apply(this, arguments);
+    try {
+      const W = gameState.wr || (gameState.wr = {}), x = XW(); sync();
+      const st = f => W.war && W.war.id === f[0] ? ['EN GUERRA', 'text-red-400'] : relOf(f) >= 70 ? ['Aliado', 'text-emerald-300'] : relOf(f) <= 30 ? ['Hostil', 'text-red-300'] : ['Neutral', 'text-slate-400'];
+      let L = FOES.filter(f => (!x.q || norm(f[1]).includes(norm(x.q))) && (x.f === 'all' || (x.f === 'ali' && relOf(f) >= 70) || (x.f === 'hos' && relOf(f) <= 30) || (x.f === 'ame' && risk(f) > 0) || (x.f === 'blo' && /UE|OTAN/.test(f[3])) || (x.f === 'nuc' && /Rusia|China|India|Pakist|Israel|Corea del N|EE\. UU|Francia|Reino/.test(f[1]))));
+      L.sort(x.f === 'hos' ? (a, b) => relOf(a) - relOf(b) : x.f === 'ali' ? (a, b) => relOf(b) - relOf(a) : x.f === 'ame' ? (a, b) => risk(b) - risk(a) : (a, b) => a[1].localeCompare(b[1], 'es'));
+      const rows = L.slice(0, x.n).map(f => {
+        const r = Math.round(relOf(f)), s = st(f), p = risk(f), col = r >= 70 ? 'bg-emerald-500' : r <= 30 ? 'bg-red-500' : 'bg-amber-500';
+        return `<div class="bg-slate-900 border border-slate-800 rounded p-2 space-y-1"><div class="flex justify-between text-[11px]"><b class="text-slate-100">${f[1]}</b><span class="${s[1]} font-bold">${s[0]}</span></div>
+          <div class="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800"><div class="h-full ${col}" style="width:${r}%"></div></div>
+          <div class="flex justify-between text-[10px] text-slate-400"><span>Relación ${r}% · fuerza ${f[2]}${f[3] !== '—' ? ' · ' + f[3] : ''}</span>${p > 0 ? `<span class="text-red-400">riesgo de guerra ${Math.round(p * 55)}%</span>` : ''}</div>
+          <div class="flex flex-wrap gap-1 pt-0.5"><button onclick="warPact(${f[0]})" class="hoi-button px-1.5 py-0.5 rounded text-[10px] cursor-pointer">Pacto · 400 M€</button><button onclick="warSanction(${f[0]})" class="hoi-button px-1.5 py-0.5 rounded text-[10px] cursor-pointer text-amber-300">Sanciones</button><button onclick="xwMap(${f[0]})" class="hoi-button px-1.5 py-0.5 rounded text-[10px] cursor-pointer text-sky-300">Ver en el mapa</button></div></div>`;
+      }).join('');
+      const fb = [['all', 'Todos'], ['ali', 'Aliados'], ['hos', 'Hostiles'], ['ame', 'Amenazas'], ['blo', 'UE / OTAN'], ['nuc', 'Potencias']].map(([k, n]) => `<button onclick="xwSet('f','${k}')" class="px-2 py-1 rounded text-[10px] cursor-pointer ${x.f === k ? 'hoi-button-gold' : 'bg-slate-900 border border-slate-700 text-slate-300'}">${n}</button>`).join('');
+      const box = `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-3"><div class="flex flex-wrap items-center justify-between gap-2"><b class="text-sm text-slate-100"><i class="fa-solid fa-earth-europe text-sky-400 mr-1.5"></i>TODOS LOS PAÍSES (${FOES.length}) · ${L.length} mostrados</b>
+        <input value="${String(x.q).replace(/"/g, '')}" onchange="xwSet('q', this.value)" placeholder="Buscar país y pulsar Intro…" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 w-48"></div>
+        <p class="text-[10px] text-slate-500 font-sans">La relación es la misma que en Militar y Guerra. Un país hostil (≤30 %) con capacidad de proyección puede amenazarte o declararte la guerra; con ruptura total (≤15 %) lo hará sin avisar. Cada mes hay incidentes diplomáticos con países al azar.</p>
+        <div class="flex flex-wrap gap-1.5">${fb}</div><div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">${rows || '<div class="text-[11px] text-slate-500">Ningún país coincide.</div>'}</div>
+        ${L.length > x.n ? `<button onclick="xwMore()" class="hoi-button px-3 py-1.5 rounded text-[11px] cursor-pointer">Mostrar 30 más</button>` : ''}</div>`;
+      return h.replace(/<\/div>\s*$/, box + '</div>');
+    } catch (e) { console.error(e); return h; }
+  };
+  const _t = gameTick;
+  gameTick = function () {
+    const b = gameState.daysInOffice;
+    _t.apply(this, arguments);
+    if (gameState.daysInOffice !== b && gameState.step === 4 && M()) { try { daily(); } catch (e) { console.error(e); } }
   };
 })();
 </script>
