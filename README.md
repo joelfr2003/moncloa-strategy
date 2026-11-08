@@ -45,9 +45,17 @@ Al elegir partido en el pactómetro suena su himno, y en la noche electoral suen
 
 Por defecto el juego genera una fanfarria original para cada partido (no son los himnos reales). Para usar los reales, guarda `music/himnos/ID.mp3` (por ejemplo `PSOE.mp3`, `PP.mp3`, `VOX.mp3`). Los IDs están en `music/himnos/LEEME.txt`. Los himnos suelen tener derechos de autor: piénsalo antes de subirlos a un repositorio público.
 
-## Modo libre
+## Modo sin límite
 
-En la pantalla de inicio, la cuarta tarjeta, **Modo libre**: no hay moción de censura, golpe, intervención ni fin automático de legislatura. Aparece una pestaña **Modo libre** para ajustar métricas, tesorería y deuda heredada, congelar valores, regular la frecuencia de crisis y **convocar elecciones cuando quieras**.
+En la pantalla de inicio, la cuarta tarjeta, **Sin límite**: las mismas reglas y riesgos que el resto (moción de censura, golpe, intervención), pero sin legislatura final. Gobiernas hasta que te echen y la dificultad sube con cada legislatura.
+
+## Economía a escala
+
+Todas las cifras se miden contra el presupuesto inicial de **100.000 M€**: la deuda heredada es de 100.000 M€ (99,7 % del PIB), el límite de nueva deuda es de 100.000 M€ y los grandes proyectos cuestan entre 8.000 y 14.000 M€.
+
+## Efectos de sonido propios
+
+Coloca archivos `.mp3` en `musica/efectos/`: `crisis`, `victoria`, `derrota` (crisis nacionales) y `disturbios`. Si no existen, el juego usa sonidos generados.
 
 ## Publicar cambios
 
