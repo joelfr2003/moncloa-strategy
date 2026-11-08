@@ -14170,6 +14170,236 @@ function playSound(n) {
 })();
 
 
+
+// =====================================================================
+//  NUEVAS MECÁNICAS: COLECTIVOS SOCIALES, ESCÁNDALOS, REPERCUSIONES
+//  DIFERIDAS Y ESTADO DE GRACIA
+// =====================================================================
+(function () {
+  'use strict';
+  const COLS = [
+    { id: 'obr', name: 'Trabajadores', icon: 'fa-hammer',         tgt: m => m.emp * .7 + m.apr * .3, hit: { emp: -.04 }, up: { emp: .02 } },
+    { id: 'emp', name: 'Empresarios',  icon: 'fa-briefcase',      tgt: m => m.eco * .8 + m.est * .2, hit: { eco: -.05 }, up: { eco: .03 } },
+    { id: 'jov', name: 'Jóvenes',      icon: 'fa-graduation-cap', tgt: m => m.emp * .5 + m.apr * .5, hit: { apr: -.05 }, up: { apr: .03 } },
+    { id: 'pen', name: 'Pensionistas', icon: 'fa-person-cane',    tgt: m => m.est * .6 + m.eco * .4, hit: { est: -.04 }, up: { est: .02 } },
+    { id: 'rur', name: 'Mundo rural',  icon: 'fa-wheat-awn',      tgt: m => m.est * .5 + m.apr * .3 + m.eco * .2, hit: { est: -.03, apr: -.03 }, up: { apr: .02 } }
+  ];
+  const SCANDALS = [
+    { t: 'Caso de financiación irregular', d: 'Un diario publica grabaciones sobre pagos opacos a una fundación cercana al Gobierno.',
+      o: [ { x: 'Colaborar con la Justicia y asumir el coste', now: { apr: -4 }, cap: 5, later: [40, { est: 3, apr: 2 }, 'La transparencia se recompensa'] },
+           { x: 'Negar todo y atacar a la prensa', now: { apr: -1 }, cap: -8, later: [35, { apr: -6, est: -3 }, 'Aparecen nuevas pruebas'] },
+           { x: 'Cesar a los implicados y pagar una auditoría', now: { apr: -2 }, money: 400, later: [30, { apr: 3 }, 'La auditoría limpia tu imagen'] } ] },
+    { t: 'Filtración del Consejo de Ministros', d: 'Se filtran actas con discrepancias graves entre ministros.',
+      o: [ { x: 'Abrir una investigación interna', now: { est: -2 }, cap: -5, later: [30, { est: 3 }, 'Gabinete más cohesionado'] },
+           { x: 'Restar importancia', now: { apr: -2 }, later: [45, { est: -4 }, 'Los rumores de crisis de gobierno crecen'] },
+           { x: 'Remodelación exprés del Gobierno', now: { apr: 2, est: -3 }, money: 250, later: [25, { eco: 2, apr: 2 }, 'Equipo renovado y con empuje'] } ] },
+    { t: 'Contrato millonario bajo sospecha', d: 'La oposición denuncia un contrato de emergencia adjudicado sin concurso.',
+      o: [ { x: 'Anular el contrato', now: { eco: -2 }, money: 300, later: [35, { apr: 4 }, 'Gesto de ejemplaridad'] },
+           { x: 'Defenderlo por urgencia', now: { apr: -3 }, cap: -4, later: [40, { apr: -4 }, 'La Fiscalía abre diligencias'] },
+           { x: 'Comisión de investigación abierta', now: { apr: -1, est: -2 }, cap: 6, later: [50, { est: 3, apr: 3 }, 'Credibilidad recuperada'] } ] },
+    { t: 'Polémica por viajes oficiales', d: 'Estalla la polémica por el uso de aviones oficiales en actos privados.',
+      o: [ { x: 'Devolver el dinero públicamente', now: { apr: -1 }, money: 100, later: [20, { apr: 2 }, 'Se pasa página'] },
+           { x: 'Ignorar el asunto', now: { apr: -3 }, later: [30, { apr: -3 }, 'La polémica se enquista'] },
+           { x: 'Aprobar un código ético', now: { est: 1 }, money: 150, cap: 3, later: [45, { est: 3, apr: 2 }, 'El código ético da frutos'] } ] }
+  ];
+  const I = () => { if (!gameState.soc) { gameState.soc = { sat: {}, cd: {}, pend: [], mom: 40, press: 20, last: 0, speed: 1 }; COLS.forEach(c => gameState.soc.sat[c.id] = 55); } return gameState.soc; };
+  const mt = () => gameState.metrics;
+  const cap = () => { goalsInit(); return gameState.goals; };
+  window.socInit = I;
+
+  window.socDialog = function (id) {
+    const S = I(), G = cap();
+    if (S.cd[id] > 0) return goalsToast('Mesa de diálogo en curso: espera ' + S.cd[id] + ' días.', '#ef4444');
+    if (G.capital < 10) return goalsToast('Capital político insuficiente (10).', '#ef4444');
+    if ((Number(gameState.treasury) || 0) < 300) return goalsToast('Fondos insuficientes (300 M€).', '#ef4444');
+    G.capital -= 10; registerFinancialTransaction('Mesa de diálogo con ' + COLS.find(c => c.id === id).name, -300);
+    S.sat[id] = Math.min(100, S.sat[id] + 18); S.cd[id] = 45; S.press = Math.max(0, S.press - 8); render();
+  };
+
+  function fireScandal() {
+    const S = I(), ev = SCANDALS[Math.floor(Math.random() * SCANDALS.length)];
+    S.cur = ev; S.speed = gameState.gameSpeed || 1; pauseGameSilently();
+    const m = document.createElement('div'); m.id = 'xm-modal';
+    m.className = 'fixed inset-0 bg-black/85 z-[9998] flex items-center justify-center p-4';
+    m.innerHTML = `<div class="hoi-box border-2 border-amber-500 max-w-xl w-full p-5 rounded space-y-3 font-hoi-tech">
+      <span class="bg-amber-500 text-black text-[10px] px-2 py-0.5 rounded font-bold"><i class="fa-solid fa-newspaper mr-1"></i>ESCÁNDALO MEDIÁTICO</span>
+      <h3 class="font-hoi-header text-2xl text-amber-400">${ev.t}</h3>
+      <p class="text-xs text-slate-200 font-sans bg-slate-900 p-3 rounded border border-slate-800">${ev.d}</p>
+      ${ev.o.map((o, i) => `<button onclick="socChoose(${i})" class="w-full text-left p-3 rounded bg-slate-900 hover:bg-slate-800 border border-amber-900/60 hover:border-amber-500 text-xs font-bold text-slate-100 cursor-pointer">${o.x}</button>`).join('')}</div>`;
+    document.body.appendChild(m);
+  }
+  window.socChoose = function (i) {
+    const S = I(), o = S.cur.o[i];
+    Object.keys(o.now).forEach(k => focusMetricAdd(k, o.now[k]));
+    if (o.cap) cap().capital = Math.max(0, Math.min(100, cap().capital + o.cap));
+    if (o.money) registerFinancialTransaction('Gestión del escándalo: ' + S.cur.t, -o.money);
+    if (o.later) S.pend.push({ due: (gameState.daysInOffice || 0) + o.later[0], fx: o.later[1], msg: o.later[2], from: S.cur.t });
+    S.press = 15; S.cur = null; const m = document.getElementById('xm-modal'); if (m) m.remove();
+    setGameSpeed(S.speed || 1);
+  };
+
+  function dailyTick() {
+    if (gameState.step !== 4 || gameState.coupActive || !mt()) return;
+    const S = I(), F = focusInit(), day = gameState.daysInOffice || 0, m = mt();
+    Object.keys(S.cd).forEach(k => { if (S.cd[k] > 0) S.cd[k]--; });
+    COLS.forEach(c => {
+      const t = Math.max(0, Math.min(100, c.tgt(m)));
+      S.sat[c.id] = Math.max(0, Math.min(100, S.sat[c.id] + (t - S.sat[c.id]) * 0.02));
+      const fx = S.sat[c.id] >= 70 ? c.up : S.sat[c.id] <= 25 ? c.hit : null;
+      if (fx) Object.keys(fx).forEach(k => focusAccum(F, k, fx[k]));
+      if (S.sat[c.id] <= 20 && day % 45 === 0) { focusMetricAdd('eco', -2); focusMetricAdd('est', -2); goalsToast('<i class="fa-solid fa-bullhorn text-red-400"></i> <b>HUELGA / PROTESTAS:</b> ' + c.name + ' paralizan el país.', '#ef4444'); }
+    });
+    S.pend = S.pend.filter(p => { if (day < p.due) return true; Object.keys(p.fx).forEach(k => focusMetricAdd(k, p.fx[k])); goalsToast('<i class="fa-solid fa-hourglass-end text-sky-400"></i> <b>REPERCUSIÓN:</b> ' + p.msg, '#38bdf8'); return false; });
+    const good = Math.min(m.eco, m.est, m.emp, m.apr) >= 45;
+    S.mom = Math.max(0, Math.min(100, S.mom + (good ? 0.5 : -1)));
+    if (S.mom >= 100) { S.mom = 50; cap().capital = Math.min(100, cap().capital + 15); goalsToast('<i class="fa-solid fa-sun text-amber-400"></i> <b>ESTADO DE GRACIA:</b> +15 de capital político.', '#d9a726'); }
+    const avg = COLS.reduce((s, c) => s + S.sat[c.id], 0) / COLS.length;
+    S.press = Math.max(0, Math.min(100, S.press + (avg < 45 ? 0.6 : -0.2) + (m.apr < 40 ? 0.4 : 0)));
+    if (day % 20 === 0 && day - S.last >= 60 && !gameState.activeDynamicEvent && !gameState.activeNewsPopup && !document.getElementById('xm-modal') && Math.random() < 0.12 + S.press / 250) { S.last = day; fireScandal(); }
+    if (gameState.activeTab === 'soc' && day % 3 === 0) render();
+  }
+
+  function bar(v, c) { return `<div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800"><div class="h-full ${c}" style="width:${Math.round(v)}%"></div></div>`; }
+  function renderSoc() {
+    const S = I(), day = gameState.daysInOffice || 0;
+    const cards = COLS.map(c => { const v = S.sat[c.id], col = v >= 70 ? 'bg-emerald-500' : v <= 25 ? 'bg-red-500' : 'bg-amber-500';
+      return `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2"><div class="flex justify-between"><b class="text-sm text-slate-100"><i class="fa-solid ${c.icon} text-amber-400 mr-1.5"></i>${c.name}</b><span class="text-xs text-slate-300">${Math.round(v)}%</span></div>${bar(v, col)}
+      <div class="text-[10px] text-slate-400">${v >= 70 ? '★ Apoyo activo: bonus diario' : v <= 25 ? '⚠ Malestar: penalización y riesgo de huelga' : 'Estable'}</div>
+      <button onclick="socDialog('${c.id}')" class="hoi-button-gold px-3 py-1.5 rounded text-[11px] cursor-pointer ${S.cd[c.id] > 0 ? 'opacity-40' : ''}">${S.cd[c.id] > 0 ? 'EN CURSO · ' + S.cd[c.id] + 'd' : 'MESA DE DIÁLOGO · 10 CP + 300 M€'}</button></div>`; }).join('');
+    const pend = S.pend.length ? S.pend.map(p => `<div class="text-[11px] text-slate-300">⏳ <b>${p.from}</b> — se resuelve en ${Math.max(0, p.due - day)} días</div>`).join('') : '<div class="text-[11px] text-slate-500">Sin consecuencias pendientes.</div>';
+    return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech">
+      <div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-amber-400"><i class="fa-solid fa-people-group mr-2"></i>SOCIEDAD Y OPINIÓN</h3>
+      <p class="text-xs text-slate-400 font-sans">Cada colectivo reacciona a tu gestión. Con apoyo alto te dan bonus; con malestar, huelgas. Tus decisiones en escándalos tienen consecuencias días después.</p></div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">${cards}
+      <div class="bg-slate-950 border border-sky-700 rounded-lg p-3 space-y-2"><b class="text-sm text-slate-100"><i class="fa-solid fa-sun text-amber-400 mr-1.5"></i>Estado de gracia</b>${bar(S.mom, 'bg-amber-500')}<div class="text-[10px] text-slate-400">Mantén todas las métricas ≥45 para llenarlo: +15 de capital político al completarse (${Math.round(S.mom)}%).</div></div>
+      <div class="bg-slate-950 border border-red-900 rounded-lg p-3 space-y-2"><b class="text-sm text-slate-100"><i class="fa-solid fa-newspaper text-red-400 mr-1.5"></i>Presión mediática</b>${bar(S.press, 'bg-red-500')}<div class="text-[10px] text-slate-400">Sube con el descontento y atrae escándalos (${Math.round(S.press)}%).</div></div></div>
+      <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1"><b class="text-sm text-slate-100"><i class="fa-solid fa-hourglass-half text-sky-400 mr-1.5"></i>Repercusiones pendientes</b>${pend}</div></div>`;
+  }
+
+  const goalsBtn = document.getElementById('tab-btn-goals');
+  if (goalsBtn && !document.getElementById('tab-btn-soc')) {
+    const b = document.createElement('button'); b.id = 'tab-btn-soc'; b.className = 'nav-tab-btn'; b.setAttribute('onclick', "switchTab('soc')");
+    b.innerHTML = '<i class="fa-solid fa-people-group w-4 text-center text-emerald-400"></i><span>Sociedad y Opinión</span>';
+    goalsBtn.parentNode.insertBefore(b, goalsBtn);
+  }
+  const _rtc = renderTabContent;
+  renderTabContent = function () { return gameState.activeTab === 'soc' ? renderSoc() : _rtc(); };
+  const _tick = gameTick;
+  gameTick = function () { const before = gameState.daysInOffice; _tick.apply(this, arguments); if (gameState.daysInOffice !== before) { try { dailyTick(); } catch (e) { console.error(e); } } };
+  const _sel = selectScenario;
+  selectScenario = function (id) { gameState.soc = null; const o = document.getElementById('council-modal'); if (o) o.remove(); _sel(id); };
+})();
+
+
+// =====================================================================
+//  CONSEJO DE MINISTROS: las decisiones te llegan a ti (popup periódico
+//  con propuestas según lo que peor va), sin tener que abrir pestañas
+// =====================================================================
+(function () {
+  'use strict';
+  const P = [
+    { id: 'alivio', ic: 'fa-percent',      t: 'Alivio fiscal',               cost: 1500, per: { eco: .3, apr: .1 }, d: 30 },
+    { id: 'empleo', ic: 'fa-hammer',       t: 'Plan de choque de empleo',    cost: 2000, per: { emp: .4, est: .2 }, d: 30 },
+    { id: 'sanid',  ic: 'fa-hospital',     t: 'Refuerzo de la sanidad',      cost: 1800, per: { est: .4, apr: .3 }, d: 30 },
+    { id: 'poli',   ic: 'fa-shield-halved',t: 'Refuerzo policial',           cost: 1200, per: { est: .5 }, d: 20 },
+    { id: 'auton',  ic: 'fa-shop',         t: 'Rescate a autónomos',         cost: 1600, per: { eco: .4, emp: .3 }, d: 30 },
+    { id: 'banca',  ic: 'fa-building-columns', t: 'Gravamen a la banca',     cost: 0,    per: { apr: .4, eco: -.2 }, d: 20 },
+    { id: 'idi',    ic: 'fa-flask',        t: 'Plan nacional de I+D+i',      cost: 2500, per: { eco: .5 }, d: 40 },
+    { id: 'ffaa',   ic: 'fa-medal',        t: 'Bonus retributivo a las FFAA',cost: 1000, per: { mil: .5 }, d: 20 },
+    { id: 'arma',   ic: 'fa-person-military-pointing', t: 'Modernizar armamento', cost: 2800, per: { mil: .8 }, d: 20 },
+    { id: 'tv',     ic: 'fa-tv',           t: 'Comparecencia televisada',    cost: 0, cap: 12, now: { apr: 6, est: 2 } },
+    { id: 'recorte',ic: 'fa-scissors',     t: 'Recorte del gasto público',   cost: 0, gain: 8000, now: { apr: -5, est: -2 }, money: true }
+  ];
+  const NAME = { eco: 'Economía', est: 'Estabilidad', emp: 'Empleo', apr: 'Aprobación', mil: 'Ejército' };
+  const S = () => window.socInit();
+  const effText = p => {
+    const parts = [];
+    if (p.per) Object.keys(p.per).forEach(k => { const v = Math.round(p.per[k] * p.d); parts.push((v > 0 ? '+' : '') + v + ' ' + NAME[k]); });
+    if (p.now) Object.keys(p.now).forEach(k => parts.push((p.now[k] > 0 ? '+' : '') + p.now[k] + ' ' + NAME[k]));
+    return parts.join(' · ') + (p.per ? ' en ' + p.d + ' días' : '');
+  };
+  const costText = p => [p.cost ? '-' + p.cost + ' M€' : '', p.cap ? '-' + p.cap + ' CP' : '', p.gain ? '+' + p.gain + ' M€' : ''].filter(Boolean).join(' · ') || 'Sin coste';
+
+  function pick() {
+    const s = S(), m = gameState.metrics, day = gameState.daysInOffice || 0, tr = Number(gameState.treasury) || 0;
+    s.used = s.used || {};
+    const list = P.filter(p => (!s.used[p.id] || day - s.used[p.id] > 100) && tr >= (p.cost || 0) && (!p.cap || cap0() >= p.cap)
+      && (p.id !== 'recorte' || tr < 8000)).map(p => {
+      let sc = Math.random() * 25;
+      [...Object.keys(p.per || {}), ...Object.keys(p.now || {})].forEach(k => { const w = (p.per || p.now)[k]; if (w > 0 && m[k] !== undefined) sc += (100 - m[k]) * 0.6; });
+      if (p.id === 'recorte') sc += 60;
+      return { p, sc };
+    }).sort((a, b) => b.sc - a.sc).slice(0, 3).map(x => x.p);
+    // si un colectivo está muy descontento, una mesa de diálogo sustituye a la tercera propuesta
+    const cols = { obr: 'Trabajadores', emp: 'Empresarios', jov: 'Jóvenes', pen: 'Pensionistas', rur: 'Mundo rural' };
+    const worst = Object.keys(s.sat).sort((a, b) => s.sat[a] - s.sat[b])[0];
+    if (s.sat[worst] < 40 && !(s.cd[worst] > 0) && cap0() >= 10 && tr >= 300)
+      list.splice(2, 1, { id: 'dlg_' + worst, ic: 'fa-people-group', t: 'Mesa de diálogo: ' + cols[worst], cost: 300, cap: 10, dlg: worst, txt: cols[worst] + ' al ' + Math.round(s.sat[worst]) + '% de satisfacción: +18 puntos' });
+    return list.slice(0, 3);
+  }
+  const cap0 = () => { goalsInit(); return gameState.goals.capital; };
+
+  function openCouncil() {
+    const s = S(), m = gameState.metrics; s.opts = pick(); s.speed2 = gameState.gameSpeed || 1; pauseGameSilently();
+    const chip = (k, ic) => `<span class="px-2 py-1 rounded bg-slate-900 border ${m[k] < 40 ? 'border-red-500 text-red-300' : m[k] > 65 ? 'border-emerald-600 text-emerald-300' : 'border-slate-700 text-slate-300'} text-[11px]">${NAME[k]} ${Math.round(m[k])}%</span>`;
+    const d = document.createElement('div'); d.id = 'council-modal';
+    d.className = 'fixed inset-0 bg-black/85 z-[9997] flex items-center justify-center p-4 overflow-y-auto';
+    d.innerHTML = `<div class="hoi-box border-2 border-sky-500 max-w-2xl w-full p-5 rounded space-y-3 font-hoi-tech">
+      <span class="bg-sky-500 text-black text-[10px] px-2 py-0.5 rounded font-bold"><i class="fa-solid fa-landmark mr-1"></i>CONSEJO DE MINISTROS</span>
+      <h3 class="font-hoi-header text-2xl text-sky-300">Informe del Gabinete</h3>
+      <div class="flex flex-wrap gap-1.5">${['eco', 'est', 'emp', 'apr', 'mil'].map(chip).join('')}</div>
+      <p class="text-xs text-slate-300 font-sans">Presidente, el Gabinete propone estas medidas según la situación actual. Elige una (o aplaza el asunto).</p>
+      ${s.opts.map((p, i) => `<button onclick="councilChoose(${i})" class="w-full text-left p-3 rounded bg-slate-900 hover:bg-slate-800 border border-sky-900/60 hover:border-sky-400 cursor-pointer">
+        <div class="flex justify-between"><b class="text-sm text-slate-100"><i class="fa-solid ${p.ic} text-sky-400 mr-1.5"></i>${p.t}</b><span class="text-[10px] text-amber-300">${costText(p)}</span></div>
+        <div class="text-[11px] text-slate-400 mt-1">${p.txt || effText(p)}</div></button>`).join('')}
+      <button onclick="councilChoose(-1)" class="w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-900 border border-slate-700 text-[11px] text-slate-400 cursor-pointer">Aplazar el asunto (la presión mediática sube un poco)</button></div>`;
+    document.body.appendChild(d);
+  }
+
+  window.councilChoose = function (i) {
+    const s = S(), p = i >= 0 ? s.opts[i] : null, day = gameState.daysInOffice || 0;
+    if (p) {
+      if (p.cost) registerFinancialTransaction('Consejo de Ministros: ' + p.t, -p.cost);
+      if (p.gain) registerFinancialTransaction('Consejo de Ministros: ' + p.t, p.gain);
+      if (p.cap) gameState.goals.capital = Math.max(0, gameState.goals.capital - p.cap);
+      if (p.now) Object.keys(p.now).forEach(k => focusMetricAdd(k, p.now[k]));
+      if (p.per) (s.buffs = s.buffs || []).push({ t: p.t, per: p.per, left: p.d });
+      if (p.dlg) { s.sat[p.dlg] = Math.min(100, s.sat[p.dlg] + 18); s.cd[p.dlg] = 45; }
+      s.used[p.id] = day; s.decided = (s.decided || 0) + 1;
+      gameState.goals.capital = Math.min(100, gameState.goals.capital + 3);   // recompensa por gobernar activamente
+    } else s.press = Math.min(100, s.press + 6);
+    s.lastCouncil = day; s.opts = null;
+    const m = document.getElementById('council-modal'); if (m) m.remove();
+    setGameSpeed(s.speed2 || 1);
+  };
+  window.councilFreq = function (n) { S().freq = n; render(); };
+
+  function tick() {
+    if (gameState.step !== 4 || gameState.coupActive || !gameState.metrics) return;
+    const s = S(), F = focusInit(), day = gameState.daysInOffice || 0;
+    (s.buffs = s.buffs || []).forEach(b => { Object.keys(b.per).forEach(k => focusAccum(F, k, b.per[k])); b.left--; });
+    s.buffs = s.buffs.filter(b => b.left > 0);
+    const freq = s.freq || 60;
+    if (day - (s.lastCouncil || 0) >= freq && day >= 20 && !gameState.activeDynamicEvent && !gameState.activeNewsPopup
+      && !document.getElementById('xm-modal') && !document.getElementById('council-modal')) openCouncil();
+  }
+
+  const _rtc = renderTabContent;
+  renderTabContent = function () {
+    const h = _rtc();
+    if (gameState.activeTab !== 'soc') return h;
+    const s = S(), f = s.freq || 60;
+    const btn = n => `<button onclick="councilFreq(${n})" class="px-3 py-1 rounded text-[11px] cursor-pointer ${f === n ? 'hoi-button-gold' : 'bg-slate-900 border border-slate-700 text-slate-300'}">cada ${n} días</button>`;
+    const buffs = (s.buffs || []).length ? s.buffs.map(b => `<div class="text-[11px] text-slate-300">▶ <b>${b.t}</b> — ${b.left} días restantes</div>`).join('') : '<div class="text-[11px] text-slate-500">Ninguna medida en vigor.</div>';
+    return h + `<div class="hoi-box p-5 rounded-xl space-y-3 font-hoi-tech mt-4"><h3 class="font-hoi-header text-xl text-sky-300"><i class="fa-solid fa-landmark mr-2"></i>CONSEJO DE MINISTROS</h3>
+      <p class="text-xs text-slate-400 font-sans">Las decisiones llegan solas: el juego se pausa y el Gabinete te propone medidas. Decidir te da +3 de capital político. Decididas hasta ahora: ${s.decided || 0}.</p>
+      <div class="flex gap-2">${[30, 60, 90].map(btn).join('')}</div>
+      <div class="pt-1"><b class="text-sm text-slate-100">Medidas en vigor</b>${buffs}</div></div>`;
+  };
+  const _tick = gameTick;
+  gameTick = function () { const before = gameState.daysInOffice; _tick.apply(this, arguments); if (gameState.daysInOffice !== before) { try { tick(); } catch (e) { console.error(e); } } };
+})();
+
 // =====================================================================
 //  REORGANIZACIÓN DE LA INTERFAZ: menú lateral agrupado y cabecera plegable
 //  (solo reordena elementos existentes; no cambia la lógica del juego)
@@ -14179,7 +14409,7 @@ function playSound(n) {
   const GROUPS = [
     ['Gobierno',  'fa-landmark',      ['main', 'boe', 'cabinet', 'media']],
     ['Economía',  'fa-coins',         ['budget', 'fin', 'bde', 'proj']],
-    ['Política',  'fa-scale-balanced', ['opposition', 'goals', 'focus', 'libre']],
+    ['Política',  'fa-scale-balanced', ['opposition', 'goals', 'soc', 'focus', 'libre']],
     ['Exterior',  'fa-earth-europe',  ['intl', 'ue']],
     ['Análisis',  'fa-chart-pie',     ['stats', 'cis', 'ach']]
   ];
