@@ -184,6 +184,46 @@ main#app, footer {
       body.hud-on main#app { padding-top: calc(72px + env(safe-area-inset-top)) !important; }
       div:has(> #snd-btn) { bottom: calc(78px + env(safe-area-inset-bottom)) !important; }
     }
+
+    /* ===== Reorganización de la interfaz ===== */
+    /* Menú lateral agrupado */
+    .nav-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; }
+    .nav-group-title {
+      display: flex; align-items: center; justify-content: space-between; width: 100%;
+      padding: 7px 10px; background: transparent; border: 0; border-bottom: 1px solid #25323a;
+      color: #7d8d98; font-family: 'Chakra Petch', sans-serif; font-size: 10px; font-weight: 700;
+      letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; text-align: left;
+    }
+    .nav-group-title i:first-child { color: var(--hoi-gold); width: 18px; margin-right: 4px; }
+    .nav-group-title:hover { color: #fff; }
+    .nav-group .nav-chev { transition: transform .15s ease; font-size: 9px; }
+    .nav-group.open .nav-chev { transform: rotate(180deg); }
+    .nav-group .nav-group-body { display: none; flex-direction: column; gap: 4px; padding-top: 2px; }
+    .nav-group.open .nav-group-body { display: flex; }
+    .nav-group.has-active .nav-group-title { color: var(--hoi-gold); border-bottom-color: rgba(217,167,38,.45); }
+    .nav-group.empty { display: none; }
+
+    /* Panel plegable «Situación del Gobierno» */
+    .sit-panel { background: linear-gradient(180deg, #1b242a 0%, #11171b 100%); border: 1px solid #2c3940; border-radius: 8px; overflow: hidden; }
+    .sit-head {
+      display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 14px; background: transparent; border: 0;
+      color: #cbd5e1; cursor: pointer; font-family: 'Chakra Petch', sans-serif; text-align: left;
+    }
+    .sit-head:hover { background: rgba(255,255,255,.03); }
+    .sit-title { font-size: 11px; font-weight: 700; letter-spacing: 1.4px; color: var(--hoi-gold); }
+    .sit-chips { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; justify-content: flex-end; }
+    .sit-chip { font-size: 10px; padding: 2px 8px; border-radius: 999px; border: 1px solid #34454e; color: #94a3b8; background: #0e1418; white-space: nowrap; }
+    .sit-chip.ok { color: #34d399; border-color: rgba(16,185,129,.45); }
+    .sit-chip.mid { color: #fbbf24; border-color: rgba(251,191,36,.45); }
+    .sit-chip.bad { color: #f87171; border-color: rgba(239,68,68,.55); }
+    .sit-chev { font-size: 10px; color: #7d8d98; transition: transform .15s ease; }
+    .sit-panel.open .sit-chev { transform: rotate(180deg); }
+    .sit-body { display: none; padding: 0 10px 10px; }
+    .sit-panel.open .sit-body { display: block; }
+    .sit-body > * { margin-top: 10px !important; margin-bottom: 0 !important; }
+
+    /* El aviso de himnos/objetivos ya no tapa la barra superior */
+    [class*="z-[99999]"] { top: auto !important; bottom: 56px !important; right: 12px !important; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between selection:bg-amber-500 selection:text-black">
@@ -11996,12 +12036,6 @@ const SOUNDS = {
   event: () => { sTone(660, 0.22, 'triangle', 0.14); sTone(440, 0.35, 'triangle', 0.14, 0.2); },
   alert: () => { for (let i = 0; i < 3; i++) sTone(500, 0.3, 'sawtooth', 0.09, i * 0.34, 900); },
   bank: () => { [0, 0.09, 0.18].forEach((a, i) => sTone(2200 + i * 500, 0.25, 'sine', 0.08, a)); sTone(110, 0.5, 'sine', 0.18, 0.1); },
-  riot: () => {
-    for (let i = 0; i < 6; i++) sNoise(0.5, 0.14, 500 + i * 120, i * 0.3, 'bandpass');
-    [0, 0.5, 0.75, 1.25, 1.5].forEach(a => sKick(a, 0.3));
-    sTone(2800, 0.5, 'sine', 0.05, 0.2, 3200); sTone(2900, 0.6, 'sine', 0.05, 1.1, 2500);
-    sNoise(0.15, 0.2, 3000, 1.7, 'highpass');
-  },
   eu: () => {
     [196, 247, 294].forEach(f => sTone(f, 1.8, 'sawtooth', 0.07, 0));
     [392, 392, 330].forEach((f, i) => sTone(f, 0.45, 'square', 0.07, 0.3 + i * 0.5));
@@ -12017,7 +12051,52 @@ const SOUNDS = {
   election: () => [392, 494, 587, 784, 988].forEach((f, i) => sTone(f, 0.5, 'triangle', 0.13, i * 0.14)),
   gameover: () => [440, 392, 330, 262].forEach((f, i) => sTone(f, 0.7, 'sawtooth', 0.07, i * 0.45))
 };
-function playSound(n) { if (SND.muted) return; try { sndCtx(); SOUNDS[n] && SOUNDS[n](); } catch (e) { console.error(e); } }
+// ---------------------------------------------------------------------
+//  EFECTOS EXTERNOS: tus propios archivos en la carpeta  musica/efectos/
+//  - Copia el archivo con el nombre indicado abajo (.mp3, .ogg o .wav).
+//  - Si el archivo no existe, ese evento se queda en silencio.
+//  - Para asociar otro evento a un archivo, añade una línea a EFECTOS_ARCHIVO
+//    con el nombre del sonido (clave de SOUNDS) y el nombre del archivo sin extensión.
+// ---------------------------------------------------------------------
+const EFECTOS_DIR = 'musica/efectos/';
+const EFECTOS_EXTS = ['mp3', 'ogg', 'wav'];
+const EFECTOS_ARCHIVO = {
+  riot: 'disturbios'      // protestas / disturbios  →  musica/efectos/disturbios.mp3
+};
+const fxCache = {};       // nombre → url encontrada, o false si no hay archivo
+
+function fxProbe(url) {
+  return new Promise(res => {
+    const a = new Audio();
+    const end = ok => { clearTimeout(t); a.oncanplaythrough = a.onerror = null; res(ok); };
+    const t = setTimeout(() => end(false), 8000);
+    a.oncanplaythrough = () => end(true); a.onerror = () => end(false);
+    a.preload = 'auto'; a.src = url;
+  });
+}
+function fxResolve(name) {
+  if (name in fxCache) return Promise.resolve(fxCache[name]);
+  const base = EFECTOS_DIR + EFECTOS_ARCHIVO[name];
+  return EFECTOS_EXTS.reduce(
+    (p, ext) => p.then(found => found || fxProbe(base + '.' + ext).then(ok => (ok ? base + '.' + ext : null))),
+    Promise.resolve(null)
+  ).then(url => (fxCache[name] = url || false));
+}
+function playEffectFile(name) {
+  fxResolve(name).then(url => {
+    if (!url || SND.muted) return;
+    const a = new Audio(url); a.volume = Math.min(1, Math.max(0, SND.vol));
+    a.play().catch(() => {});
+  });
+}
+
+function playSound(n) {
+  if (SND.muted) return;
+  try {
+    if (EFECTOS_ARCHIVO[n]) { playEffectFile(n); return; }
+    sndCtx(); SOUNDS[n] && SOUNDS[n]();
+  } catch (e) { console.error(e); }
+}
 
 (function () {
   const wrap = (name, snd, cond) => {
@@ -14088,6 +14167,92 @@ function playSound(n) { if (SND.muted) return; try { sndCtx(); SOUNDS[n] && SOUN
     } catch (e) { console.error(e); }
     return r;
   };
+})();
+
+
+// =====================================================================
+//  REORGANIZACIÓN DE LA INTERFAZ: menú lateral agrupado y cabecera plegable
+//  (solo reordena elementos existentes; no cambia la lógica del juego)
+// =====================================================================
+(function () {
+  'use strict';
+  const GROUPS = [
+    ['Gobierno',  'fa-landmark',      ['main', 'boe', 'cabinet', 'media']],
+    ['Economía',  'fa-coins',         ['budget', 'fin', 'bde', 'proj']],
+    ['Política',  'fa-scale-balanced', ['opposition', 'goals', 'focus', 'libre']],
+    ['Exterior',  'fa-earth-europe',  ['intl', 'ue']],
+    ['Análisis',  'fa-chart-pie',     ['stats', 'cis', 'ach']]
+  ];
+  const UIX = { sitOpen: false, lastTab: null };
+  const wraps = [];
+
+  function buildNav() {
+    const list = document.querySelector('.sidebar-nav-list');
+    if (!list || list.dataset.grouped) return;
+    list.dataset.grouped = '1';
+    GROUPS.forEach(([title, icon, ids]) => {
+      const wrap = document.createElement('div'); wrap.className = 'nav-group';
+      const head = document.createElement('button'); head.type = 'button'; head.className = 'nav-group-title';
+      head.innerHTML = '<span><i class="fa-solid ' + icon + '"></i>' + title + '</span><i class="fa-solid fa-chevron-down nav-chev"></i>';
+      head.onclick = () => wrap.classList.toggle('open');
+      const body = document.createElement('div'); body.className = 'nav-group-body';
+      ids.forEach(id => { const b = document.getElementById('tab-btn-' + id); if (b) body.appendChild(b); });
+      wrap.append(head, body); wrap.dataset.ids = ids.join(','); list.appendChild(wrap); wraps.push(wrap);
+    });
+  }
+
+  function syncNav() {
+    const tab = (typeof gameState === 'object' && gameState.activeTab) || 'main';
+    wraps.forEach(w => {
+      const has = w.dataset.ids.split(',').includes(tab);
+      w.classList.toggle('has-active', has);
+      if (has && UIX.lastTab !== tab) w.classList.add('open');
+      const btns = [...w.querySelectorAll('.nav-tab-btn')];
+      w.classList.toggle('empty', !btns.some(b => b.style.display !== 'none'));
+    });
+    UIX.lastTab = tab;
+  }
+
+  function polishDashboard() {
+    const app = document.getElementById('app');
+    if (!app || typeof gameState !== 'object' || gameState.step !== 4) return;
+    const root = app.firstElementChild;
+    if (!root || !root.classList.contains('space-y-3') || root.querySelector(':scope > .sit-panel')) return;
+    const kids = [...root.children];
+    const metrics = kids.find(k => /md:grid-cols-6/.test(k.className));
+    const loyalty = kids.find(k => /^LEALTAD DE SOCIOS/i.test(k.textContent.trim()));
+    const banner = kids.find(k => k !== loyalty && k !== metrics && /^GOBIERNO EN |^MAYOR[IÍ]A /i.test(k.textContent.trim()));
+    const parts = [metrics, loyalty, banner].filter(Boolean);
+    if (!parts.length) return;
+
+    const panel = document.createElement('section'); panel.className = 'sit-panel' + (UIX.sitOpen ? ' open' : '');
+    const chips = [];
+    if (loyalty) {
+      const vals = [...loyalty.querySelectorAll('*')].filter(e => !e.children.length && /^\d+%$/.test(e.textContent.trim())).map(e => parseInt(e.textContent, 10));
+      if (vals.length) { const mn = Math.min.apply(null, vals); chips.push('<span class="sit-chip ' + (mn < 35 ? 'bad' : mn < 60 ? 'mid' : 'ok') + '">Socios: mín. ' + mn + '%</span>'); }
+    }
+    if (banner) {
+      const m = banner.textContent.trim().match(/^[A-ZÁÉÍÓÚÑ0-9 ·\-\/]+/);
+      const t = m ? m[0].replace(/\s+\S$/, '').trim() : '';
+      if (t) chips.push('<span class="sit-chip">' + t + '</span>');
+    }
+    panel.innerHTML = '<button type="button" class="sit-head"><span class="sit-title">SITUACIÓN DEL GOBIERNO</span><span class="sit-chips">' + chips.join('') + '</span><i class="fa-solid fa-chevron-down sit-chev"></i></button><div class="sit-body"></div>';
+    panel.querySelector('.sit-head').onclick = () => { UIX.sitOpen = !UIX.sitOpen; panel.classList.toggle('open', UIX.sitOpen); };
+    const body = panel.querySelector('.sit-body');
+    root.insertBefore(panel, parts[0]);
+    parts.forEach(p => body.appendChild(p));
+    // En la pestaña de decisiones, lo importante (decisión + mapa) va primero
+    const mainRow = [...root.children].find(k => /lg:grid-cols-12/.test(k.className));
+    if (mainRow) root.insertBefore(mainRow, panel);
+  }
+
+  function polish() { try { buildNav(); polishDashboard(); syncNav(); } catch (e) { console.error(e); } }
+
+  const _render = render;
+  render = function () { const r = _render.apply(this, arguments); polish(); return r; };
+  const _switch = switchTab;
+  switchTab = function () { const r = _switch.apply(this, arguments); polish(); return r; };
+  polish();
 })();
 
 </script>
