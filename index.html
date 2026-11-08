@@ -14897,29 +14897,63 @@ function playSound(n) {
     // Ley de Okun: el empleo sigue al ciclo con retraso
     const target = 15 + m.eco * 0.7;
     m.emp = clamp(m.emp + (target - m.emp) * 0.006);
-    // la deuda elevada y el déficit persistente erosionan la confianza de los mercados
-    const debt = (gameState.debt && gameState.debt.amount) || 0;
-    if (debt > 60000) m.eco = clamp(m.eco - (debt - 60000) / 40000 * 0.03);
     // desestabilizadores sociales: paro y precariedad
     if (m.emp < 35) m.est = clamp(m.est - 0.03);
   }
 
+  // Escala del juego: PIB anual ≈ 100.300 M€ (deuda heredada ≈ 100 % PIB). Ratios reales de España.
+  const PIB = 100300;
+  function macroCalc() {
+    const m = gameState.metrics, D = (typeof debtInit === 'function') ? debtInit() : { amount: 0 };
+    const Y = PIB / 12 * (0.82 + 0.36 * m.eco / 100);                               // PIB mensual según ciclo
+    const revenue = Y * 0.42 * (0.9 + 0.2 * m.emp / 100) * (m.est < 40 ? 0.96 : 1); // presión fiscal ≈ 42 % PIB
+    const yrs = (gameState.daysInOffice || 0) / 365;
+    const pensions = Y * 0.12 * (1 + 0.02 * yrs);                                    // pensiones ≈ 12 % PIB, indexadas
+    const other = Y * 0.14;                                                          // sueldos públicos y transferencias
+    const paro = Y * 0.0125 * Math.max(0, 60 - m.emp) / 10;                          // prestación por desempleo (estabilizador)
+    const debt = (D.legacy || 0) + (D.amount || 0);
+    const rate = typeof debtRate === 'function' ? debtRate() : 2;
+    const interest = debt * rate / 1200;                                             // ya lo cobran proDailyTick/legacy
+    const minis = typeof ministryMonthlyCost === 'function' ? ministryMonthlyCost() : 0;
+    const balance = revenue - pensions - other - paro - minis - interest;
+    const defPct = -balance * 12 / PIB * 100;
+    return { Y, revenue, pensions, other, paro, minis, interest, balance, defPct,
+      growth: 2 + (m.eco - 50) * 0.07,
+      unemp: 4 + 0.15 * (100 - m.emp),
+      infl: Math.max(0, 2.5 + Math.max(0, m.eco - 65) * 0.08 - Math.max(0, 40 - m.eco) * 0.03 + (defPct > 5 ? 0.5 : 0)),
+      debtPct: debt / ((D.pib) || PIB) * 100,
+      prima: typeof bdePrima === 'function' ? bdePrima() : null };
+  }
+
   function econMonthly() {
     const m = gameState.metrics; if (!m || typeof registerFinancialTransaction !== 'function') return;
-    const eco = m.eco, emp = m.emp, est = m.est;
-    const infl = eco > 70 ? (eco - 70) / 100 : 0;                                   // sobrecalentamiento
-    const revenue = Math.round(11000 * (0.55 + 0.9 * eco / 100) * (0.85 + 0.3 * emp / 100) * (est < 40 ? 0.95 : 1));
-    const pensions = Math.round(6200 * (1 + infl) * (1 + (gameState.daysInOffice || 0) / 365 * 0.015));   // gasto rígido + indexación
-    const paro = Math.round(Math.max(0, 55 - emp) * 70);                           // estabilizadores automáticos
-    const debt = (gameState.debt && gameState.debt.amount) || 0;
-    const rate = typeof debtRate === 'function' ? debtRate() : 2;
-    const interest = Math.round((800 * rate / 2) + debt * rate / 1200);          // deuda heredada + nueva
-    const net = revenue - pensions - paro - interest;
-    registerFinancialTransaction('Ciclo fiscal mensual (recaudación − pensiones − paro − intereses)', net, 'economia');
-    gameState.fisc = { revenue, pensions, paro, interest, net };
+    const x = macroCalc();
+    // solo flujos automáticos: ministerios e intereses ya se cargan por sus propios módulos
+    const net = Math.round(x.revenue - x.pensions - x.other - x.paro);
+    registerFinancialTransaction('Ciclo fiscal: recaudación − pensiones − transferencias − paro', net, 'economia');
+    // confianza de los mercados: déficit alto castiga, superávit premia
+    if (x.defPct > 4.5) m.eco = clamp(m.eco - 0.5); else if (x.defPct < 1) m.eco = clamp(m.eco + 0.3);
+    gameState.macro = x;
     if (typeof goalsToast === 'function')
-      goalsToast(`<i class="fa-solid fa-scale-balanced text-amber-400"></i> <b>Balance fiscal:</b> ${net >= 0 ? '+' : ''}${net.toLocaleString('es-ES')} M€<br><span class="text-[10px] text-slate-400">Ingresos ${revenue.toLocaleString('es-ES')} · Pensiones ${pensions.toLocaleString('es-ES')} · Paro ${paro.toLocaleString('es-ES')} · Intereses ${interest.toLocaleString('es-ES')}</span>`, net >= 0 ? '#10b981' : '#ef4444');
+      goalsToast(`<i class="fa-solid fa-scale-balanced text-amber-400"></i> <b>Cierre fiscal:</b> déficit ${x.defPct.toFixed(1).replace('.', ',')} % PIB · paro ${x.unemp.toFixed(1).replace('.', ',')} % · IPC ${x.infl.toFixed(1).replace('.', ',')} %`, x.defPct > 4.5 ? '#ef4444' : '#10b981');
   }
+
+  // Ministerios a escala real (≈ 15 % del PIB entre todos) y PGE con déficit estructural ≈ 3 %
+  const _mmc = ministryMonthlyCost;
+  ministryMonthlyCost = function () { return Math.round(_mmc.apply(this, arguments) * 0.3); };
+  estimatePGEIncome = function (total) { const e = (gameState.metrics || {}).eco; return Math.round(total * (0.85 + (e === undefined ? 50 : e) / 100 * 0.24)); };
+
+  // Panel macroeconómico en Finanzas y Deuda
+  const _rf = renderFinTab;
+  renderFinTab = function () {
+    const html = _rf.apply(this, arguments), x = macroCalc(), f = (v, d = 1) => v.toFixed(d).replace('.', ','), n = v => Math.round(v).toLocaleString('es-ES');
+    const c = (cond) => cond ? 'text-red-400' : 'text-emerald-400';
+    const card = (l, v, cl) => `<div class="bg-slate-950 border border-slate-800 rounded-lg p-2"><div class="text-[9px] text-slate-500">${l}</div><b class="${cl || 'text-slate-100'} text-sm">${v}</b></div>`;
+    const panel = `<div class="hoi-box p-4 rounded-xl mb-3 font-hoi-tech"><h4 class="font-hoi-header text-lg text-amber-400 mb-2"><i class="fa-solid fa-chart-pie mr-2"></i>MACROECONOMÍA (escala: PIB ${n(PIB)} M€)</h4>
+      <div class="grid grid-cols-3 md:grid-cols-6 gap-2 text-center">${card('CRECIMIENTO PIB', f(x.growth) + ' %', c(x.growth < 0.5))}${card('PARO', f(x.unemp) + ' %', c(x.unemp > 14))}${card('INFLACIÓN', f(x.infl) + ' %', c(x.infl > 4))}${card('DÉFICIT', f(x.defPct) + ' % PIB', c(x.defPct > 3))}${card('DEUDA', f(x.debtPct, 0) + ' % PIB', c(x.debtPct > 100))}${card('PRIMA RIESGO', x.prima == null ? '—' : x.prima + ' pb', c(x.prima > 150))}</div>
+      <div class="text-[10px] text-slate-500 mt-2">Flujo mensual: ingresos ${n(x.revenue)} − pensiones ${n(x.pensions)} − transferencias ${n(x.other)} − paro ${n(x.paro)} − ministerios ${n(x.minis)} − intereses ${n(x.interest)} = <b class="${x.balance < 0 ? 'text-red-400' : 'text-emerald-400'}">${n(x.balance)} M€</b></div></div>`;
+    return panel + html;
+  };
 
   const _tick = gameTick;
   gameTick = function () {
