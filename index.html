@@ -14964,6 +14964,110 @@ function playSound(n) {
     }
   };
 })();
+
+// =====================================================================
+//  MÁS GRACIA: eventos con dilema, consecuencias retardadas, rachas y CIS
+// =====================================================================
+(function () {
+  const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
+  const toast = (h, c) => { if (typeof goalsToast === 'function') goalsToast(h, c); };
+
+  // ---- 1. Eventos nuevos (dilemas, algunos condicionados al estado del país) ----
+  const E = (cat, min, title, desc, options, when) => SHOCK_POOL.push({ cat, min, title, desc, options, when });
+  const o = (text, cost, stats, news) => ({ text, cost, stats, news });
+  E('SOCIAL', 'trabajo', 'HUELGA GENERAL DE TRANSPORTES', 'Metro, trenes y autobuses paran a la vez. Las ciudades colapsan y los sindicatos exigen sentarse ya.', [
+    o('Ceder a la subida salarial', 1800, { emp: 2, apr: 3, eco: -2 }, 'El Gobierno cierra la huelga con una subida salarial.'),
+    o('Imponer servicios mínimos del 100 %', 0, { est: -5, apr: -4, eco: 1 }, 'Servicios mínimos abusivos: los sindicatos amenazan con más paros.')]);
+  E('ESCÁNDALO', 'justicia', 'AUDIOS FILTRADOS DE UN ALTO CARGO', 'Un medio publica conversaciones comprometedoras de un colaborador cercano. La oposición pide dimisiones.', [
+    o('Cesarlo de inmediato', 0, { apr: -2, est: 1 }, 'Cese fulminante tras la filtración: Moncloa corta el incendio.'),
+    o('Defender su inocencia', 0, { apr: -7, est: -3 }, 'El Gobierno cierra filas, pero el escándalo crece cada día.'),
+    o('Encargar una auditoría independiente', 600, { apr: 2, est: 1 }, 'Moncloa abre una auditoría independiente y gana tiempo.')]);
+  E('ECONOMÍA', 'vivienda', 'BURBUJA INMOBILIARIA A LA VISTA', 'El crédito fácil dispara los precios. El Banco de España avisa del riesgo de una nueva burbuja.', [
+    o('Endurecer el crédito hipotecario', 0, { eco: -3, apr: -2, est: 2 }, 'El Gobierno pincha la burbuja antes de que explote.'),
+    o('Dejar que el mercado siga', 0, { eco: 4, apr: 2, est: -3 }, 'El ladrillo sigue animando la economía… por ahora.')], s => s.metrics.eco > 66);
+  E('VIRAL', 'cultura', 'EL PRESIDENTE, VIRAL EN TIKTOK', 'Un vídeo tuyo tropezando en un acto se hace viral. El país entero hace memes.', [
+    o('Reírte de ti mismo en redes', 0, { apr: 5 }, 'El Presidente se ríe de sí mismo y los memes se vuelven a su favor.'),
+    o('Pedir que lo retiren', 300, { apr: -4, est: -1 }, 'Moncloa pide retirar el vídeo y provoca el efecto Streisand.')]);
+  E('SOCIAL', 'interior', 'CAMIONEROS BLOQUEAN LAS CARRETERAS', 'Los transportistas cortan autovías por el precio del diésel. Los supermercados empiezan a vaciarse.', [
+    o('Bonificar el combustible', 1500, { eco: -1, est: 3, apr: 3 }, 'Bonificación al diésel: los camiones vuelven a rodar.'),
+    o('Enviar a la UIP a desalojar', 0, { est: -6, apr: -5, mil: 2 }, 'Cargas policiales en las autovías: imágenes muy duras.')], s => s.metrics.est < 55);
+  E('CLIMA', 'transicion_ecologica', 'SEQUÍA HISTÓRICA', 'Los embalses están al 18 %. Agricultores y ciudades se disputan cada litro.', [
+    o('Plan de desaladoras de emergencia', 2200, { eco: 2, apr: 3, est: 2 }, 'Desaladoras de urgencia: el agua deja de ser un drama nacional.'),
+    o('Restricciones de agua', 0, { apr: -5, eco: -2, est: -2 }, 'Cortes de agua en varias provincias: enfado general.')]);
+  E('ESCÁNDALO', 'justicia', 'EL CUÑADO DEL MINISTRO', 'Se descubre que el cuñado de un ministro ganó contratos públicos a dedo.', [
+    o('Exigir la devolución e investigar', 400, { apr: 1, est: 1 }, 'El Gobierno investiga los contratos de un familiar del ministro.'),
+    o('Mirar hacia otro lado', 0, { apr: -6, est: -2 }, 'La oposición convierte el caso en la comidilla nacional.')], s => s.metrics.apr < 58);
+  E('OPORTUNIDAD', 'economia', 'AÑO RÉCORD DE TURISMO', 'España bate su récord de visitantes. El sector pide aprovechar el tirón.', [
+    o('Plan de promoción internacional', 1200, { eco: 5, emp: 3, apr: 2 }, 'La marca España arrasa: llegan visitantes de todo el mundo.'),
+    o('Subir la tasa turística', 0, { eco: 1, apr: -3, emp: -1 }, 'Subida de la tasa turística: los hoteleros protestan.')], s => s.metrics.eco > 40);
+  E('SEGURIDAD', 'defensa', 'CIBERATAQUE A HACIENDA', 'Hackers bloquean los sistemas de la Agencia Tributaria y piden un rescate millonario.', [
+    o('Pagar el rescate en silencio', 1500, { eco: 1, apr: -3 }, 'Se filtra que Hacienda pagó el rescate a los hackers.'),
+    o('Negarse y reconstruir los sistemas', 2500, { est: 2, apr: 3, mil: 2 }, 'El Gobierno planta cara a los hackers y refuerza la ciberseguridad.')]);
+  E('SOCIAL', 'igualdad', 'MANIFESTACIÓN HISTÓRICA EN MADRID', 'Más de un millón de personas toman el centro de Madrid con reivindicaciones enfrentadas.', [
+    o('Recibir a los convocantes', 0, { apr: 3, est: 2 }, 'El Presidente recibe a los convocantes en Moncloa.'),
+    o('Ignorar la protesta', 0, { apr: -4, est: -4 }, 'Moncloa ignora la mayor manifestación en una década.')]);
+  E('OPORTUNIDAD', 'educacion', 'PREMIO A UN CIENTÍFICO ESPAÑOL', 'Un investigador español gana un premio internacional y la ciencia vuelve a los telediarios.', [
+    o('Anunciar un plan de ciencia', 1000, { apr: 4, eco: 2, est: 1 }, 'Plan de ciencia anunciado al calor del premio internacional.'),
+    o('Felicitarle sin más', 0, { apr: 1 }, 'Moncloa felicita al científico.')]);
+
+  // ---- 2. Consecuencias retardadas y rachas, a partir de cada decisión ----
+  let b0 = null;
+  document.addEventListener('click', () => {
+    if (gameState.step !== 4 || !gameState.metrics) return;
+    b0 = Object.assign({}, gameState.metrics);
+    setTimeout(() => { try { judge(b0); } catch (e) { console.error(e); } }, 5);
+  }, true);
+
+  function judge(b) {
+    const m = gameState.metrics; if (!b || !m) return;
+    const dA = m.apr - b.apr, dE = m.eco - b.eco, day = gameState.daysInOffice || 0;
+    if (Math.abs(dA) < 2 && Math.abs(dE) < 2) return;
+    gameState.later = gameState.later || [];
+    if (dA >= 7 || dE >= 7)        // chollo: la factura llega
+      gameState.later.push({ day: day + 25 + Math.floor(Math.random() * 20), stats: { apr: -Math.round(0.45 * Math.max(0, dA)), eco: -Math.round(0.35 * Math.max(0, dE)), est: -2 }, t: 'La factura de aquella medida estrella', good: false });
+    else if (dA <= -6 && dE >= 3)  // reforma dura: da frutos
+      gameState.later.push({ day: day + 40 + Math.floor(Math.random() * 20), stats: { eco: Math.round(dE * 1.2), apr: Math.round(-dA * 0.6) }, t: 'Las reformas empiezan a dar frutos', good: true });
+    // rachas de popularidad
+    const st = gameState.streak = (gameState.streak || []).concat(dA >= 2 ? 1 : dA <= -2 ? -1 : 0).slice(-3);
+    if (st.length === 3 && (st.every(x => x === 1) || st.every(x => x === -1))) {
+      const up = st[0] === 1;
+      gameState.activeModifiers = gameState.activeModifiers || [];
+      gameState.activeModifiers.push({ id: up ? 'ESTADO_GRACIA' : 'DESGASTE', duration: 15, statsPerDay: up ? { apr: 0.15 } : { apr: -0.15, est: -0.1 } });
+      toast(up ? '<i class="fa-solid fa-fire text-amber-400"></i> <b>ESTADO DE GRACIA</b><br><span class="text-xs">Tres decisiones populares seguidas: +0,15 aprobación/día durante 15 días.</span>'
+               : '<i class="fa-solid fa-cloud-bolt text-red-400"></i> <b>DESGASTE DE GOBIERNO</b><br><span class="text-xs">Tres decisiones impopulares seguidas: el clima se enrarece durante 15 días.</span>', up ? '#10b981' : '#ef4444');
+      gameState.streak = [];
+    }
+  }
+
+  // ---- 3. Encuesta CIS cada 2 semanas y titulares satíricos ----
+  const SAT = ['Un diputado olvida su escaño y vota desde el bar de la esquina.', 'El precio del café en el Congreso desata una crisis diplomática.', 'Un tertuliano predice la caída del Gobierno por 14.ª vez esta semana.', 'La oposición exige que el Presidente explique el tiempo de mañana.', 'Hallado en un cajón un presupuesto de 1997 que todavía se aplica.', 'El AVE llega puntual y el país entero sospecha.', 'Un concejal inaugura una rotonda y la rotonda lo inaugura a él.'];
+  function cis() {
+    const P = gameState.parties || [], L = P.find(p => p.id === gameState.leaderPartyId); if (!L) return;
+    const m = gameState.metrics, mine = clamp((L.basePct || 25) + (m.apr - 50) * 0.22, 3, 60);
+    const rival = P.filter(p => p.id !== L.id && !p.isRegional).sort((a, b) => (b.basePct || 0) - (a.basePct || 0))[0];
+    const prev = gameState.cisPrev; gameState.cisPrev = mine;
+    const d = prev == null ? 0 : mine - prev, f = v => v.toFixed(1).replace('.', ',');
+    toast(`<i class="fa-solid fa-square-poll-vertical text-sky-400"></i> <b>BARÓMETRO CIS:</b> ${L.name} ${f(mine)} % ${prev == null ? '' : '(' + (d >= 0 ? '+' : '') + f(d) + ')'}${rival ? ' · ' + rival.name + ' ' + f(clamp((rival.basePct || 20) - (m.apr - 50) * 0.12, 3, 60)) + ' %' : ''}`, d < 0 ? '#ef4444' : '#38bdf8');
+  }
+
+  // ---- 4. Procesar todo cada día ----
+  const _t = gameTick;
+  gameTick = function () {
+    const b = gameState.daysInOffice;
+    _t.apply(this, arguments);
+    if (gameState.daysInOffice === b || gameState.step !== 4 || !gameState.metrics || gameState.coupActive) return;
+    try {
+      const day = gameState.daysInOffice, L = gameState.later || [];
+      L.filter(x => x.day <= day).forEach(x => {
+        Object.keys(x.stats).forEach(k => { if (x.stats[k]) gameState.metrics[k] = clamp(gameState.metrics[k] + x.stats[k]); });
+        toast(`<i class="fa-solid ${x.good ? 'fa-seedling text-emerald-400' : 'fa-receipt text-red-400'}"></i> <b>${x.t}</b><br><span class="text-xs">${Object.entries(x.stats).filter(e => e[1]).map(e => e[0].toUpperCase() + ' ' + (e[1] > 0 ? '+' : '') + e[1]).join(' · ')}</span>`, x.good ? '#10b981' : '#ef4444');
+      });
+      gameState.later = L.filter(x => x.day > day);
+      if (day % 14 === 0) cis();
+      if (day % 9 === 0 && typeof addNewsToTicker === 'function') addNewsToTicker(SAT[Math.floor(Math.random() * SAT.length)], 'Sátira');
+    } catch (e) { console.error(e); }
+  };
+})();
 </script>
 </body>
 </html>
