@@ -14486,6 +14486,196 @@ function playSound(n) {
   gameTick = function () { const b = gameState.daysInOffice; _tick.apply(this, arguments); if (gameState.daysInOffice !== b) { try { tick(); } catch (e) { console.error(e); } } };
 })();
 
+
+// =====================================================================
+//  MILITAR Y GUERRA: mapamundi por países, fuerzas propias, diplomacia,
+//  declaración de guerra, conflicto día a día, agresiones y paz.
+//  (El mapa se descarga una vez de jsDelivr y queda en caché; sin
+//  conexión se muestra un mapa simplificado de burbujas.)
+// =====================================================================
+(function () {
+  'use strict';
+  // [id numérico ISO, nombre, fuerza, bloque, proyección, relación inicial, nuclear, lat, lon]
+  const C = [
+    [250,'Francia',66,'UE·OTAN',1,80,1,46,2],[620,'Portugal',22,'UE·OTAN',1,85,0,39.5,-8],[504,'Marruecos',38,'—',1,40,0,32,-6],
+    [12,'Argelia',46,'—',1,35,0,28,2],[478,'Mauritania',10,'—',.85,50,0,20,-10],[434,'Libia',18,'—',.8,35,0,27,17],[818,'Egipto',45,'—',.8,55,0,27,30],
+    [826,'Reino Unido',65,'OTAN',.85,70,1,54,-2],[276,'Alemania',58,'UE·OTAN',.85,80,0,51,10],[380,'Italia',50,'UE·OTAN',.9,78,0,42,12],
+    [300,'Grecia',36,'UE·OTAN',.8,70,0,39,22],[616,'Polonia',48,'UE·OTAN',.7,65,0,52,19],[804,'Ucrania',52,'—',.65,60,0,49,32],
+    [643,'Rusia',85,'BRICS',.55,20,1,61,100],[792,'Turquía',62,'OTAN',.7,50,0,39,35],[376,'Israel',64,'—',.6,50,1,31,35],
+    [364,'Irán',55,'BRICS',.5,25,0,32,53],[682,'Arabia Saudí',48,'—',.55,55,0,24,45],[760,'Siria',22,'—',.6,30,0,35,38],[368,'Irak',28,'—',.55,40,0,33,44],
+    [586,'Pakistán',56,'—',.4,45,1,30,70],[356,'India',70,'BRICS',.4,55,1,22,79],[156,'China',90,'BRICS',.4,35,1,35,103],
+    [392,'Japón',60,'—',.35,65,0,36,138],[410,'Corea del Sur',58,'—',.35,60,0,36,128],[408,'Corea del Norte',50,'—',.35,10,1,40,127],
+    [360,'Indonesia',38,'—',.35,50,0,-2,118],[36,'Australia',46,'—',.3,70,0,-25,134],[840,'EE. UU.',95,'OTAN',.5,75,1,39,-98],
+    [124,'Canadá',44,'OTAN',.5,75,0,58,-100],[484,'México',30,'—',.5,60,0,23,-102],[192,'Cuba',15,'—',.6,35,0,22,-79],
+    [862,'Venezuela',30,'—',.5,30,0,7,-66],[170,'Colombia',28,'—',.5,55,0,4,-73],[76,'Brasil',48,'BRICS',.45,60,0,-10,-52],
+    [32,'Argentina',28,'—',.45,60,0,-35,-65],[566,'Nigeria',28,'—',.5,50,0,9,8],[710,'Sudáfrica',32,'BRICS',.35,55,0,-29,24]
+  ].map(a => ({ id: a[0], n: a[1], s: a[2], b: a[3], p: a[4], r0: a[5], nuke: !!a[6], lat: a[7], lon: a[8] }));
+  const BY = {}; C.forEach(c => BY[c.id] = c);
+  const ALLIED = c => /UE|OTAN/.test(c.b);
+  const X = lon => (lon + 180) * 2.7778, Y = lat => (84 - lat) * 2.7778;
+  const I = () => { if (!gameState.wr) gameState.wr = { t: 30, m: 25, a: 28, rel: {}, war: null, hist: [], sel: null, lastEv: 0, last: 0 }; return gameState.wr; };
+  const rel = c => { const W = I(); if (W.rel[c.id] == null) W.rel[c.id] = c.r0; return W.rel[c.id]; };
+  const cap = () => { goalsInit(); return gameState.goals; };
+  const moral = () => 0.7 + ((gameState.metrics || { mil: 50 }).mil) / 200;
+  const power = c => { const W = I(), b = c.p >= .7 ? (W.t + W.m + W.a) / 3 : (W.m + W.a) / 2; return b * moral() * c.p; };
+
+  // ---------- mapa ----------
+  let WORLD = null, LOADING = false;
+  function decode(t) {
+    const [sx, sy] = t.transform.scale, [tx, ty] = t.transform.translate;
+    const arcs = t.arcs.map(a => { let x = 0, y = 0; return a.map(p => { x += p[0]; y += p[1]; return [x * sx + tx, y * sy + ty]; }); });
+    const ring = idx => { let pts = []; idx.forEach(i => { const a = i < 0 ? arcs[~i].slice().reverse() : arcs[i]; pts = pts.concat(pts.length ? a.slice(1) : a); }); return pts; };
+    return t.objects.countries.geometries.map(g => {
+      const id = parseInt(g.id, 10), polys = g.type === 'Polygon' ? [g.arcs] : g.type === 'MultiPolygon' ? g.arcs : [];
+      let d = '';
+      polys.forEach(pl => pl.forEach(r => { const pts = ring(r); pts.forEach((p, i) => { const jump = i && Math.abs(p[0] - pts[i - 1][0]) > 180; d += (i === 0 || jump ? 'M' : 'L') + X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1); }); d += 'Z'; }));
+      return { id, d };
+    }).filter(c => c.id !== 10 && c.d);   // sin Antártida
+  }
+  function load() {
+    if (LOADING || WORLD) return; LOADING = true;
+    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json').then(r => r.json()).then(t => { WORLD = decode(t); if (gameState.activeTab === 'war') render(); }).catch(() => { LOADING = false; WORLD = null; });
+  }
+  function col(id) {
+    const W = I(), c = BY[id];
+    if (id === 724) return '#15803d';
+    if (!c) return '#1e293b';
+    if (W.war && W.war.id === id) return '#ef4444';
+    const r = rel(c); return r >= 70 ? '#1d4ed8' : r <= 30 ? '#991b1b' : '#475569';
+  }
+  function mapSvg() {
+    const W = I(); load();
+    const sel = W.sel;
+    if (WORLD) return `<svg viewBox="0 0 1000 395" class="w-full bg-slate-950 rounded border border-slate-800">${WORLD.map(w => `<path d="${w.d}" fill="${col(w.id)}" stroke="${sel === w.id ? '#fbbf24' : '#0f172a'}" stroke-width="${sel === w.id ? 1.6 : .4}" ${BY[w.id] ? `onclick="warSel(${w.id})" style="cursor:pointer"` : ''}><title>${w.id === 724 ? 'España' : BY[w.id] ? BY[w.id].n : ''}</title></path>`).join('')}</svg>`;
+    return `<svg viewBox="0 0 1000 395" class="w-full bg-slate-950 rounded border border-slate-800"><text x="500" y="14" fill="#64748b" font-size="10" text-anchor="middle">${LOADING ? 'Cargando mapa mundial…' : 'Mapa simplificado (sin conexión)'}</text>${C.concat([{ id: 724, n: 'España', s: 28, lat: 40, lon: -4 }]).map(c => `<circle cx="${X(c.lon)}" cy="${Y(c.lat)}" r="${4 + c.s / 14}" fill="${col(c.id)}" stroke="${sel === c.id ? '#fbbf24' : '#0f172a'}" stroke-width="1.5" ${c.id !== 724 ? `onclick="warSel(${c.id})" style="cursor:pointer"` : ''}><title>${c.n}</title></circle>`).join('')}</svg>`;
+  }
+
+  // ---------- diálogos ----------
+  function modal(html) { pauseGameSilently(); const d = document.createElement('div'); d.id = 'xm-modal'; d.className = 'fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4 overflow-y-auto'; d.innerHTML = '<div class="hoi-box border-2 border-red-500 max-w-xl w-full p-5 rounded space-y-3 font-hoi-tech">' + html + '</div>'; document.body.appendChild(d); }
+  function close() { const m = document.getElementById('xm-modal'); if (m) m.remove(); setGameSpeed(I().speed || 1); }
+  const btn = (fn, t, h) => `<button onclick="${fn}" class="w-full text-left p-3 rounded bg-slate-900 hover:bg-slate-800 border border-red-900/60 hover:border-red-400 cursor-pointer"><b class="text-xs text-slate-100">${t}</b>${h ? `<div class="text-[10px] text-slate-500 mt-0.5">${h}</div>` : ''}</button>`;
+  const busy = () => document.getElementById('xm-modal') || document.getElementById('council-modal') || document.getElementById('crisis-modal') || gameState.activeDynamicEvent || gameState.activeNewsPopup;
+
+  window.warSel = id => { I().sel = id; render(); };
+  window.warBuild = k => {
+    const W = I(); if (W[k] >= 90) return goalsToast('Capacidad máxima alcanzada.', '#ef4444');
+    if ((Number(gameState.treasury) || 0) < 1000) return goalsToast('Fondos insuficientes (1.000 M€).', '#ef4444');
+    registerFinancialTransaction('Rearme: ' + ({ t: 'Ejército de Tierra', m: 'Armada', a: 'Ejército del Aire' })[k], -1000); W[k] += 5; focusMetricAdd('mil', 1); render();
+  };
+  window.warPact = id => { const c = BY[id]; if ((Number(gameState.treasury) || 0) < 400) return goalsToast('Fondos insuficientes (400 M€).', '#ef4444'); registerFinancialTransaction('Pacto de cooperación con ' + c.n, -400); I().rel[id] = Math.min(100, rel(c) + 15); render(); };
+  window.warSanction = id => { const c = BY[id]; I().rel[id] = Math.max(0, rel(c) - 15); focusMetricAdd('apr', 1); if (ALLIED(c)) focusMetricAdd('eco', -1); render(); };
+
+  window.warAsk = id => {
+    const c = BY[id], W = I(); if (W.war) return;
+    W.speed = gameState.gameSpeed || 1; fxPlay('guerra');
+    modal(`<span class="bg-red-600 text-black text-[10px] px-2 py-0.5 rounded font-bold">DECLARACIÓN DE GUERRA</span><h3 class="font-hoi-header text-2xl text-red-400">¿Guerra contra ${c.n}?</h3>
+      <p class="text-xs text-slate-300 font-sans">Fuerza enemiga ${c.s} frente a tu poder efectivo ${Math.round(power(c))}. Cuesta 25 de capital político y mantener el conflicto vacía las arcas.${c.nuke ? ' <b class="text-red-400">¡Es una potencia nuclear!</b>' : ''}</p>${btn(`warGo(${id},false)`, 'Declarar la guerra', 'Efecto rally inicial; después, desgaste')}${btn('warCancel()', 'Retirar la propuesta')}`);
+  };
+  window.warCancel = close;
+  window.warGo = (id, def) => {
+    const c = BY[id], W = I(), day = gameState.daysInOffice || 0;
+    if (!def) {
+      if (ALLIED(c)) { close(); return goalsToast('Atacar a un socio de la UE/OTAN es inviable: activaría la defensa colectiva.', '#ef4444'); }
+      if (cap().capital < 25) { close(); return goalsToast('Capital político insuficiente (25).', '#ef4444'); }
+      if ((gameState.metrics.mil || 0) < 25) { close(); return goalsToast('El Ejército se niega a combatir (Lealtad < 25).', '#ef4444'); }
+      cap().capital -= 25; focusMetricAdd('apr', 5);
+      try { ['SUMAR', 'PODEMOS'].forEach(p => updatePartnerLoyalty(p, -8)); ['VOX'].forEach(p => updatePartnerLoyalty(p, 3)); } catch (e) {}
+    }
+    W.war = { id, start: day, prog: def ? 10 : 0, def: !!def, nuke: c.nuke, nextEv: day + 12 };
+    fxPlay('guerra'); goalsToast('<i class="fa-solid fa-person-rifle text-red-400"></i> <b>' + (def ? 'España es atacada por ' : 'Guerra contra ') + c.n + '</b>', '#ef4444');
+    if (document.getElementById('xm-modal')) close(); else render();
+  };
+  function end(kind) {
+    const W = I(), w = W.war, c = BY[w.id], days = (gameState.daysInOffice || 0) - w.start;
+    const R = { win: { fx: { apr: 8, mil: 6, eco: 2 }, money: 6000, cp: 15, t: 'VICTORIA', s: 'victoria', cl: '#10b981' }, peace: { fx: w.prog >= 20 ? { apr: 3 } : { apr: -4, mil: -2 }, money: w.prog >= 20 ? 2000 : 0, cp: 0, t: 'ALTO EL FUEGO', s: 'paz', cl: '#d9a726' },
+      lose: { fx: { apr: -10, est: -10, mil: -8, eco: -4 }, money: -3000, cp: -15, t: 'DERROTA', s: 'derrota', cl: '#ef4444' } }[kind];
+    Object.keys(R.fx).forEach(k => focusMetricAdd(k, R.fx[k]));
+    if (R.money) registerFinancialTransaction('Guerra contra ' + c.n + ': ' + R.t.toLowerCase(), R.money);
+    goalsInit(); gameState.goals.capital = Math.max(0, Math.min(100, gameState.goals.capital + R.cp));
+    if (kind === 'win') W.rel[c.id] = Math.max(0, rel(c) - 20);
+    W.hist.unshift(`${c.n}: ${R.t} (${days} días)`); W.hist = W.hist.slice(0, 6); W.last = gameState.daysInOffice || 0; W.war = null;
+    fxPlay(R.s); goalsToast('<b>GUERRA CONTRA ' + c.n.toUpperCase() + ': ' + R.t + '</b>', R.cl); render();
+  }
+  window.warPeace = () => { if (I().war) end('peace'); };
+
+  function warEvent() {
+    const W = I(), w = W.war, c = BY[w.id]; W.speed = gameState.gameSpeed || 1; fxPlay('event');
+    modal(`<span class="bg-red-600 text-black text-[10px] px-2 py-0.5 rounded font-bold animate-pulse">PARTE DE GUERRA · ${c.n}</span><h3 class="font-hoi-header text-2xl text-red-400">Estado de las operaciones</h3>
+      <p class="text-xs text-slate-300 font-sans">Frente a ${c.n}: ${w.prog > 20 ? 'ventaja española' : w.prog < -20 ? 'situación comprometida' : 'frente igualado'} (${Math.round(w.prog)}). El Estado Mayor espera órdenes.</p>
+      ${btn('warOrder(0)', 'Ofensiva general', 'Riesgo alto, recompensa alta · 600 M€')}${btn('warOrder(1)', 'Consolidar posiciones', 'Avance lento y seguro')}${btn('warOrder(2)', 'Pedir apoyo aéreo aliado', 'Sin coste, pero gasta 5 de capital político')}${btn('warOrder(3)', 'Abrir negociaciones de paz', 'Termina el conflicto')}`);
+  }
+  window.warOrder = i => {
+    const W = I(), w = W.war; if (!w) return close();
+    if (i === 3) { close(); return end('peace'); }
+    if (i === 0) { registerFinancialTransaction('Ofensiva general', -600); const p = Math.min(.85, Math.max(.2, .5 + (power(BY[w.id]) - BY[w.id].s) / 100)); w.prog += Math.random() < p ? 14 : -10; focusMetricAdd('mil', Math.random() < p ? 2 : -3); }
+    if (i === 1) { w.prog += 4; focusMetricAdd('est', 1); }
+    if (i === 2) { if (cap().capital < 5) goalsToast('Capital político insuficiente.', '#ef4444'); else { cap().capital -= 5; w.prog += 9; } }
+    w.prog = Math.max(-100, Math.min(100, w.prog)); w.nextEv = (gameState.daysInOffice || 0) + 14; close();
+  };
+
+  function tick() {
+    if (gameState.step !== 4 || gameState.coupActive || !gameState.metrics) return;
+    const W = I(), day = gameState.daysInOffice || 0, w = W.war;
+    if (w) {
+      const c = BY[w.id], d = power(c) * (w.def && W.rel && Object.keys(W.rel).some(k => BY[k] && ALLIED(BY[k]) && W.rel[k] >= 70) ? 1.15 : 1) - c.s * (w.def ? 0.9 : 1.05);
+      w.prog = Math.max(-100, Math.min(100, w.prog + d / 15 + (Math.random() - 0.5) * 1.6));
+      const F = focusInit(); focusAccum(F, 'apr', w.prog < 0 ? -0.1 : -0.04); focusAccum(F, 'est', -0.03); focusAccum(F, 'eco', -0.04); focusAccum(F, 'mil', w.prog > 0 ? 0.03 : -0.05);
+      if (day % 10 === 0) registerFinancialTransaction('Costes de guerra (' + c.n + ')', -(150 + c.s * 3));
+      if (w.nuke && day % 30 === 0 && Math.random() < 0.12) { ['eco', 'est', 'apr'].forEach(k => focusMetricAdd(k, -25)); fxPlay('derrota'); goalsToast('<b>ATAQUE NUCLEAR:</b> el país queda devastado.', '#ef4444'); return end('lose'); }
+      if (w.prog >= 100) return end('win');
+      if (w.prog <= -100) return end('lose');
+      if (day >= w.nextEv && !busy()) warEvent();
+    } else if (day >= 60 && day % 20 === 0 && day - W.last >= 120 && !busy()) {
+      const hs = C.filter(c => c.p >= .7 && !ALLIED(c) && rel(c) < 35);
+      if (hs.length && Math.random() < 0.35) {
+        const c = hs[Math.floor(Math.random() * hs.length)]; W.speed = gameState.gameSpeed || 1; fxPlay('crisis');
+        modal(`<span class="bg-red-600 text-black text-[10px] px-2 py-0.5 rounded font-bold animate-pulse">ULTIMÁTUM</span><h3 class="font-hoi-header text-2xl text-red-400">${c.n} amenaza a España</h3><p class="text-xs text-slate-300 font-sans">Las tensiones diplomáticas han escalado: ${c.n} exige concesiones y moviliza sus tropas en la frontera.</p>${btn(`warUlt(${c.id},0)`, 'Movilizar y resistir', 'Empieza una guerra defensiva')}${btn(`warUlt(${c.id},1)`, 'Negociar y ceder', 'Sin guerra, pero cuesta imagen')}${btn(`warUlt(${c.id},2)`, 'Pedir mediación internacional', 'Cuesta 5 de capital político; puede fallar')}`);
+      }
+    }
+    if (gameState.activeTab === 'war' && day % 3 === 0) render();
+  }
+  window.warUlt = (id, o) => {
+    const c = BY[id], W = I(); W.last = gameState.daysInOffice || 0;
+    if (o === 1) { focusMetricAdd('apr', -5); focusMetricAdd('est', -2); W.rel[id] = rel(c) + 12; return close(); }
+    if (o === 2) { cap().capital = Math.max(0, cap().capital - 5); if (Math.random() < 0.5) { W.rel[id] = rel(c) + 15; goalsToast('La mediación internacional evita el conflicto.', '#10b981'); return close(); } }
+    window.warGo(id, true);
+  };
+
+  // ---------- pestaña ----------
+  const bar = (v, c) => `<div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800"><div class="h-full ${c}" style="width:${Math.min(100, Math.round(v))}%"></div></div>`;
+  function renderWar() {
+    const W = I(), c = BY[W.sel], w = W.war;
+    const forces = [['t', 'Ejército de Tierra', 'fa-person-rifle'], ['m', 'Armada', 'fa-ship'], ['a', 'Ejército del Aire', 'fa-jet-fighter']].map(([k, n, ic]) => `<div class="space-y-1"><div class="flex justify-between text-xs"><span class="text-slate-200"><i class="fa-solid ${ic} text-amber-400 mr-1.5"></i>${n}</span><b>${W[k]}</b></div>${bar(W[k], 'bg-amber-500')}<button onclick="warBuild('${k}')" class="hoi-button-gold px-2 py-1 rounded text-[10px] cursor-pointer">+5 · 1.000 M€</button></div>`).join('');
+    let info = '<p class="text-xs text-slate-500 font-sans">Pulsa un país del mapa para ver sus datos y actuar.</p>';
+    if (c) {
+      const r = rel(c), why = w ? 'Ya hay una guerra en curso' : ALLIED(c) ? 'Socio de la UE/OTAN: inviable' : '';
+      info = `<div class="flex justify-between"><b class="text-sm text-slate-100">${c.n}</b><span class="text-[10px] text-slate-400">${c.b}${c.nuke ? ' · ☢ nuclear' : ''}</span></div>
+        <div class="text-[11px] text-slate-400">Fuerza ${c.s} · tu poder efectivo ${Math.round(power(c))}</div>
+        <div class="text-[10px] text-slate-500">Relación ${Math.round(r)}% ${r >= 70 ? '(aliado)' : r <= 30 ? '(hostil)' : ''}</div>${bar(r, r >= 70 ? 'bg-sky-500' : r <= 30 ? 'bg-red-500' : 'bg-slate-500')}
+        <div class="flex flex-wrap gap-2 pt-1"><button onclick="warPact(${c.id})" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer">Pacto · 400 M€</button><button onclick="warSanction(${c.id})" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer text-amber-300">Sanciones</button>
+        <button ${why ? 'disabled' : ''} onclick="warAsk(${c.id})" class="px-2 py-1 rounded text-[10px] font-bold ${why ? 'bg-slate-800 text-slate-500' : 'bg-red-700 text-white cursor-pointer'}">${why || 'DECLARAR LA GUERRA'}</button></div>`;
+    }
+    const wp = w ? `<div class="bg-slate-950 border border-red-700 rounded-lg p-3 space-y-2"><b class="text-sm text-red-400"><i class="fa-solid fa-explosion mr-1.5"></i>${w.def ? 'GUERRA DEFENSIVA' : 'GUERRA'} CONTRA ${BY[w.id].n.toUpperCase()}</b>
+      <div class="text-[10px] text-slate-400">Frente: ${Math.round(w.prog)} (−100 derrota · +100 victoria) · ${(gameState.daysInOffice || 0) - w.start} días</div>${bar((w.prog + 100) / 2, w.prog >= 0 ? 'bg-emerald-500' : 'bg-red-500')}<button onclick="warPeace()" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer">Negociar la paz</button></div>` : '';
+    const hist = W.hist.length ? W.hist.map(x => `<div class="text-[11px] text-slate-300">• ${x}</div>`).join('') : '<div class="text-[11px] text-slate-500">Sin conflictos previos.</div>';
+    return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech"><div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-red-400"><i class="fa-solid fa-earth-europe mr-2"></i>MILITAR Y GUERRA</h3>
+      <p class="text-xs text-slate-400 font-sans">Verde: España · azul: aliados · rojo oscuro: hostiles · rojo vivo: enemigo en guerra. Los socios de la UE/OTAN no se pueden atacar.</p></div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2">${mapSvg()}</div><div class="space-y-3">
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-3"><b class="text-sm text-slate-100">Fuerzas armadas · moral ×${moral().toFixed(2)}</b>${forces}</div>
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1">${info}</div>${wp}</div></div>
+      <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1"><b class="text-sm text-slate-100">Historial de conflictos</b>${hist}</div></div>`;
+  }
+
+  SOUNDS.guerra = () => { for (let i = 0; i < 10; i++) sKick(i * 0.22, 0.3); sNoise(2, 0.1, 180, 0, 'lowpass'); sTone(110, 2, 'sawtooth', 0.06, 0, 70); };
+  SOUNDS.paz = () => [523, 659, 784, 1047].forEach((f, i) => sTone(f, 0.5, 'sine', 0.1, i * 0.18));
+  ['guerra', 'paz'].forEach(k => { EFECTOS_ARCHIVO[k] = k; });
+  const nav = document.getElementById('tab-btn-goals');
+  if (nav && !document.getElementById('tab-btn-war')) { const b = document.createElement('button'); b.id = 'tab-btn-war'; b.className = 'nav-tab-btn'; b.setAttribute('onclick', "switchTab('war')"); b.innerHTML = '<i class="fa-solid fa-earth-europe w-4 text-center text-red-400"></i><span>Militar y Guerra</span>'; nav.parentNode.insertBefore(b, nav); }
+  const _rtc = renderTabContent; renderTabContent = function () { return gameState.activeTab === 'war' ? renderWar() : _rtc(); };
+  const _t = gameTick; gameTick = function () { const b = gameState.daysInOffice; _t.apply(this, arguments); if (gameState.daysInOffice !== b) { try { tick(); } catch (e) { console.error(e); } } };
+  const _s = selectScenario; selectScenario = function (id) { gameState.wr = null; _s(id); };
+})();
+
 // =====================================================================
 //  REORGANIZACIÓN DE LA INTERFAZ: menú lateral agrupado y cabecera plegable
 //  (solo reordena elementos existentes; no cambia la lógica del juego)
@@ -14496,7 +14686,7 @@ function playSound(n) {
     ['Gobierno',  'fa-landmark',      ['main', 'boe', 'cabinet', 'media']],
     ['Economía',  'fa-coins',         ['budget', 'fin', 'bde', 'proj']],
     ['Política',  'fa-scale-balanced', ['opposition', 'goals', 'soc', 'focus', 'libre']],
-    ['Exterior',  'fa-earth-europe',  ['intl', 'ue']],
+    ['Exterior',  'fa-earth-europe',  ['intl', 'war', 'ue']],
     ['Análisis',  'fa-chart-pie',     ['stats', 'cis', 'ach']]
   ];
   const UIX = { sitOpen: false, lastTab: null };
