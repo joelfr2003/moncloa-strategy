@@ -87,7 +87,7 @@
     .seat-dot { transition: all 0.2s ease; }
     .seat-dot:hover { transform: scale(1.8); cursor: pointer; filter: brightness(1.5); }
 
-    .prov-path { transition: all 0.2s ease; cursor: pointer; pointer-events: all; }
+    .prov-path { stroke-linejoin: round; transition: all 0.2s ease; cursor: pointer; pointer-events: all; }
     .prov-path:hover { stroke: #d9a726; stroke-width: 2px; filter: brightness(1.3); }
 
     .prov-path-crisis {
@@ -5302,58 +5302,58 @@ function checkAndTriggerDynamicEvent() {
     };
 
     const SPAIN_MAP_PATHS = [
-      { id: 'CNO', name: 'A Coruña', d: 'M 50,30 L 95,30 L 90,70 L 50,65 Z', spectrumPref: 5.2, regionalist: true, desc: 'A Coruña - Bipartidismo / Galleguismo' },
-      { id: 'LUG', name: 'Lugo', d: 'M 95,30 L 135,35 L 130,75 L 90,70 Z', spectrumPref: 5.5, regionalist: true, desc: 'Lugo - Feudo Conservador' },
-      { id: 'PON', name: 'Pontevedra', d: 'M 50,65 L 90,70 L 85,105 L 50,100 Z', spectrumPref: 5.1, regionalist: true, desc: 'Pontevedra - Centro / Izquierda' },
-      { id: 'OUR', name: 'Ourense', d: 'M 90,70 L 130,75 L 125,110 L 85,105 Z', spectrumPref: 5.8, regionalist: true, desc: 'Ourense - Bastión Conservador' },
-      { id: 'AST', name: 'Asturias', d: 'M 135,35 L 200,35 L 195,65 L 130,65 Z', spectrumPref: 3.4, regionalist: false, desc: 'Asturias - Tradición Industrial' },
-      { id: 'CAN', name: 'Cantabria', d: 'M 200,35 L 240,35 L 235,65 L 195,65 Z', spectrumPref: 5.4, regionalist: true, desc: 'Cantabria - Centroderecha / Regionalismo' },
-      { id: 'VIZ', name: 'Vizcaya', d: 'M 240,35 L 262,35 L 260,55 L 238,55 Z', spectrumPref: 2.5, regionalist: true, desc: 'Vizcaya - PNV / Soberanismo' },
-      { id: 'GUI', name: 'Guipúzcoa', d: 'M 262,35 L 285,35 L 282,55 L 260,55 Z', spectrumPref: 2.2, regionalist: true, desc: 'Guipúzcoa - Izquierda Soberanista' },
-      { id: 'ALA', name: 'Álava', d: 'M 238,55 L 282,55 L 278,75 L 235,75 Z', spectrumPref: 3.2, regionalist: true, desc: 'Álava - Plural' },
-      { id: 'NAV', name: 'Navarra', d: 'M 285,35 L 325,35 L 320,75 L 278,75 Z', spectrumPref: 3.5, regionalist: true, desc: 'Navarra - Foralismo / Izquierda' },
-      { id: 'RIO', name: 'La Rioja', d: 'M 245,75 L 285,75 L 280,95 L 240,95 Z', spectrumPref: 5.3, regionalist: false, desc: 'La Rioja - Bipartidismo Conservador' },
-      { id: 'HUE', name: 'Huesca', d: 'M 325,35 L 370,40 L 365,80 L 320,75 Z', spectrumPref: 4.5, regionalist: false, desc: 'Huesca - Pirineos / Moderado' },
-      { id: 'ZAR', name: 'Zaragoza', d: 'M 285,75 L 365,80 L 358,125 L 280,120 Z', spectrumPref: 4.8, regionalist: false, desc: 'Zaragoza - Centro Urbano' },
-      { id: 'TER', name: 'Teruel', d: 'M 310,125 L 358,125 L 350,165 L 302,165 Z', spectrumPref: 5.0, regionalist: true, desc: 'Teruel - España Vaciada' },
-      { id: 'LLE', name: 'Lleida', d: 'M 370,40 L 415,45 L 410,95 L 365,80 Z', spectrumPref: 2.7, regionalist: true, desc: 'Lleida - Soberanismo Interior' },
-      { id: 'GIR', name: 'Girona', d: 'M 415,45 L 465,50 L 455,95 L 410,95 Z', spectrumPref: 2.5, regionalist: true, desc: 'Girona - Soberanismo Costa' },
-      { id: 'BAR', name: 'Barcelona', d: 'M 410,95 L 455,95 L 445,140 L 400,135 Z', spectrumPref: 3.1, regionalist: true, desc: 'Barcelona - Área Metropolitana' },
-      { id: 'TAR', name: 'Tarragona', d: 'M 365,80 L 410,95 L 400,135 L 358,125 Z', spectrumPref: 3.3, regionalist: true, desc: 'Tarragona - Sur / Plural' },
-      { id: 'LEO', name: 'León', d: 'M 130,65 L 185,65 L 180,105 L 125,105 Z', spectrumPref: 5.0, regionalist: false, desc: 'León - Leonesismo / Centro' },
-      { id: 'PAL', name: 'Palencia', d: 'M 185,65 L 220,65 L 215,105 L 180,105 Z', spectrumPref: 5.6, regionalist: false, desc: 'Palencia - Agrario Conservador' },
-      { id: 'BUR', name: 'Burgos', d: 'M 220,65 L 245,65 L 240,115 L 215,105 Z', spectrumPref: 5.7, regionalist: false, desc: 'Burgos - Conservador' },
-      { id: 'ZAM', name: 'Zamora', d: 'M 125,105 L 175,105 L 170,145 L 120,145 Z', spectrumPref: 5.8, regionalist: false, desc: 'Zamora - Bastión PP' },
-      { id: 'VAC', name: 'Valladolid', d: 'M 175,105 L 215,105 L 210,145 L 170,145 Z', spectrumPref: 5.5, regionalist: false, desc: 'Valladolid - Centro Urbano' },
-      { id: 'SOR', name: 'Soria', d: 'M 240,115 L 280,120 L 275,155 L 235,150 Z', spectrumPref: 5.4, regionalist: true, desc: 'Soria - Soria ¡YA!' },
-      { id: 'SAL', name: 'Salamanca', d: 'M 120,145 L 170,145 L 165,185 L 115,185 Z', spectrumPref: 6.0, regionalist: false, desc: 'Salamanca - Feudo Tradicional' },
-      { id: 'SEG', name: 'Segovia', d: 'M 210,145 L 250,145 L 245,180 L 205,180 Z', spectrumPref: 5.7, regionalist: false, desc: 'Segovia - Conservador' },
-      { id: 'AVI', name: 'Ávila', d: 'M 165,185 L 205,180 L 200,210 L 160,210 Z', spectrumPref: 6.2, regionalist: false, desc: 'Ávila - Bastión Conservador' },
-      { id: 'GUA', name: 'Guadalajara', d: 'M 250,145 L 290,148 L 285,185 L 245,180 Z', spectrumPref: 5.3, regionalist: false, desc: 'Guadalajara - Corredor Henares' },
-      { id: 'CUE', name: 'Cuenca', d: 'M 285,185 L 325,188 L 320,230 L 280,225 Z', spectrumPref: 5.2, regionalist: false, desc: 'Cuenca - Agrario' },
-      { id: 'TOL', name: 'Toledo', d: 'M 200,210 L 242,208 L 238,250 L 195,250 Z', spectrumPref: 5.1, regionalist: false, desc: 'Toledo - Bipartidista' },
-      { id: 'CR', name: 'Ciudad Real', d: 'M 195,250 L 255,250 L 250,295 L 190,295 Z', spectrumPref: 5.0, regionalist: false, desc: 'Ciudad Real - Centro' },
-      { id: 'ALB', name: 'Albacete', d: 'M 255,250 L 315,250 L 308,295 L 250,295 Z', spectrumPref: 5.2, regionalist: false, desc: 'Albacete - La Mancha Oriental' },
-      { id: 'CAC', name: 'Cáceres', d: 'M 115,185 L 165,185 L 160,235 L 110,235 Z', spectrumPref: 4.2, regionalist: false, desc: 'Cáceres - Norte / PSOE-PP' },
-      { id: 'BAD', name: 'Badajoz', d: 'M 110,235 L 190,250 L 180,300 L 100,290 Z', spectrumPref: 4.0, regionalist: false, desc: 'Badajoz - Bastión PSOE' },
-      { id: 'CAS', name: 'Castellón', d: 'M 350,165 L 385,165 L 378,210 L 343,210 Z', spectrumPref: 5.1, regionalist: false, desc: 'Castellón - Norte' },
-      { id: 'VAL', name: 'Valencia', d: 'M 343,210 L 380,210 L 372,260 L 335,260 Z', spectrumPref: 4.9, regionalist: true, desc: 'Valencia - Área Metropolitana' },
-      { id: 'ALI', name: 'Alicante', d: 'M 335,260 L 375,260 L 368,305 L 328,305 Z', spectrumPref: 5.7, regionalist: false, desc: 'Alicante - Sur Conservador' },
-      { id: 'MUR', name: 'Murcia', d: 'M 308,295 L 358,295 L 350,335 L 300,335 Z', spectrumPref: 6.4, regionalist: false, desc: 'Murcia - Bastión Conservador' },
-      { id: 'HUE_AND', name: 'Huelva', d: 'M 100,290 L 140,295 L 135,340 L 95,335 Z', spectrumPref: 4.2, regionalist: false, desc: 'Huelva - Costa Occidental' },
-      { id: 'SEV', name: 'Sevilla', d: 'M 140,295 L 190,295 L 182,345 L 135,340 Z', spectrumPref: 4.1, regionalist: false, desc: 'Sevilla - Gran Feudo Socialista' },
-      { id: 'COR', name: 'Córdoba', d: 'M 190,295 L 235,295 L 228,340 L 182,340 Z', spectrumPref: 4.4, regionalist: false, desc: 'Córdoba - Centro Interior' },
-      { id: 'JAE', name: 'Jaén', d: 'M 235,295 L 285,295 L 278,340 L 228,340 Z', spectrumPref: 4.3, regionalist: false, desc: 'Jaén - Olivarero' },
-      { id: 'CAD', name: 'Cádiz', d: 'M 135,340 L 175,345 L 168,380 L 128,375 Z', spectrumPref: 3.8, regionalist: false, desc: 'Cádiz - Izquierda / Bahía' },
-      { id: 'MAL', name: 'Málaga', d: 'M 175,345 L 225,345 L 218,380 L 168,380 Z', spectrumPref: 5.3, regionalist: false, desc: 'Málaga - Costa del Sol / PP' },
-      { id: 'GRA', name: 'Granada', d: 'M 225,345 L 275,345 L 268,380 L 218,380 Z', spectrumPref: 4.7, regionalist: false, desc: 'Granada - Bipartidista' },
-      { id: 'ALM', name: 'Almería', d: 'M 275,345 L 320,335 L 312,375 L 268,380 Z', spectrumPref: 6.1, regionalist: false, desc: 'Almería - Feudo Conservador' },
-      { id: 'BAL', name: 'Baleares', d: 'M 420,200 L 470,190 L 485,225 L 435,235 Z', spectrumPref: 5.0, regionalist: true, desc: 'Islas Baleares' },
-      { id: 'TF', name: 'Santa Cruz de Tenerife', d: 'M 40,350 L 95,350 L 90,385 L 35,385 Z', spectrumPref: 4.4, regionalist: true, desc: 'Santa Cruz de Tenerife' },
-      { id: 'LPA', name: 'Las Palmas', d: 'M 105,350 L 160,350 L 155,385 L 100,385 Z', spectrumPref: 4.6, regionalist: true, desc: 'Las Palmas' },
-      { id: 'CEU', name: 'Ceuta', d: 'M 200,382 L 215,382 L 215,395 L 200,395 Z', spectrumPref: 6.6, regionalist: false, desc: 'Ceuta - Ciudad Autónoma' },
-      { id: 'MEL', name: 'Melilla', d: 'M 240,382 L 255,382 L 255,395 L 240,395 Z', spectrumPref: 6.5, regionalist: false, desc: 'Melilla - Ciudad Autónoma' },
-      { id: 'MAD', name: 'Madrid', d: 'M 215,180 L 245,180 L 242,208 L 212,208 Z', spectrumPref: 5.8, regionalist: false, desc: 'Comunidad de Madrid - Capital / Feudo Conservador' }
+      { id: 'CNO', name: 'A Coruña', d: 'M 21.2,55.1 L 17.2,50.0 L 23.4,38.0 L 35.7,30.0 L 51.1,18.0 L 58.8,17.0 L 58.8,58.6 L 57.5,59.8 Z', spectrumPref: 5.2, regionalist: true, desc: 'A Coruña - Bipartidismo / Galleguismo' },
+      { id: 'LUG', name: 'Lugo', d: 'M 58.8,17.0 L 66.5,16.0 L 88.1,24.0 L 93.8,23.6 L 100.1,54.9 L 97.8,62.9 L 58.8,58.6 Z', spectrumPref: 5.5, regionalist: true, desc: 'Lugo - Feudo Conservador' },
+      { id: 'PON', name: 'Pontevedra', d: 'M 30.5,91.2 L 29.6,74.0 L 26.5,62.0 L 21.2,55.1 L 57.5,59.8 L 53.1,90.2 L 51.1,90.0 L 41.9,82.0 Z', spectrumPref: 5.1, regionalist: true, desc: 'Pontevedra - Centro / Izquierda' },
+      { id: 'OUR', name: 'Ourense', d: 'M 57.5,59.8 L 58.8,58.6 L 97.8,62.9 L 100.9,77.8 L 95.4,90.5 L 75.8,92.0 L 53.1,90.2 Z', spectrumPref: 5.8, regionalist: true, desc: 'Ourense - Bastión Conservador' },
+      { id: 'AST', name: 'Asturias', d: 'M 93.8,23.6 L 118.9,22.0 L 149.7,28.0 L 151.5,28.2 L 151.0,42.8 L 100.1,54.9 Z', spectrumPref: 3.4, regionalist: false, desc: 'Asturias - Tradición Industrial' },
+      { id: 'CAN', name: 'Cantabria', d: 'M 151.5,28.2 L 165.1,30.0 L 186.6,26.0 L 196.9,27.7 L 198.2,50.8 L 179.9,57.4 L 151.4,43.7 L 151.0,42.8 Z', spectrumPref: 5.4, regionalist: true, desc: 'Cantabria - Centroderecha / Regionalismo' },
+      { id: 'VIZ', name: 'Vizcaya', d: 'M 196.9,27.7 L 211.3,30.0 L 225.8,30.0 L 224.8,41.2 L 198.8,51.2 L 198.2,50.8 Z', spectrumPref: 2.5, regionalist: true, desc: 'Vizcaya - PNV / Soberanismo' },
+      { id: 'GUI', name: 'Guipúzcoa', d: 'M 225.8,30.0 L 242.1,30.0 L 248.9,31.2 L 255.0,39.0 L 236.8,54.4 L 224.8,41.2 Z', spectrumPref: 2.2, regionalist: true, desc: 'Guipúzcoa - Izquierda Soberanista' },
+      { id: 'ALA', name: 'Álava', d: 'M 198.8,51.2 L 224.8,41.2 L 236.8,54.4 L 235.8,59.6 L 210.1,66.8 Z', spectrumPref: 3.2, regionalist: true, desc: 'Álava - Plural' },
+      { id: 'NAV', name: 'Navarra', d: 'M 255.0,39.0 L 260.6,46.0 L 282.1,52.0 L 283.3,52.3 L 273.2,76.5 L 251.9,85.8 L 235.8,59.6 L 236.8,54.4 Z', spectrumPref: 3.5, regionalist: true, desc: 'Navarra - Foralismo / Izquierda' },
+      { id: 'RIO', name: 'La Rioja', d: 'M 210.1,66.8 L 235.8,59.6 L 251.9,85.8 L 251.7,86.0 L 209.0,86.0 Z', spectrumPref: 5.3, regionalist: false, desc: 'La Rioja - Bipartidismo Conservador' },
+      { id: 'HUE', name: 'Huesca', d: 'M 283.3,52.3 L 303.7,58.0 L 325.2,52.0 L 332.6,54.0 L 304.6,108.0 L 303.4,108.8 L 273.2,76.5 Z', spectrumPref: 4.5, regionalist: false, desc: 'Huesca - Pirineos / Moderado' },
+      { id: 'ZAR', name: 'Zaragoza', d: 'M 251.7,86.0 L 251.9,85.8 L 273.2,76.5 L 303.4,108.8 L 298.5,124.9 L 294.6,126.7 L 251.0,123.5 L 247.6,117.9 Z', spectrumPref: 4.8, regionalist: false, desc: 'Zaragoza - Centro Urbano' },
+      { id: 'TER', name: 'Teruel', d: 'M 262.0,171.4 L 245.7,143.9 L 251.0,123.5 L 294.6,126.7 L 276.0,169.6 Z', spectrumPref: 5.0, regionalist: true, desc: 'Teruel - España Vaciada' },
+      { id: 'LLE', name: 'Lleida', d: 'M 332.6,54.0 L 346.8,58.0 L 352.3,62.7 L 346.9,108.0 L 304.6,108.0 Z', spectrumPref: 2.7, regionalist: true, desc: 'Lleida - Soberanismo Interior' },
+      { id: 'GIR', name: 'Girona', d: 'M 359.3,67.4 L 365.3,70.0 L 399.2,68.8 L 405.3,74.0 L 399.2,90.0 L 389.9,100.0 L 385.3,102.5 Z', spectrumPref: 2.5, regionalist: true, desc: 'Girona - Soberanismo Costa' },
+      { id: 'BAR', name: 'Barcelona', d: 'M 352.3,62.7 L 356.0,66.0 L 359.3,67.4 L 385.3,102.5 L 371.4,110.0 L 353.3,117.1 L 346.9,108.0 Z', spectrumPref: 3.1, regionalist: true, desc: 'Barcelona - Área Metropolitana' },
+      { id: 'TAR', name: 'Tarragona', d: 'M 353.3,117.1 L 340.6,122.0 L 329.9,136.0 L 322.8,147.8 L 298.5,124.9 L 303.4,108.8 L 304.6,108.0 L 346.9,108.0 Z', spectrumPref: 3.3, regionalist: true, desc: 'Tarragona - Sur / Plural' },
+      { id: 'LEO', name: 'León', d: 'M 100.9,77.8 L 97.8,62.9 L 100.1,54.9 L 151.0,42.8 L 151.4,43.7 L 143.3,81.4 Z', spectrumPref: 5.0, regionalist: false, desc: 'León - Leonesismo / Centro' },
+      { id: 'PAL', name: 'Palencia', d: 'M 143.3,81.4 L 151.4,43.7 L 179.9,57.4 L 177.6,89.0 L 144.0,82.5 Z', spectrumPref: 5.6, regionalist: false, desc: 'Palencia - Agrario Conservador' },
+      { id: 'BUR', name: 'Burgos', d: 'M 179.9,57.4 L 198.2,50.8 L 198.8,51.2 L 210.1,66.8 L 209.0,86.0 L 196.5,102.3 L 187.0,99.5 L 177.6,89.0 Z', spectrumPref: 5.7, regionalist: false, desc: 'Burgos - Conservador' },
+      { id: 'ZAM', name: 'Zamora', d: 'M 97.2,113.7 L 101.9,106.0 L 101.9,90.0 L 95.4,90.5 L 100.9,77.8 L 143.3,81.4 L 144.0,82.5 L 139.9,117.4 Z', spectrumPref: 5.8, regionalist: false, desc: 'Zamora - Bastión PP' },
+      { id: 'VAC', name: 'Valladolid', d: 'M 139.9,117.4 L 144.0,82.5 L 177.6,89.0 L 187.0,99.5 L 157.0,122.6 L 141.3,119.0 Z', spectrumPref: 5.5, regionalist: false, desc: 'Valladolid - Centro Urbano' },
+      { id: 'SOR', name: 'Soria', d: 'M 209.0,86.0 L 251.7,86.0 L 247.6,117.9 L 203.2,114.1 L 196.5,102.3 Z', spectrumPref: 5.4, regionalist: true, desc: 'Soria - Soria ¡YA!' },
+      { id: 'SAL', name: 'Salamanca', d: 'M 92.6,153.2 L 89.6,126.0 L 97.2,113.7 L 139.9,117.4 L 141.3,119.0 L 129.4,160.3 Z', spectrumPref: 6.0, regionalist: false, desc: 'Salamanca - Feudo Tradicional' },
+      { id: 'SEG', name: 'Segovia', d: 'M 157.0,122.6 L 187.0,99.5 L 196.5,102.3 L 203.2,114.1 L 200.6,129.2 L 169.9,145.0 Z', spectrumPref: 5.7, regionalist: false, desc: 'Segovia - Conservador' },
+      { id: 'AVI', name: 'Ávila', d: 'M 129.4,160.3 L 141.3,119.0 L 157.0,122.6 L 169.9,145.0 L 167.1,158.8 L 143.5,173.4 Z', spectrumPref: 6.2, regionalist: false, desc: 'Ávila - Bastión Conservador' },
+      { id: 'GUA', name: 'Guadalajara', d: 'M 200.6,129.2 L 203.2,114.1 L 247.6,117.9 L 251.0,123.5 L 245.7,143.9 L 213.4,156.3 Z', spectrumPref: 5.3, regionalist: false, desc: 'Guadalajara - Corredor Henares' },
+      { id: 'CUE', name: 'Cuenca', d: 'M 214.4,193.5 L 208.3,186.3 L 206.0,177.6 L 213.4,156.3 L 245.7,143.9 L 262.0,171.4 L 252.0,185.6 Z', spectrumPref: 5.2, regionalist: false, desc: 'Cuenca - Agrario' },
+      { id: 'TOL', name: 'Toledo', d: 'M 143.5,173.4 L 167.1,158.8 L 206.0,177.6 L 208.3,186.3 L 147.3,206.4 L 143.5,200.0 Z', spectrumPref: 5.1, regionalist: false, desc: 'Toledo - Bipartidista' },
+      { id: 'CR', name: 'Ciudad Real', d: 'M 147.3,206.6 L 147.3,206.4 L 208.3,186.3 L 214.4,193.5 L 214.4,226.5 L 178.9,234.0 Z', spectrumPref: 5.0, regionalist: false, desc: 'Ciudad Real - Centro' },
+      { id: 'ALB', name: 'Albacete', d: 'M 214.4,226.5 L 214.4,193.5 L 252.0,185.6 L 266.0,212.5 L 260.7,224.8 L 223.6,237.5 Z', spectrumPref: 5.2, regionalist: false, desc: 'Albacete - La Mancha Oriental' },
+      { id: 'CAC', name: 'Cáceres', d: 'M 88.5,200.0 L 78.8,182.0 L 91.2,166.0 L 92.7,154.0 L 92.6,153.2 L 129.4,160.3 L 143.5,173.4 L 143.5,200.0 Z', spectrumPref: 4.2, regionalist: false, desc: 'Cáceres - Norte / PSOE-PP' },
+      { id: 'BAD', name: 'Badajoz', d: 'M 75.8,228.4 L 81.9,210.0 L 89.6,202.0 L 88.5,200.0 L 143.5,200.0 L 147.3,206.4 L 147.3,206.6 L 127.6,242.0 L 117.1,245.7 Z', spectrumPref: 4.0, regionalist: false, desc: 'Badajoz - Bastión PSOE' },
+      { id: 'CAS', name: 'Castellón', d: 'M 322.8,147.8 L 319.1,154.0 L 303.7,170.0 L 297.8,182.6 L 276.0,169.6 L 294.6,126.7 L 298.5,124.9 Z', spectrumPref: 5.1, regionalist: false, desc: 'Castellón - Norte' },
+      { id: 'VAL', name: 'Valencia', d: 'M 297.8,182.6 L 294.4,190.0 L 298.6,206.2 L 266.0,212.5 L 252.0,185.6 L 262.0,171.4 L 276.0,169.6 Z', spectrumPref: 4.9, regionalist: true, desc: 'Valencia - Área Metropolitana' },
+      { id: 'ALI', name: 'Alicante', d: 'M 298.6,206.2 L 300.6,214.0 L 309.8,218.0 L 291.4,232.0 L 282.1,250.0 L 281.7,250.7 L 260.7,224.8 L 266.0,212.5 Z', spectrumPref: 5.7, regionalist: false, desc: 'Alicante - Sur Conservador' },
+      { id: 'MUR', name: 'Murcia', d: 'M 281.7,250.7 L 276.0,262.0 L 254.4,270.0 L 253.4,271.5 L 225.1,249.7 L 223.6,237.5 L 260.7,224.8 Z', spectrumPref: 6.4, regionalist: false, desc: 'Murcia - Bastión Conservador' },
+      { id: 'HUE_AND', name: 'Huelva', d: 'M 101.7,289.6 L 91.2,280.0 L 75.8,278.0 L 75.8,262.0 L 72.7,238.0 L 75.8,228.4 L 117.1,245.7 L 108.7,284.7 Z', spectrumPref: 4.2, regionalist: false, desc: 'Huelva - Costa Occidental' },
+      { id: 'SEV', name: 'Sevilla', d: 'M 108.7,284.7 L 117.1,245.7 L 127.6,242.0 L 155.1,266.1 L 138.1,289.7 Z', spectrumPref: 4.1, regionalist: false, desc: 'Sevilla - Gran Feudo Socialista' },
+      { id: 'COR', name: 'Córdoba', d: 'M 155.1,266.1 L 127.6,242.0 L 147.3,206.6 L 178.9,234.0 L 168.7,265.3 Z', spectrumPref: 4.4, regionalist: false, desc: 'Córdoba - Centro Interior' },
+      { id: 'JAE', name: 'Jaén', d: 'M 175.1,271.3 L 168.7,265.3 L 178.9,234.0 L 214.4,226.5 L 223.6,237.5 L 225.1,249.7 L 216.9,260.6 Z', spectrumPref: 4.3, regionalist: false, desc: 'Jaén - Olivarero' },
+      { id: 'CAD', name: 'Cádiz', d: 'M 147.4,309.5 L 146.6,310.0 L 138.9,321.2 L 131.2,326.0 L 118.9,318.0 L 109.6,306.0 L 106.6,294.0 L 101.7,289.6 L 108.7,284.7 L 138.1,289.7 Z', spectrumPref: 3.8, regionalist: false, desc: 'Cádiz - Izquierda / Bahía' },
+      { id: 'MAL', name: 'Málaga', d: 'M 182.9,297.2 L 180.5,297.2 L 168.2,298.0 L 147.4,309.5 L 138.1,289.7 L 155.1,266.1 L 168.7,265.3 L 175.1,271.3 Z', spectrumPref: 5.3, regionalist: false, desc: 'Málaga - Costa del Sol / PP' },
+      { id: 'GRA', name: 'Granada', d: 'M 212.1,297.1 L 211.3,297.2 L 182.9,297.2 L 175.1,271.3 L 216.9,260.6 Z', spectrumPref: 4.7, regionalist: false, desc: 'Granada - Bipartidista' },
+      { id: 'ALM', name: 'Almería', d: 'M 253.4,271.5 L 239.0,294.0 L 212.1,297.1 L 216.9,260.6 L 225.1,249.7 Z', spectrumPref: 6.1, regionalist: false, desc: 'Almería - Feudo Conservador' },
+      { id: 'BAL', name: 'Baleares', d: 'M 376.1,184.0 L 380.7,174.0 L 399.2,168.0 L 409.9,176.0 L 402.2,188.0 L 396.1,194.0 L 385.3,190.0 Z M 422.3,168.0 L 436.1,164.0 L 433.0,172.0 L 423.8,172.0 Z M 340.6,208.0 L 351.4,202.0 L 353.0,208.0 L 346.8,212.0 Z M 346.8,218.0 L 351.4,217.2 L 349.9,220.4 Z', spectrumPref: 5.0, regionalist: true, desc: 'Islas Baleares' },
+      { id: 'TF', name: 'Santa Cruz de Tenerife', d: 'M 20.0,372.0 L 27.0,370.0 L 28.0,376.0 L 22.0,378.0 Z M 24.0,350.0 L 31.0,348.0 L 34.0,358.0 L 29.0,364.0 L 25.0,358.0 Z M 38.0,368.0 L 46.0,367.0 L 47.0,374.0 L 40.0,376.0 Z M 54.0,364.0 L 70.0,358.0 L 80.0,364.0 L 74.0,372.0 L 60.0,374.0 Z', spectrumPref: 4.4, regionalist: true, desc: 'Santa Cruz de Tenerife' },
+      { id: 'LPA', name: 'Las Palmas', d: 'M 96.0,372.0 L 106.0,368.0 L 111.0,374.0 L 106.0,381.0 L 98.0,380.0 Z M 118.0,356.0 L 126.0,350.0 L 130.0,358.0 L 124.0,370.0 L 116.0,372.0 L 114.0,364.0 Z M 138.0,340.0 L 146.0,338.0 L 150.0,346.0 L 143.0,350.0 L 137.0,347.0 Z', spectrumPref: 4.6, regionalist: true, desc: 'Las Palmas' },
+      { id: 'CEU', name: 'Ceuta', d: 'M 133.9,332.9 L 143.9,332.9 L 143.9,339.9 L 133.9,339.9 Z', spectrumPref: 6.6, regionalist: false, desc: 'Ceuta - Ciudad Autónoma' },
+      { id: 'MEL', name: 'Melilla', d: 'M 207.8,350.5 L 217.8,350.5 L 217.8,357.5 L 207.8,357.5 Z', spectrumPref: 6.5, regionalist: false, desc: 'Melilla - Ciudad Autónoma' },
+      { id: 'MAD', name: 'Madrid', d: 'M 167.1,158.8 L 169.9,145.0 L 200.6,129.2 L 213.4,156.3 L 206.0,177.6 Z', spectrumPref: 5.8, regionalist: false, desc: 'Comunidad de Madrid - Capital / Feudo Conservador' }
     ];
 
 let gameState = {
@@ -6978,7 +6978,7 @@ function renderTabContent() {
             <span><i class="fa-solid fa-map-location-dot text-amber-400 mr-1.5"></i>Mapa Provincial de España</span>
             <span id="map-tooltip" class="text-amber-400 font-bold text-[10px]">Pasa el cursor por cada provincia</span>
           </h3>
-          <svg viewBox="0 0 500 400" class="w-full h-auto mt-2">
+          <svg viewBox="0 0 500 400" class="w-full h-auto mt-2" style="background:radial-gradient(ellipse at 40% 40%,#12212b,#0a1218);border-radius:8px"><rect x="10" y="334" width="150" height="60" rx="4" fill="none" stroke="#3d4f59" stroke-dasharray="4 3"/><text x="14" y="346" fill="#64748b" font-size="7" font-family="Chakra Petch,sans-serif">CANARIAS</text>
             ${(typeof SPAIN_MAP_PATHS !== 'undefined' ? SPAIN_MAP_PATHS : []).map(prov => {
               const regionalVal = typeof getRegionalApproval === 'function' ? getRegionalApproval(prov) : 50;
               const isCrisis = gameState.provincesStatus && gameState.provincesStatus[prov.id] && gameState.provincesStatus[prov.id].crisis;
@@ -14825,6 +14825,111 @@ function playSound(n) {
   polish();
 })();
 
+
+// =====================================================================
+//  EFECTO DOMINÓ POLÍTICO + ECONOMÍA REALISTA (módulo añadido)
+// =====================================================================
+(function () {
+  const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
+  const snap = () => ({ m: Object.assign({}, gameState.metrics || {}), t: Number(gameState.treasury) || 0 });
+  let before = null;
+
+  // ---- 1. Cualquier decisión (en cualquier apartado) repercute en estabilidad y política ----
+  document.addEventListener('click', () => {
+    if (gameState.step !== 4 || !gameState.metrics) return;
+    before = snap();
+    setTimeout(() => { try { ripple(before); } catch (e) { console.error(e); } }, 0);
+  }, true);
+
+  function ripple(b) {
+    if (!b || gameState.step !== 4 || !gameState.metrics) return;
+    const m = gameState.metrics, d = {};
+    ['eco', 'est', 'emp', 'apr', 'mil', 'con'].forEach(k => d[k] = (m[k] || 0) - (b.m[k] || 0));
+    if (!Object.values(d).some(v => Math.abs(v) >= 1)) return;
+
+    // Estabilidad: el malestar pesa más que el aplauso
+    let dEst = 0.30 * Math.min(0, d.apr) + 0.10 * Math.max(0, d.apr) + 0.15 * d.emp + 0.10 * Math.min(0, d.eco) + 0.04 * Math.max(0, d.eco);
+    if (d.mil <= -5) dEst += 0.15 * d.mil;
+    if (Math.abs(d.con) >= 8) dEst -= 0.10 * Math.abs(d.con);          // giros ideológicos bruscos polarizan
+    dEst = Math.max(-4, Math.min(3, dEst));
+    if (Math.abs(dEst) >= 0.5) m.est = clamp(m.est + dEst);
+
+    // Política: lealtad de socios y oposición según la dirección ideológica de la medida
+    const leader = (gameState.parties || []).find(p => p.id === gameState.leaderPartyId);
+    const msgs = [];
+    if (leader) {
+      const coal = gameState.coalitionIds || [];
+      (gameState.parties || []).forEach(p => {
+        if (p.id === leader.id) return;
+        const side = Math.sign((p.spectrumOrder || 0) - (leader.spectrumOrder || 0));
+        let dl = 0.3 * d.con * side + (d.apr >= 0 ? 0.15 : 0.35) * d.apr;
+        dl = Math.max(-6, Math.min(5, dl));
+        if (Math.abs(dl) < 0.5) return;
+        if (coal.includes(p.id) && typeof updatePartnerLoyalty === 'function') updatePartnerLoyalty(p.id, dl);
+        else if (gameState.oppositionLoyalty && gameState.oppositionLoyalty[p.id] !== undefined)
+          gameState.oppositionLoyalty[p.id] = clamp(gameState.oppositionLoyalty[p.id] + dl * 0.7);
+        if (dl <= -2.5 && coal.includes(p.id)) msgs.push(`${p.name} (${Math.round(dl)})`);
+      });
+      // Calle: una medida muy impopular o desestabilizadora enciende provincias alejadas del Gobierno
+      if ((dEst <= -2.5 || d.apr <= -8) && typeof SPAIN_MAP_PATHS !== 'undefined' && Math.random() < 0.4) {
+        gameState.provincesStatus = gameState.provincesStatus || {};
+        const n = Object.values(gameState.provincesStatus).filter(x => x.crisis).length;
+        const far = SPAIN_MAP_PATHS.filter(p => !(gameState.provincesStatus[p.id] || {}).crisis && Math.abs(p.spectrumPref - leader.spectrumOrder) >= 1.2);
+        if (n < 5 && far.length) {
+          const p = far[Math.floor(Math.random() * far.length)];
+          gameState.provincesStatus[p.id] = { crisis: true, title: 'Protestas por las medidas del Gobierno' };
+          msgs.push(`protestas en ${p.name}`);
+        }
+      }
+      // Capital político: gobernar a golpe de impopularidad cuesta
+      if (gameState.goals && typeof gameState.goals.capital === 'number' && d.apr <= -5) gameState.goals.capital = clamp(gameState.goals.capital - 0.4 * Math.abs(d.apr));
+    }
+    if ((Math.abs(dEst) >= 1 || msgs.length) && typeof goalsToast === 'function')
+      goalsToast(`<i class="fa-solid fa-landmark text-amber-400"></i> <b>Repercusión política:</b> Estabilidad ${dEst >= 0 ? '+' : ''}${dEst.toFixed(1)}${msgs.length ? '<br><span class="text-xs text-red-300">' + msgs.join(' · ') + '</span>' : ''}`, dEst < 0 ? '#ef4444' : '#10b981');
+    if (typeof render === 'function') render();
+  }
+
+  // ---- 2. Economía realista (ciclo, Okun, estabilizadores, intereses, recaudación) ----
+  function econDaily() {
+    const m = gameState.metrics; if (!m) return;
+    // reversión a la media: ningún auge ni crisis dura para siempre
+    m.eco = clamp(m.eco + (50 - m.eco) * 0.0015 + (Math.random() - 0.5) * 0.12);
+    // Ley de Okun: el empleo sigue al ciclo con retraso
+    const target = 15 + m.eco * 0.7;
+    m.emp = clamp(m.emp + (target - m.emp) * 0.006);
+    // la deuda elevada y el déficit persistente erosionan la confianza de los mercados
+    const debt = (gameState.debt && gameState.debt.amount) || 0;
+    if (debt > 60000) m.eco = clamp(m.eco - (debt - 60000) / 40000 * 0.03);
+    // desestabilizadores sociales: paro y precariedad
+    if (m.emp < 35) m.est = clamp(m.est - 0.03);
+  }
+
+  function econMonthly() {
+    const m = gameState.metrics; if (!m || typeof registerFinancialTransaction !== 'function') return;
+    const eco = m.eco, emp = m.emp, est = m.est;
+    const infl = eco > 70 ? (eco - 70) / 100 : 0;                                   // sobrecalentamiento
+    const revenue = Math.round(11000 * (0.55 + 0.9 * eco / 100) * (0.85 + 0.3 * emp / 100) * (est < 40 ? 0.95 : 1));
+    const pensions = Math.round(6200 * (1 + infl) * (1 + (gameState.daysInOffice || 0) / 365 * 0.015));   // gasto rígido + indexación
+    const paro = Math.round(Math.max(0, 55 - emp) * 70);                           // estabilizadores automáticos
+    const debt = (gameState.debt && gameState.debt.amount) || 0;
+    const rate = typeof debtRate === 'function' ? debtRate() : 2;
+    const interest = Math.round((800 * rate / 2) + debt * rate / 1200);          // deuda heredada + nueva
+    const net = revenue - pensions - paro - interest;
+    registerFinancialTransaction('Ciclo fiscal mensual (recaudación − pensiones − paro − intereses)', net, 'economia');
+    gameState.fisc = { revenue, pensions, paro, interest, net };
+    if (typeof goalsToast === 'function')
+      goalsToast(`<i class="fa-solid fa-scale-balanced text-amber-400"></i> <b>Balance fiscal:</b> ${net >= 0 ? '+' : ''}${net.toLocaleString('es-ES')} M€<br><span class="text-[10px] text-slate-400">Ingresos ${revenue.toLocaleString('es-ES')} · Pensiones ${pensions.toLocaleString('es-ES')} · Paro ${paro.toLocaleString('es-ES')} · Intereses ${interest.toLocaleString('es-ES')}</span>`, net >= 0 ? '#10b981' : '#ef4444');
+  }
+
+  const _tick = gameTick;
+  gameTick = function () {
+    const b = gameState.daysInOffice;
+    _tick.apply(this, arguments);
+    if (gameState.daysInOffice !== b && gameState.step === 4 && !gameState.coupActive && !gameState.pgeActive) {
+      try { econDaily(); if (gameState.daysInOffice % 30 === 15) econMonthly(); } catch (e) { console.error(e); }
+    }
+  };
+})();
 </script>
 </body>
 </html>
