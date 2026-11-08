@@ -39,6 +39,16 @@ Una vez instalada funciona también sin conexión (la primera vez necesita inter
 
 Por defecto suena una música ambiental generada por el propio juego. Para usar la tuya, guarda un archivo `music/theme.mp3` (con licencia que permita publicarla). El botón ♪ de la esquina la activa o la silencia; el altavoz controla el volumen. El navegador solo deja sonar tras tu primer clic o toque.
 
+## Himnos de partido
+
+Al elegir partido en el pactómetro suena su himno, y en la noche electoral suena el del partido ganador. El interruptor es la banderita de la esquina inferior derecha.
+
+Por defecto el juego genera una fanfarria original para cada partido (no son los himnos reales). Para usar los reales, guarda `music/himnos/ID.mp3` (por ejemplo `PSOE.mp3`, `PP.mp3`, `VOX.mp3`). Los IDs están en `music/himnos/LEEME.txt`. Los himnos suelen tener derechos de autor: piénsalo antes de subirlos a un repositorio público.
+
+## Modo libre
+
+En la pantalla de inicio, la cuarta tarjeta, **Modo libre**: no hay moción de censura, golpe, intervención ni fin automático de legislatura. Aparece una pestaña **Modo libre** para ajustar métricas, tesorería y deuda heredada, congelar valores, regular la frecuencia de crisis y **convocar elecciones cuando quieras**.
+
 ## Publicar cambios
 
 Cuando cambies `index.html`, sube también un `VERSION` nuevo en `sw.js` (`'v2'`, `'v3'`…) para que los dispositivos que ya lo tienen instalado reciban la actualización.

@@ -1,0 +1,16 @@
+Himnos de partido
+=================
+Al elegir partido, y al ganar las elecciones, suena su himno.
+
+Sin archivos, el juego genera una fanfarria ORIGINAL para cada partido (distinta para cada uno, y siempre la misma).
+No son los himnos reales de los partidos.
+
+Para usar un himno real, guarda aquí un mp3 con el ID del partido como nombre:
+
+  España actual:  PSOE.mp3  PP.mp3  VOX.mp3  SUMAR.mp3  PODEMOS.mp3  ERC.mp3
+                  JUNTS.mp3  PNV.mp3  BILDU.mp3  BNG.mp3
+  Transición:     UCD.mp3  PSOE_77.mp3  AP.mp3  PCE.mp3  PNV_77.mp3  MIN.mp3
+
+El juego lo detecta solo (solo funciona al jugar desde la web publicada, no abriendo index.html suelto).
+Ojo: los himnos de partidos suelen tener derechos de autor. Si los subes a un repositorio público,
+asegúrate de tener permiso para hacerlo.

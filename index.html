@@ -13681,6 +13681,11 @@ function playSound(n) { if (SND.muted) return; try { sndCtx(); SOUNDS[n] && SOUN
       el = new Audio('music/theme.mp3'); el.loop = true; c.createMediaElementSource(el).connect(bus); el.play().catch(() => {});
     }).catch(() => generative(c));
   }
+  window.moncloaDuck = function (ms) {
+    if (!bus) return; const t = bus.context.currentTime; bus.gain.cancelScheduledValues(t);
+    bus.gain.setTargetAtTime(ms > 0 ? 0.12 : (on ? 0.9 : 0), t, 0.25);
+    if (ms > 0) bus.gain.setTargetAtTime(on ? 0.9 : 0, t + ms / 1000, 0.8);
+  };
   function paint(b) { b.style.opacity = on ? 1 : 0.4; b.title = on ? 'Música: activada' : 'Música: desactivada'; }
   function addUi() {
     const sb = document.getElementById('snd-btn'); if (!sb) return setTimeout(addUi, 500);
@@ -13711,6 +13716,293 @@ function playSound(n) { if (SND.muted) return; try { sndCtx(); SOUNDS[n] && SOUN
   window.addEventListener('pagehide', () => { try { saveGame(false); } catch (e) {} });
   addUi();
   if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+
+
+// =====================================================================
+//  HIMNOS DE PARTIDO  ·  MODO LIBRE
+//  - Al elegir partido suena su himno; en la noche electoral, el del ganador.
+//  - Himnos: si existe music/himnos/<ID>.mp3 se usa; si no, el juego genera
+//    una fanfarria original y propia de cada partido (siempre la misma).
+//  - Modo libre: sin final, sin fracaso y con panel de control.
+// =====================================================================
+(function () {
+  'use strict';
+
+  // ------------------------------------------------------------------
+  //  HIMNOS
+  // ------------------------------------------------------------------
+  const AKEY = 'moncloa_anthem';
+  let aOn = true; try { aOn = JSON.parse(localStorage.getItem(AKEY) || '{}').on !== false; } catch (e) {}
+  let cur = null;                       // { out, el, timer }
+  const fileOk = {};                    // id -> true / false (caché de existencia del archivo)
+
+  function rngFor(str) {
+    let h = 1779033703 ^ str.length;
+    for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); }
+    return function () {
+      h = Math.imul(h ^ (h >>> 16), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); h ^= h >>> 16;
+      return (h >>> 0) / 4294967296;
+    };
+  }
+  const mf = m => 440 * Math.pow(2, (m - 69) / 12);
+  const MAJOR = [0, 2, 4, 5, 7, 9, 11], MINOR = [0, 2, 3, 5, 7, 8, 10];
+  const RHY = [[1, 1, 1, 1], [1.5, 0.5, 1, 1], [1, 0.5, 0.5, 1, 1], [0.75, 0.25, 1, 2], [1, 1, 2], [0.5, 0.5, 1, 1, 1]];
+  const PRESET = {
+    coro:    { w1: 'triangle', w2: 'sine',     cut: 2200, att: 0.06, rel: 0.25, vib: 5.5, gain: 0.11 },
+    cuerdas: { w1: 'sawtooth', w2: 'triangle', cut: 1700, att: 0.09, rel: 0.30, vib: 4.5, gain: 0.07 },
+    metales: { w1: 'sawtooth', w2: 'square',   cut: 2600, att: 0.02, rel: 0.18, vib: 0,   gain: 0.06 }
+  };
+
+  function partyInfo(id) {
+    const p = (gameState.parties || []).find(x => x.id === id) || ((typeof SCENARIOS !== 'undefined' && gameState.scenario && gameState.scenario.parties) || []).find(x => x.id === id) || {};
+    return { name: p.name || id, spec: p.spectrumOrder || 4, reg: !!p.isRegional };
+  }
+
+  function note(c, out, t, midi, dur, P, vol) {
+    [P.w1, P.w2].forEach((w, k) => {
+      const o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
+      o.type = w; o.frequency.value = mf(midi); o.detune.value = k ? 7 : -4;
+      f.type = 'lowpass'; f.frequency.value = P.cut;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol * P.gain * (k ? 0.6 : 1), t + P.att);
+      g.gain.setValueAtTime(vol * P.gain * (k ? 0.6 : 1), t + Math.max(P.att, dur - P.rel)); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.05);
+      if (P.vib) { const l = c.createOscillator(), lg = c.createGain(); l.frequency.value = P.vib; lg.gain.value = 6; l.connect(lg); lg.connect(o.detune); l.start(t); l.stop(t + dur + 0.1); }
+      o.connect(f); f.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.1);
+    });
+  }
+  function drum(c, out, t, kind) {
+    if (kind === 'k') {
+      const o = c.createOscillator(), g = c.createGain();
+      o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.18);
+      g.gain.setValueAtTime(0.35, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+      o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.22);
+    } else {
+      const n = Math.floor(c.sampleRate * 0.12), b = c.createBuffer(1, n, c.sampleRate), a = b.getChannelData(0);
+      for (let i = 0; i < n; i++) a[i] = Math.random() * 2 - 1;
+      const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+      s.buffer = b; f.type = 'highpass'; f.frequency.value = 1800;
+      g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+      s.connect(f); f.connect(g); g.connect(out); s.start(t);
+    }
+  }
+
+  // Fanfarria original: 4 compases (A: pregunta · B: respuesta), marcha con bombo y caja.
+  function generate(c, out, id) {
+    const info = partyInfo(id), R = rngFor(id + '|moncloa');
+    const root = [57, 58, 60, 62, 64, 65, 67][Math.floor(R() * 7)];
+    const minor = R() < (info.spec <= 2 ? 0.55 : info.spec >= 6 ? 0.4 : 0.25);
+    const scale = minor ? MINOR : MAJOR;
+    const bpm = 98 + Math.floor(R() * 26) + (info.spec >= 6 ? 6 : 0);
+    const beat = 60 / bpm;
+    const P = PRESET[info.spec <= 2 ? 'coro' : info.spec <= 4 ? 'cuerdas' : 'metales'];
+    const deg = d => { const o = Math.floor(d / 7), i = ((d % 7) + 7) % 7; return root + scale[i] + 12 * o; };
+    const t0 = c.currentTime + 0.15;
+    const prog = [0, 3, 4, 0];                       // I · IV · V · I
+    let d = [0, 2, 4][Math.floor(R() * 3)] + 7, t = t0;
+    for (let bar = 0; bar < 4; bar++) {
+      const pat = bar === 3 ? [1, 1, 2] : RHY[Math.floor(R() * RHY.length)];
+      const bt = t;
+      pat.forEach((len, i) => {
+        const last = bar === 3 && i === pat.length - 1;
+        if (last) d = 7; else if (bar === 1 && i === pat.length - 1) d = 7 + 4; else {
+          const step = [-2, -1, -1, 0, 1, 1, 2, 3][Math.floor(R() * 8)];
+          d = Math.max(4, Math.min(14, d + step));
+        }
+        const dur = last ? beat * (len + 2) : len * beat;
+        note(c, out, t, deg(d), dur * 0.97, P, 1);
+        t += len * beat;
+      });
+      // armonía y bajo
+      const rt = prog[bar];
+      [0, 2, 4].forEach(k => note(c, out, bt, deg(rt + k) - 12, (bar === 3 ? 6 : 4) * beat * 0.97, PRESET.cuerdas, 0.55));
+      note(c, out, bt, deg(rt) - 24, (bar === 3 ? 6 : 4) * beat * 0.97, PRESET.coro, 1.1);
+      // percusión
+      for (let b = 0; b < (bar === 3 ? 1 : 4); b++) drum(c, out, bt + b * beat, b % 2 === 0 ? 'k' : 's');
+    }
+    return (t - t0) + beat * 2.5;
+  }
+
+  function stopAnthem() {
+    if (!cur) return; const k = cur; cur = null;
+    try { if (k.timer) clearTimeout(k.timer); if (k.el) k.el.pause(); if (k.out && k.out.gain) { k.out.gain.cancelScheduledValues(0); k.out.gain.setTargetAtTime(0, k.out.context.currentTime, 0.08); setTimeout(() => { try { k.out.disconnect(); } catch (e) {} }, 600); } } catch (e) {}
+    if (window.moncloaDuck) window.moncloaDuck(0);
+  }
+  function exists(id) {
+    if (fileOk[id] !== undefined) return Promise.resolve(fileOk[id]);
+    if (!/^https?:/.test(location.protocol)) return Promise.resolve((fileOk[id] = false));
+    return fetch('music/himnos/' + id + '.mp3', { method: 'HEAD' }).then(r => (fileOk[id] = r.ok)).catch(() => (fileOk[id] = false));
+  }
+  function playAnthem(id, label) {
+    if (!aOn || !id || SND.muted) return;
+    const c = sndCtx(); if (!c) return;
+    stopAnthem();
+    const out = c.createGain(); out.gain.value = 0.9; out.connect(SND.master);
+    const me = { out, el: null, timer: null }; cur = me;
+    const done = ms => { if (window.moncloaDuck) window.moncloaDuck(ms); me.timer = setTimeout(() => { if (cur === me) stopAnthem(); }, ms); };
+    exists(id).then(ok => {
+      if (cur !== me) return;
+      if (ok) {
+        const el = new Audio('music/himnos/' + id + '.mp3'); me.el = el;
+        try { c.createMediaElementSource(el).connect(out); } catch (e) {}
+        el.play().catch(() => {}); done(45000);
+        el.onended = () => { if (cur === me) stopAnthem(); };
+      } else {
+        done(Math.ceil(generate(c, out, id) * 1000) + 300);
+      }
+    });
+    if (label) try { goalsToast('<i class="fa-solid fa-flag text-amber-400"></i> Himno: <b>' + label + '</b>', '#d9a726'); } catch (e) {}
+  }
+  window.playAnthem = playAnthem; window.stopAnthem = stopAnthem;
+
+  // Elegir partido -> suena su himno
+  const _sl = setLeader;
+  setLeader = function (id) { const r = _sl.apply(this, arguments); try { playAnthem(id, partyInfo(id).name); } catch (e) { console.error(e); } return r; };
+
+  // Noche electoral -> himno del partido ganador
+  let lastStep = null;
+  function winnerAnthem() {
+    setTimeout(() => {
+      if (gameState.step !== 6) return;
+      const ps = gameState.tempNewParties || gameState.parties || [];
+      if (!ps.length) return;
+      const w = ps.reduce((a, b) => ((b.seats || 0) > (a.seats || 0) ? b : a), ps[0]);
+      playAnthem(w.id, w.name + ' · ganador de las elecciones');
+    }, 1400);
+  }
+  // Interruptor en la esquina del sonido
+  (function addBtn() {
+    const sb = document.getElementById('snd-btn'); if (!sb) return setTimeout(addBtn, 600);
+    const b = document.createElement('button'); b.innerHTML = '<i class="fa-solid fa-flag"></i>'; b.style.cssText = 'color:#d9a726;font-size:14px;cursor:pointer;background:none;border:0';
+    const paint = () => { b.style.opacity = aOn ? 1 : 0.4; b.title = aOn ? 'Himnos de partido: activados' : 'Himnos de partido: desactivados'; };
+    b.onclick = () => { aOn = !aOn; try { localStorage.setItem(AKEY, JSON.stringify({ on: aOn })); } catch (e) {} if (!aOn) stopAnthem(); paint(); };
+    paint(); sb.parentNode.appendChild(b);
+  })();
+
+  // ------------------------------------------------------------------
+  //  MODO LIBRE
+  // ------------------------------------------------------------------
+  const FREE_LEGS = 99;
+  const isFree = () => !!(gameState.campaign && gameState.campaign.legs === FREE_LEGS);
+  function FR() { if (!gameState.free) gameState.free = { floor: true, lock: null, events: 'normal' }; return gameState.free; }
+
+  CAMPAIGN_MODES.push({ legs: FREE_LEGS, icon: 'fa-infinity', title: 'MODO LIBRE', years: 'Sin límite', desc: 'Sin final ni fracaso: no hay moción de censura, golpe ni intervención. Tú decides cuándo convocar elecciones.' });
+  (function () {
+    const st = document.createElement('style');
+    st.textContent = '@media (min-width: 768px) { div.grid:has(> .mode-card) { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; } }';
+    document.head.appendChild(st);
+  })();
+  const _rss = renderScenarioSelect;
+  renderScenarioSelect = function (app) {
+    _rss.apply(this, arguments);
+    if (app && app.innerHTML) app.innerHTML = app.innerHTML.replace(new RegExp(FREE_LEGS + ' LEGISLATURAS · Sin límite'), 'SIN FINAL · SIN FRACASO');
+  };
+
+  // Nada de fin de partida automático
+  const _tem = triggerElectionsWithModal;
+  let lastToast = -999;
+  triggerElectionsWithModal = function () {
+    if (isFree() && !window.__freeManual) {
+      const d = gameState.daysInOffice || 0;
+      if (d - lastToast > 90) { lastToast = d; try { goalsToast('<i class="fa-solid fa-infinity text-amber-400"></i> <b>Modo libre:</b> habrías caído o llegado al final, pero sigues. Convoca elecciones desde la pestaña <b>Modo libre</b>.', '#d9a726'); } catch (e) {} }
+      if (typeof render === 'function') render();
+      return;
+    }
+    return _tem.apply(this, arguments);
+  };
+  const _tcd = triggerCoupDetat;
+  triggerCoupDetat = function () { if (isFree()) { try { goalsToast('Modo libre: el Ejército protesta pero no da el golpe.', '#d9a726'); } catch (e) {} render(); return; } return _tcd.apply(this, arguments); };
+
+  // Menos o ningún evento aleatorio, sin desgaste
+  const _dc = diffCfg;
+  diffCfg = function () {
+    const c = _dc.apply(this, arguments);
+    if (!isFree()) return c;
+    const f = FR(); return Object.assign({}, c, { attr: 0, shock: f.events === 'none' ? 0 : f.events === 'low' ? 0.004 : c.shock });
+  };
+  const _cdy = checkAndTriggerDynamicEvent;
+  checkAndTriggerDynamicEvent = function () {
+    if (isFree()) { const e = FR().events; if (e === 'none' || (e === 'low' && Math.random() < 0.5)) return; }
+    return _cdy.apply(this, arguments);
+  };
+  const _tpn = window.triggerPressNews;
+  window.triggerPressNews = function () {
+    if (isFree() && FR().events === 'none') { gameState.nextPressNewsDay = (gameState.daysInOffice || 0) + 60; return; }
+    return _tpn.apply(this, arguments);
+  };
+
+  function freeTick() {
+    if (!isFree() || gameState.step !== 4 || !gameState.metrics) return;
+    const f = FR(), m = gameState.metrics;
+    gameState.militaryCoupHandled = true; gameState.euInterventionHandled = true;
+    if (m.est < 1) m.est = 1; if (m.apr < 1) m.apr = 1;
+    if (f.floor && (Number(gameState.treasury) || 0) < 20000) registerFinancialTransaction('Tesorería ilimitada (modo libre)', 60000 - (Number(gameState.treasury) || 0), 'economia');
+    if (f.lock) Object.keys(f.lock).forEach(k => { m[k] = f.lock[k]; });
+  }
+  const _gt = gameTick;
+  gameTick = function () { const b = gameState.daysInOffice; _gt.apply(this, arguments); if (gameState.daysInOffice !== b) { try { freeTick(); } catch (e) { console.error(e); } } };
+
+  // Acciones del panel
+  window.freeSet = function (k, v, el) { const m = gameState.metrics; if (!m) return; m[k] = +v; const f = FR(); if (f.lock) f.lock[k] = +v; if (el && el.nextElementSibling) el.nextElementSibling.textContent = Math.round(v) + '%'; };
+  window.freeMoney = function (x) { registerFinancialTransaction('Ajuste de Tesorería (modo libre)', x, 'economia'); render(); };
+  window.freeDebt = function (mode) {
+    const d = debtInit(); if (d.legacy == null) d.legacy = 0;
+    if (mode === 'real') d.legacy = 1750000; else if (mode === 'zero') { d.legacy = 0; d.amount = 0; } else d.legacy = Math.max(0, d.legacy + mode);
+    render();
+  };
+  window.freeToggle = function (what, val) {
+    const f = FR(); const m = gameState.metrics;
+    if (what === 'floor') f.floor = !f.floor;
+    else if (what === 'lock') f.lock = f.lock ? null : Object.assign({}, { eco: m.eco, est: m.est, emp: m.emp, con: m.con, apr: m.apr, mil: m.mil });
+    else if (what === 'events') f.events = val;
+    render();
+  };
+  window.freeElections = function () {
+    window.__freeManual = true;
+    try { startCampaignPhase('ELECCIONES ANTICIPADAS (MODO LIBRE)'); } finally { window.__freeManual = false; }
+  };
+
+  function renderFreeTab() {
+    const f = FR(), m = gameState.metrics || {}, d = debtInit();
+    const names = { eco: 'Economía', est: 'Estabilidad', emp: 'Empleo', con: 'Confianza', apr: 'Aprobación', mil: 'Ejército' };
+    const sl = Object.keys(names).filter(k => m[k] !== undefined).map(k => '<div class="bg-slate-950 border border-slate-800 rounded p-2"><div class="flex justify-between text-[11px] text-slate-400"><span>' + names[k] + '</span><b class="text-slate-100">' + Math.round(m[k]) + '%</b></div><input type="range" min="0" max="100" value="' + Math.round(m[k]) + '" oninput="freeSet(\'' + k + '\',this.value,this)" class="w-full" style="accent-color:#d9a726"><span style="display:none"></span></div>').join('');
+    const b = (fn, label, c) => '<button onclick="' + fn + '" class="hoi-button px-3 py-2 rounded text-[11px] cursor-pointer ' + (c || '') + '">' + label + '</button>';
+    const tg = (on, fn, label) => '<button onclick="' + fn + '" class="hoi-button px-3 py-2 rounded text-[11px] cursor-pointer ' + (on ? 'border-amber-400 text-amber-300' : '') + '">' + (on ? '<i class="fa-solid fa-check mr-1"></i>' : '') + label + '</button>';
+    return '<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech">' +
+      '<div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-amber-400"><i class="fa-solid fa-infinity mr-2"></i>MODO LIBRE</h3>' +
+      '<p class="text-xs text-slate-400 font-sans">Sandbox sin final: no hay moción de censura, golpe de Estado, intervención ni fin automático de legislatura. Juega sin presión o toca lo que quieras.</p></div>' +
+      '<div><h4 class="text-xs text-slate-300 mb-2">MÉTRICAS DEL PAÍS</h4><div class="grid md:grid-cols-3 gap-2">' + sl + '</div></div>' +
+      '<div class="flex flex-wrap gap-2">' + tg(!!f.lock, "freeToggle('lock')", 'Congelar métricas') + tg(f.floor, "freeToggle('floor')", 'Tesorería ilimitada') + '</div>' +
+      '<div><h4 class="text-xs text-slate-300 mb-2">TESORERÍA: ' + fmt(Number(gameState.treasury) || 0) + ' M€</h4><div class="flex flex-wrap gap-2">' + b('freeMoney(10000)', '+10.000') + b('freeMoney(50000)', '+50.000') + b('freeMoney(-10000)', '−10.000', 'text-red-300') + '</div></div>' +
+      '<div><h4 class="text-xs text-slate-300 mb-2">DEUDA HEREDADA: ' + fmt((d.legacy || 0) / 1000) + ' mil M€</h4><div class="flex flex-wrap gap-2">' + b("freeDebt('real')", 'Real (1,75 billones)') + b("freeDebt('zero')", 'Sin deuda') + b('freeDebt(100000)', '+100.000') + b('freeDebt(-100000)', '−100.000') + '</div></div>' +
+      '<div><h4 class="text-xs text-slate-300 mb-2">CRISIS Y EVENTOS ALEATORIOS</h4><div class="flex flex-wrap gap-2">' + tg(f.events === 'none', "freeToggle('events','none')", 'Ninguno') + tg(f.events === 'low', "freeToggle('events','low')", 'Pocos') + tg(f.events === 'normal', "freeToggle('events','normal')", 'Normales') + '</div></div>' +
+      '<div class="border-t border-slate-800 pt-3">' + b('freeElections()', '<i class="fa-solid fa-check-to-slot mr-1"></i>Convocar elecciones ahora', 'text-amber-300') + '<span class="text-[11px] text-slate-500 font-sans ml-2">Día ' + (gameState.daysInOffice || 0) + ' de legislatura</span></div></div>';
+  }
+  (function () {
+    const goalsBtn = document.getElementById('tab-btn-goals');
+    if (goalsBtn && !document.getElementById('tab-btn-libre')) {
+      const b = document.createElement('button');
+      b.id = 'tab-btn-libre'; b.className = 'nav-tab-btn'; b.style.display = 'none'; b.setAttribute('onclick', "switchTab('libre')");
+      b.innerHTML = '<i class="fa-solid fa-infinity text-amber-400 w-4 text-center"></i><span>Modo libre</span>';
+      goalsBtn.parentNode.insertBefore(b, goalsBtn);
+    }
+    const _rtc = renderTabContent;
+    renderTabContent = function () { return gameState.activeTab === 'libre' ? (isFree() ? renderFreeTab() : _rtc()) : _rtc(); };
+  })();
+
+  const _selS = selectScenario;
+  selectScenario = function () { gameState.free = null; return _selS.apply(this, arguments); };
+
+  // Render: pestaña visible solo en modo libre, insignia y detección de la noche electoral
+  const _rnd = render;
+  render = function () {
+    const r = _rnd.apply(this, arguments);
+    try {
+      const tb = document.getElementById('tab-btn-libre'); if (tb) tb.style.display = isFree() ? '' : 'none';
+      if (isFree()) { const bd = document.getElementById('campaign-badge'); if (bd) bd.innerHTML = '<i class="fa-solid fa-infinity mr-1"></i>MODO LIBRE · LEG. ' + gameState.campaign.current; }
+      if (gameState.step !== lastStep) { const prev = lastStep; lastStep = gameState.step; if (gameState.step === 6 && prev !== 6) winnerAnthem(); if (gameState.step !== 6 && prev === 6) stopAnthem(); }
+    } catch (e) { console.error(e); }
+    return r;
+  };
 })();
 
 </script>
