@@ -53,9 +53,13 @@ En la pantalla de inicio, la cuarta tarjeta, **Sin límite**: las mismas reglas 
 
 Todas las cifras se miden contra el presupuesto inicial de **100.000 M€**: la deuda heredada es de 100.000 M€ (99,7 % del PIB), el límite de nueva deuda es de 100.000 M€ y los grandes proyectos cuestan entre 8.000 y 14.000 M€.
 
+## Militar y Guerra
+
+Pestaña **Militar y Guerra** (grupo Exterior): mapamundi por países, fuerzas de tierra, mar y aire, diplomacia (pactos y sanciones), declaración de guerra, conflicto día a día y ultimátums de otros países. El mapa se descarga una vez de jsDelivr y queda en caché; sin conexión se ve un mapa simplificado.
+
 ## Efectos de sonido propios
 
-Coloca archivos `.mp3` en `musica/efectos/`: `crisis`, `victoria`, `derrota` (crisis nacionales) y `disturbios`. Si no existen, el juego usa sonidos generados.
+Coloca archivos `.mp3` en `musica/efectos/`: `crisis`, `victoria`, `derrota`, `guerra`, `paz` y `disturbios`. Si no existen, el juego usa sonidos generados.
 
 ## Publicar cambios
 
