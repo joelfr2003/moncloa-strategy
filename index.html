@@ -15068,6 +15068,108 @@ function playSound(n) {
     } catch (e) { console.error(e); }
   };
 })();
+
+// =====================================================================
+//  EXTERIOR ⇄ INTERIOR: decisiones → países, países → estabilidad/economía
+// =====================================================================
+(function () {
+  const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
+  const toast = (h, c) => { if (typeof goalsToast === 'function') goalsToast(h, c); };
+  const M = () => gameState.metrics;
+
+  // ---- 1. Cualquier decisión o evento que mencione a un país mueve la relación con él ----
+  const COUNTRY = { us: /OTAN|EE\.? ?UU|Estados Unidos|Washington|Casa Blanca/i, ma: /Marruecos|Sáhara|Rabat|Ceuta|Melilla|cayuco|patera|migrator/i, dz: /Argelia|gas natural|gasoducto/i,
+    ue: /\bUE\b|Bruselas|Unión Europea|Comisión Europea|Eurogrupo|fondos europeos|Next ?Gen/i, uk: /Gibraltar|Reino Unido|británic/i, cn: /China|Pekín|chino/i,
+    fr: /Francia|franc[eé]s|París/i, de: /Alemania|Berlín|alemán/i, la: /Latinoam|Iberoam|Mercosur|Venezuela|México|Argentina|Cuba|Colombia/i };
+  const COOP = /acuerdo|firmar|apoyar|cooperar|ratific|aceptar|ayud|ampliar|reforzar|aprobar|negociar|diálogo|invertir|enviar|respaldar|alinear/i;
+  const HOST = /rechaz|expuls|vetar|romper|sancion|endurec|cerrar|retirar|boicot|bloque|congel|denunciar|ignorar|ultimátum|reducir|suspender/i;
+  const relSum = () => JSON.stringify(intlInit().rel);
+
+  function heur(d, opt) {
+    if (!d || !opt) return;
+    const txt = [d.title, d.desc, opt.text].join(' '), tone = HOST.test(opt.text || '') ? -1 : COOP.test(opt.text || '') ? 1 : 0;
+    if (!tone) return;
+    Object.keys(COUNTRY).forEach(c => { if (COUNTRY[c].test(txt) && INTL[c]) intlShift(c, tone * 5, (d.title || 'Decisión') + ': ' + opt.text.slice(0, 40), false); });
+  }
+  const _md = window.makeDecision;
+  window.makeDecision = function (i) {
+    const d = gameState.activeDynamicEvent || (gameState.decisions ? gameState.decisions[gameState.currentDecisionIdx] : null), opt = d && d.options && d.options[i], b = relSum();
+    const r = _md.apply(this, arguments);
+    try { if (relSum() === b) heur(d, opt); } catch (e) { console.error(e); }
+    return r;
+  };
+  const _rd = window.resolveDynamicEvent;
+  if (_rd) window.resolveDynamicEvent = function (i) {
+    const d = gameState.activeDynamicEvent, opt = d && d.options && d.options[i], b = relSum();
+    const r = _rd.apply(this, arguments);
+    try { if (relSum() === b) heur(d, opt); } catch (e) { console.error(e); }
+    return r;
+  };
+
+  // ---- 2. Un gran cambio diplomático repercute de inmediato en el país ----
+  let busy = false;
+  const _is = window.intlShift;
+  window.intlShift = function (c, v) {
+    const I = intlInit(), old = I.rel[c];
+    const r = _is.apply(this, arguments);
+    if (busy || !M() || gameState.step !== 4) return r;
+    const real = (I.rel[c] || 0) - (old || 0);
+    if (Math.abs(real) >= 6) {
+      busy = true;
+      const w = { ue: [.12, .08, .06], us: [.06, .08, .1], ma: [.14, .06, 0], dz: [.06, .04, 0], uk: [.05, .03, 0], cn: [.02, .05, 0], fr: [.05, .04, 0], de: [.05, .06, 0], la: [.04, .08, 0] }[c] || [.04, .04, 0];
+      M().est = clamp(M().est + Math.max(-2, Math.min(2, real * w[0])));
+      M().apr = clamp(M().apr + Math.max(-2.5, Math.min(2.5, real * w[1])));
+      if (w[2]) M().mil = clamp(M().mil + Math.max(-2, Math.min(2, real * w[2])));
+      busy = false;
+    }
+    return r;
+  };
+
+  // ---- 3. Consecuencias de las relaciones: crisis y premios mensuales ----
+  const hit = (ids, title) => { gameState.provincesStatus = gameState.provincesStatus || {}; ids.forEach(id => { if (!(gameState.provincesStatus[id] || {}).crisis) gameState.provincesStatus[id] = { crisis: true, title }; }); };
+  const RULES = [
+    { c: 'ma', lo: 30, t: 'CRISIS MIGRATORIA', d: 'Marruecos afloja el control de sus costas y fronteras.', fx: { est: -4, apr: -3 }, prov: ['LPA', 'CEU', 'MEL'] },
+    { c: 'dz', lo: 25, t: 'CORTE DEL GAS ARGELINO', d: 'Argel reduce el suministro y la factura energética se dispara.', fx: { eco: -4, est: -2 } },
+    { c: 'ue', lo: 25, t: 'BRUSELAS CONGELA FONDOS', d: 'La Comisión retiene transferencias por la deriva del Gobierno.', fx: { eco: -3, apr: -2 }, cash: -1500 },
+    { c: 'us', lo: 25, t: 'WASHINGTON RETIRA SU APOYO', d: 'EE. UU. recorta la cooperación militar y de inteligencia.', fx: { mil: -5, est: -2 } },
+    { c: 'uk', lo: 25, t: 'CAOS EN LA VERJA', d: 'Colas kilométricas y protestas en La Línea.', fx: { est: -2, eco: -1 }, prov: ['CAD'] },
+    { c: 'cn', lo: 25, t: 'ARANCELES CHINOS', d: 'Pekín golpea las exportaciones españolas.', fx: { eco: -2, emp: -2 } },
+    { c: 'ma', hi: 75, t: 'COOPERACIÓN MIGRATORIA EXITOSA', d: 'Rabat colabora y las llegadas caen en picado.', fx: { est: 2, apr: 1 } },
+    { c: 'ue', hi: 80, t: 'BRUSELAS PREMIA AL GOBIERNO', d: 'La Comisión libera fondos adicionales.', fx: { eco: 2, apr: 2 }, cash: 2000 },
+    { c: 'us', hi: 80, t: 'APOYO ESTRATÉGICO DE WASHINGTON', d: 'Nueva cooperación en defensa e inteligencia.', fx: { mil: 3, est: 1 } },
+    { c: 'dz', hi: 75, t: 'GAS ARGELINO A BUEN PRECIO', d: 'Contrato energético favorable.', fx: { eco: 2 } },
+    { c: 'la', hi: 80, t: 'CUMBRE IBEROAMERICANA EXITOSA', d: 'La comunidad iberoamericana refuerza lazos y empleo.', fx: { apr: 3, emp: 1 } }
+  ];
+  function monthlyIntl() {
+    const I = intlInit(); I.rcd = I.rcd || {};
+    RULES.forEach((r, k) => {
+      const v = I.rel[r.c]; if (v == null || (I.rcd[k] || 0) > 0) return;
+      if (!(r.lo != null ? v <= r.lo : v >= r.hi)) return;
+      I.rcd[k] = 90;
+      Object.keys(r.fx).forEach(s => M()[s] = clamp(M()[s] + r.fx[s]));
+      if (r.cash && typeof registerFinancialTransaction === 'function') registerFinancialTransaction(r.t, r.cash, 'exteriores');
+      if (r.prov) hit(r.prov, r.t);
+      const bad = r.lo != null;
+      toast(`<i class="fa-solid ${bad ? 'fa-earth-europe text-red-400' : 'fa-handshake text-emerald-400'}"></i> <b>${r.t}</b><br><span class="text-xs">${r.d} ${Object.entries(r.fx).map(e => e[0].toUpperCase() + ' ' + (e[1] > 0 ? '+' : '') + e[1]).join(' · ')}${r.cash ? ' · ' + (r.cash > 0 ? '+' : '') + r.cash + ' M€' : ''}</span>`, bad ? '#ef4444' : '#10b981');
+      gameState.lastNews = r.t + ': ' + r.d; gameState.latestNews = gameState.lastNews;
+    });
+    Object.keys(I.rcd).forEach(k => { I.rcd[k] = Math.max(0, I.rcd[k] - 30); });
+    // prestigio exterior medio: arrastra suavemente estabilidad y aprobación
+    const v = Object.values(I.rel), avg = v.reduce((a, b) => a + b, 0) / v.length;
+    if (avg < 40) { M().est = clamp(M().est - 1); M().apr = clamp(M().apr - 0.8); }
+    else if (avg > 65) { M().est = clamp(M().est + 0.8); M().apr = clamp(M().apr + 0.6); }
+    // el exterior también reacciona a tu casa: caos interno → desconfianza de todos
+    if (M().est < 25) Object.keys(I.rel).forEach(c => intlShift(c, -0.8, 'Inestabilidad interna', true));
+  }
+  const _t = gameTick;
+  gameTick = function () {
+    const b = gameState.daysInOffice;
+    _t.apply(this, arguments);
+    if (gameState.daysInOffice !== b && gameState.step === 4 && M() && !gameState.coupActive && gameState.daysInOffice % 30 === 7) {
+      try { monthlyIntl(); } catch (e) { console.error(e); }
+    }
+  };
+})();
 </script>
 </body>
 </html>
