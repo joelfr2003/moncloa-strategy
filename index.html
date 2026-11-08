@@ -11243,12 +11243,12 @@ function renderIntlTab() {
 
 // ---------------- PROYECTOS DE ESTADO ----------------
 const PROJECTS = [
-  { id: 'ave',   icon: 'fa-train',          title: 'Alta Velocidad y Cercanías', cost: 36000, days: 90,  now: { eco: 3, emp: 3 }, spirit: { name: 'Red Ferroviaria',     daily: { eco: .04, emp: .02 }, money: 500 } },
-  { id: 'hosp',  icon: 'fa-hospital',       title: 'Red de Hospitales',          cost: 30000, days: 75,  now: { apr: 4 },         spirit: { name: 'Sanidad Moderna',     daily: { est: .03, apr: .02 }, money: -300 } },
-  { id: 'agua',  icon: 'fa-droplet',        title: 'Plan Hidrológico',           cost: 27000, days: 80,  now: { est: 3 },         spirit: { name: 'Seguridad Hídrica',   daily: { est: .03, eco: .02 }, money: 0 } },
-  { id: 'renov', icon: 'fa-solar-panel',    title: 'Energías Renovables',        cost: 42000, days: 110, now: { eco: 4 },         spirit: { name: 'Independencia Energética', daily: { eco: .05 }, money: 900 } },
-  { id: 'viv',   icon: 'fa-house',          title: 'Vivienda Pública',           cost: 33000, days: 85,  now: { apr: 5 },         spirit: { name: 'Parque Público',      daily: { apr: .04, est: .02 }, money: -400 } },
-  { id: 'digi',  icon: 'fa-microchip',      title: 'Transformación Digital',     cost: 24000, days: 70,  now: { eco: 2, emp: 2 }, spirit: { name: 'Estado Digital',      daily: { eco: .03, emp: .03 }, money: 300 } }
+  { id: 'ave',   icon: 'fa-train',          title: 'Alta Velocidad y Cercanías', cost: 12000, days: 90,  now: { eco: 3, emp: 3 }, spirit: { name: 'Red Ferroviaria',     daily: { eco: .04, emp: .02 }, money: 500 } },
+  { id: 'hosp',  icon: 'fa-hospital',       title: 'Red de Hospitales',          cost: 10000, days: 75,  now: { apr: 4 },         spirit: { name: 'Sanidad Moderna',     daily: { est: .03, apr: .02 }, money: -300 } },
+  { id: 'agua',  icon: 'fa-droplet',        title: 'Plan Hidrológico',           cost: 9000, days: 80,  now: { est: 3 },         spirit: { name: 'Seguridad Hídrica',   daily: { est: .03, eco: .02 }, money: 0 } },
+  { id: 'renov', icon: 'fa-solar-panel',    title: 'Energías Renovables',        cost: 14000, days: 110, now: { eco: 4 },         spirit: { name: 'Independencia Energética', daily: { eco: .05 }, money: 900 } },
+  { id: 'viv',   icon: 'fa-house',          title: 'Vivienda Pública',           cost: 11000, days: 85,  now: { apr: 5 },         spirit: { name: 'Parque Público',      daily: { apr: .04, est: .02 }, money: -400 } },
+  { id: 'digi',  icon: 'fa-microchip',      title: 'Transformación Digital',     cost: 8000, days: 70,  now: { eco: 2, emp: 2 }, spirit: { name: 'Estado Digital',      daily: { eco: .03, emp: .03 }, money: 300 } }
 ];
 const PROJECT_SLOTS = 2;
 function projInit() { if (!gameState.proj) gameState.proj = { active: [], done: [] }; return gameState.proj; }
@@ -11463,7 +11463,7 @@ function hudUpdate() {
 // =====================================================================
 //  FINANZAS (DEUDA), INFORMES, LOGROS, GUARDADO Y OPORTUNIDADES
 // =====================================================================
-const DEBT_MAX = 150000, SAVE_KEY = 'moncloa_save_v1', ACH_KEY = 'moncloa_ach_v1';
+const DEBT_MAX = 100000, SAVE_KEY = 'moncloa_save_v1', ACH_KEY = 'moncloa_ach_v1';
 const fmt = n => Math.round(n).toLocaleString('es-ES');
 
 // ---------- Oportunidades (eventos positivos, usan el mismo popup y el margen de 30 días) ----------
@@ -11505,7 +11505,7 @@ function renderFinTab() {
   const btn = (fn, x, label, c) => `<button onclick="${fn}(${x})" class="hoi-button px-3 py-2 rounded text-[11px] cursor-pointer ${c}">${label}</button>`;
   return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech">
     <div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-amber-400"><i class="fa-solid fa-coins mr-2"></i>FINANZAS Y DEUDA PÚBLICA</h3>
-    <p class="text-xs text-slate-400 font-sans">Endeudarte da liquidez hoy, pero los intereses salen cada mes de la Tesorería y, por encima de 100.000 M€, la deuda lastra la economía.</p></div>
+    <p class="text-xs text-slate-400 font-sans">Endeudarte da liquidez hoy, pero los intereses salen cada mes de la Tesorería y, por encima de 50.000 M€ de deuda nueva la deuda lastra la economía.</p></div>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
       <div class="bg-slate-950 border border-slate-800 rounded-lg p-3"><div class="text-[10px] text-slate-500">TESORERÍA</div><b class="${t < 0 ? 'text-red-400' : 'text-amber-400'} text-lg">${fmt(t)} M€</b></div>
       <div class="bg-slate-950 border border-slate-800 rounded-lg p-3"><div class="text-[10px] text-slate-500">DEUDA</div><b class="text-slate-100 text-lg">${fmt(D.amount)} M€</b></div>
@@ -11600,7 +11600,7 @@ function proDailyTick() {
     if (i > 0) registerFinancialTransaction('Intereses de la deuda pública', -i, 'economia');
     histRecord(); saveGame(false);
   }
-  if (D.amount > 100000) { focusAccum(F, 'eco', -0.05); focusAccum(F, 'apr', -0.02); }
+  if (D.amount > 50000) { focusAccum(F, 'eco', -0.05); focusAccum(F, 'apr', -0.02); }
   achCheck();
   if ((gameState.activeTab === 'fin' || gameState.activeTab === 'stats') && day % 3 === 0) render();
 }
@@ -11940,7 +11940,7 @@ const MANUAL = [
   { icon: 'fa-coins', title: 'Dinero y deuda', html: `
     <p>La <b>Tesorería</b> es tu caja. Todo lo que cuesta dinero sale de ahí y todo lo que ingresas entra ahí; la pestaña <b>Tesorería</b> muestra cada movimiento.</p>
     <p>Los <b>PGE</b> reparten 100.000 M€ entre Sanidad, Educación, Defensa, Vivienda, Infraestructuras y <b>Amortización de deuda</b>. Esa última partida reduce de verdad tu deuda y sale de la caja. Solo se amortiza lo que debas y lo que tengas en caja.</p>
-    <p>En <b>Finanzas y Deuda</b> puedes emitir deuda para tener liquidez hoy o amortizarla. Cada mes pagas <b>intereses</b> y el coste de los ministerios. Por encima de 100.000 M€ la deuda lastra la economía.</p>
+    <p>En <b>Finanzas y Deuda</b> puedes emitir deuda para tener liquidez hoy o amortizarla. Cada mes pagas <b>intereses</b> y el coste de los ministerios. Por encima de 50.000 M€ de deuda nueva la deuda lastra la economía.</p>
     <p>Endeudarte mucho y de golpe sube la prima de riesgo; amortizar la baja.</p>` },
   { icon: 'fa-building-columns', title: 'Banco de España y moneda', html: `
     <p>La <b>prima de riesgo</b> (en puntos básicos) mide lo que exigen los mercados por prestarte dinero. Sube con la deuda, con una economía débil y con la poca credibilidad del Banco de España. Cada punto sobre 60 encarece el tipo de tu deuda, y por encima de 400 la economía y tu aprobación se resienten.</p>
@@ -13182,8 +13182,8 @@ function playSound(n) {
   'use strict';
 
   // ---------- Parámetros (ajustables) ----------
-  const REAL_DEBT = { amount: 1750000, pib: 1755000 };   // Banco de España, agosto de 2026: 1,75 billones, 99,7 % del PIB
-  const LEGACY_SERVICE = 0.30;     // fracción del coste real de intereses que se carga a la Tesorería (escala de juego)
+  const REAL_DEBT = { amount: 100000, pib: 100300 };   // Escala de juego: la deuda real (99,7 % del PIB) se reduce a la proporción del presupuesto de 100.000 M€   // Banco de España, agosto de 2026: 100.000 M€, 99,7 % del PIB
+  const LEGACY_SERVICE = 1.0;     // fracción del coste real de intereses que se carga a la Tesorería (escala de juego)
   const LEGACY_DRAG = 0.010;       // puntos de Economía al día por cada 100 % de deuda/PIB
   const EXIT_DAYS = 180, EXIT_FAST_DAYS = 60;
   const PTS_PER_EURO = 166.386;
@@ -13195,7 +13195,7 @@ function playSound(n) {
   const EU_RE = /\bUE\b|Bruselas|Unión Europea|Comisión Europea|Parlamento Europeo|\bBCE\b|Banco Central Europeo|Fráncfort|comunitari[oa]s?|europe[oa]s?\b|eurozona|\bCEE\b|euroescép|Eurogrupo|Schengen|Eurostat/i;
 
   // ---------- Utilidades ----------
-  const bn = x => (x / 1e6).toFixed(2).replace('.', ',') + ' billones €';
+  const bn = x => Math.round(x).toLocaleString('es-ES') + ' M€';
   const pc = x => x.toFixed(1).replace('.', ',') + ' %';
   const clampFx = v => Math.max(25, Math.min(130, v));
   const applies = () => { const s = bdeSid(); return !!s && s !== 'TRANSICION'; };
@@ -13630,7 +13630,7 @@ function playSound(n) {
       '<div class="font-hoi-header text-lg text-amber-400"><i class="fa-solid fa-scale-unbalanced mr-2"></i>DEUDA HEREDADA (REAL)</div>' +
       '<div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">' + cell('DEUDA HEREDADA', bn(legacy())) + cell('DEUDA TOTAL / PIB', pc(r), r > 100 ? 'text-red-400' : 'text-amber-400') + cell('INTERESES HEREDADOS / MES', '−' + fmt(i) + ' M€', 'text-red-300') + cell('LASTRE EN ECONOMÍA', '−' + dragYear().toFixed(1).replace('.', ',') + ' pts/año', 'text-red-300') + '</div>' +
       '<div class="relative w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800"><div class="h-full ' + col + '" style="width:' + pct + '%"></div><div class="absolute top-0 h-full w-px bg-sky-400" style="left:' + (60 / 140 * 100) + '%"></div><div class="absolute top-0 h-full w-px bg-white/60" style="left:' + (100 / 140 * 100) + '%"></div></div>' +
-      '<p class="text-[11px] text-slate-400 font-sans">Dato real del Banco de España (agosto de 2026): 1,75 billones y 99,7 % del PIB. Marcas: 60 % (límite de la UE) y 100 %. Se carga a tu Tesorería el ' + Math.round(LEGACY_SERVICE * 100) + ' % del coste real de intereses (escala de juego) y la deuda lastra la Economía cada día. Amortizar —con los botones de abajo o con la partida de deuda de los PGE— la reduce de verdad.' + (fxF() !== 1 ? ' <b class="text-red-300">Tu deuda está en euros y la peseta se ha depreciado: pagas ×' + fxF().toFixed(2).replace('.', ',') + '.</b>' : '') + '</p></div>';
+      '<p class="text-[11px] text-slate-400 font-sans">Proporción real del Banco de España (agosto de 2026), a escala de juego: 100.000 M€ y 99,7 % del PIB. Marcas: 60 % (límite de la UE) y 100 %. Se carga a tu Tesorería el ' + Math.round(LEGACY_SERVICE * 100) + ' % del coste real de intereses (escala de juego) y la deuda lastra la Economía cada día. Amortizar —con los botones de abajo o con la partida de deuda de los PGE— la reduce de verdad.' + (fxF() !== 1 ? ' <b class="text-red-300">Tu deuda está en euros y la peseta se ha depreciado: pagas ×' + fxF().toFixed(2).replace('.', ',') + '.</b>' : '') + '</p></div>';
     return h.replace(/<div class="grid grid-cols-2 md:grid-cols-4/, m => panel + m);
   };
 
@@ -13708,7 +13708,7 @@ function playSound(n) {
   // ---------- Manual ----------
   try {
     MANUAL.push({ icon: 'fa-earth-europe', title: 'Deuda heredada y salida de la UE', html: `
-      <p><b>Deuda real:</b> en España actual empiezas con la deuda pública real (1,75 billones, 99,7 % del PIB). Carga intereses cada mes a tu Tesorería, encarece la prima de riesgo y lastra la Economía a diario. Se reduce con los botones de Finanzas, con la partida de deuda de los PGE y con las decisiones que amortizan.</p>
+      <p><b>Deuda real:</b> en España actual empiezas con la deuda pública real (100.000 M€, 99,7 % del PIB). Carga intereses cada mes a tu Tesorería, encarece la prima de riesgo y lastra la Economía a diario. Se reduce con los botones de Finanzas, con la partida de deuda de los PGE y con las decisiones que amortizan.</p>
       <p><b>Camino soberanista:</b> en la pestaña <i>Unión Europea</i> puedes abrir el Artículo 50. Hay 180 días de retirada (ultimátum de Bruselas, fuga de capitales) y al final eliges moneda: <b>peseta</b> (tipo de cambio, devaluación, inflación, deuda en euros) o <b>euro unilateral</b> (sin BCE). También puedes frenar en seco.</p>
       <p><b>Fuera de la UE:</b> desaparecen sus eventos, decisiones y noticias, pierdes fondos y comercio, y si la economía se hunde te rescata el FMI.</p>` });
   } catch (e) {}
@@ -14028,9 +14028,9 @@ function playSound(n) {
   // ------------------------------------------------------------------
   const FREE_LEGS = 99;
   const isFree = () => !!(gameState.campaign && gameState.campaign.legs === FREE_LEGS);
-  function FR() { if (!gameState.free) gameState.free = { floor: false, lock: null, events: 'normal', fails: true, redlines: true, confirmChange: false }; return gameState.free; }
+  function FR() { if (!gameState.free) gameState.free = { floor: false, lock: null, events: 'normal', fails: true, redlines: false, confirmChange: false }; return gameState.free; }
 
-  CAMPAIGN_MODES.push({ legs: FREE_LEGS, icon: 'fa-infinity', title: 'MODO LIBRE', years: 'Sin límite', desc: 'Sin última legislatura: juegas indefinidamente. Puedes caer (moción, golpe, intervención) y elegir qué partido llevar.' });
+  CAMPAIGN_MODES.push({ legs: FREE_LEGS, icon: 'fa-infinity', title: 'SIN LÍMITE', years: 'Sin fin', desc: 'Las mismas reglas y riesgos que el resto, pero sin legislatura final: gobierna hasta que te echen. La dificultad sube con cada legislatura.' });
   (function () {
     const st = document.createElement('style');
     st.textContent = '@media (min-width: 768px) { div.grid:has(> .mode-card) { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; } }';
@@ -14061,7 +14061,7 @@ function playSound(n) {
   const _dc = diffCfg;
   diffCfg = function () {
     const c = _dc.apply(this, arguments);
-    if (!isFree()) return c;
+    return c;
     const f = FR(); return Object.assign({}, c, { attr: 0, shock: f.events === 'none' ? 0 : f.events === 'low' ? 0.004 : c.shock });
   };
   const _cdy = checkAndTriggerDynamicEvent;
@@ -14097,7 +14097,7 @@ function playSound(n) {
   window.freeMoney = function (x) { registerFinancialTransaction('Ajuste de Tesorería (modo libre)', x, 'economia'); render(); };
   window.freeDebt = function (mode) {
     const d = debtInit(); if (d.legacy == null) d.legacy = 0;
-    if (mode === 'real') d.legacy = 1750000; else if (mode === 'zero') { d.legacy = 0; d.amount = 0; } else d.legacy = Math.max(0, d.legacy + mode);
+    if (mode === 'real') d.legacy = 100000; else if (mode === 'zero') { d.legacy = 0; d.amount = 0; } else d.legacy = Math.max(0, d.legacy + mode);
     render();
   };
   window.freeToggle = function (what, val) {
@@ -14136,7 +14136,7 @@ function playSound(n) {
       '<div><h4 class="text-xs text-slate-300 mb-2">MÉTRICAS DEL PAÍS</h4><div class="grid md:grid-cols-3 gap-2">' + sl + '</div></div>' +
       '<div class="flex flex-wrap gap-2">' + tg(!!f.lock, "freeToggle('lock')", 'Congelar métricas') + tg(f.floor, "freeToggle('floor')", 'Tesorería ilimitada') + '</div>' +
       '<div><h4 class="text-xs text-slate-300 mb-2">TESORERÍA: ' + fmt(Number(gameState.treasury) || 0) + ' M€</h4><div class="flex flex-wrap gap-2">' + b('freeMoney(10000)', '+10.000') + b('freeMoney(50000)', '+50.000') + b('freeMoney(-10000)', '−10.000', 'text-red-300') + '</div></div>' +
-      '<div><h4 class="text-xs text-slate-300 mb-2">DEUDA HEREDADA: ' + fmt((d.legacy || 0) / 1000) + ' mil M€</h4><div class="flex flex-wrap gap-2">' + b("freeDebt('real')", 'Real (1,75 billones)') + b("freeDebt('zero')", 'Sin deuda') + b('freeDebt(100000)', '+100.000') + b('freeDebt(-100000)', '−100.000') + '</div></div>' +
+      '<div><h4 class="text-xs text-slate-300 mb-2">DEUDA HEREDADA: ' + fmt((d.legacy || 0) / 1000) + ' mil M€</h4><div class="flex flex-wrap gap-2">' + b("freeDebt('real')", 'Real (100.000 M€)') + b("freeDebt('zero')", 'Sin deuda') + b('freeDebt(100000)', '+100.000') + b('freeDebt(-100000)', '−100.000') + '</div></div>' +
       '<div><h4 class="text-xs text-slate-300 mb-2">CRISIS Y EVENTOS ALEATORIOS</h4><div class="flex flex-wrap gap-2">' + tg(f.events === 'none', "freeToggle('events','none')", 'Ninguno') + tg(f.events === 'low', "freeToggle('events','low')", 'Pocos') + tg(f.events === 'normal', "freeToggle('events','normal')", 'Normales') + '</div></div>' +
       '<div class="border-t border-slate-800 pt-3">' + b('freeElections()', '<i class="fa-solid fa-check-to-slot mr-1"></i>Convocar elecciones ahora', 'text-amber-300') + '<span class="text-[11px] text-slate-500 font-sans ml-2">Legislatura ' + gameState.campaign.current + ' · día ' + (gameState.daysInOffice || 0) + '</span></div>' +
       '<div class="pt-2 flex flex-wrap gap-2 items-center">' + b('freeChange()', '<i class="fa-solid fa-people-arrows mr-1"></i>' + (f.confirmChange ? 'Confirmar: nueva investidura (se reinician las métricas)' : 'Cambiar de partido (nueva investidura)'), f.confirmChange ? 'text-red-300' : 'text-amber-300') + (f.confirmChange ? b("FR_CANCEL()", 'Cancelar') : '') + '</div></div>';
@@ -14161,8 +14161,8 @@ function playSound(n) {
   render = function () {
     const r = _rnd.apply(this, arguments);
     try {
-      const tb = document.getElementById('tab-btn-libre'); if (tb) tb.style.display = isFree() ? '' : 'none';
-      if (isFree()) { const bd = document.getElementById('campaign-badge'); if (bd) bd.innerHTML = '<i class="fa-solid fa-infinity mr-1"></i>MODO LIBRE · LEG. ' + gameState.campaign.current; }
+      const tb = document.getElementById('tab-btn-libre'); if (tb) tb.style.display = 'none';
+      if (isFree()) { const bd = document.getElementById('campaign-badge'); if (bd) bd.innerHTML = '<i class="fa-solid fa-infinity mr-1"></i>SIN LÍMITE · LEG. ' + gameState.campaign.current; }
       if (gameState.step !== lastStep) { const prev = lastStep; lastStep = gameState.step; if (gameState.step === 6 && prev !== 6) winnerAnthem(); if (gameState.step !== 6 && prev === 6) stopAnthem(); }
     } catch (e) { console.error(e); }
     return r;
@@ -14218,7 +14218,7 @@ function playSound(n) {
 
   function fireScandal() {
     const S = I(), ev = SCANDALS[Math.floor(Math.random() * SCANDALS.length)];
-    S.cur = ev; S.speed = gameState.gameSpeed || 1; pauseGameSilently();
+    S.cur = ev; S.speed = gameState.gameSpeed || 1; pauseGameSilently(); playSound('news');
     const m = document.createElement('div'); m.id = 'xm-modal';
     m.className = 'fixed inset-0 bg-black/85 z-[9998] flex items-center justify-center p-4';
     m.innerHTML = `<div class="hoi-box border-2 border-amber-500 max-w-xl w-full p-5 rounded space-y-3 font-hoi-tech">
@@ -14340,7 +14340,7 @@ function playSound(n) {
   const cap0 = () => { goalsInit(); return gameState.goals.capital; };
 
   function openCouncil() {
-    const s = S(), m = gameState.metrics; s.opts = pick(); s.speed2 = gameState.gameSpeed || 1; pauseGameSilently();
+    const s = S(), m = gameState.metrics; playSound('event'); s.opts = pick(); s.speed2 = gameState.gameSpeed || 1; pauseGameSilently();
     const chip = (k, ic) => `<span class="px-2 py-1 rounded bg-slate-900 border ${m[k] < 40 ? 'border-red-500 text-red-300' : m[k] > 65 ? 'border-emerald-600 text-emerald-300' : 'border-slate-700 text-slate-300'} text-[11px]">${NAME[k]} ${Math.round(m[k])}%</span>`;
     const d = document.createElement('div'); d.id = 'council-modal';
     d.className = 'fixed inset-0 bg-black/85 z-[9997] flex items-center justify-center p-4 overflow-y-auto';
@@ -14398,6 +14398,92 @@ function playSound(n) {
   };
   const _tick = gameTick;
   gameTick = function () { const before = gameState.daysInOffice; _tick.apply(this, arguments); if (gameState.daysInOffice !== before) { try { tick(); } catch (e) { console.error(e); } } };
+})();
+
+
+// =====================================================================
+//  CRISIS NACIONALES: cadenas de 3 fases con sonido. Lo que decides en
+//  cada fase condiciona el desenlace (en vez de decisiones sueltas).
+// =====================================================================
+(function () {
+  'use strict';
+  const O = (x, c, now, cost, h) => ({ x, c, now: now || {}, cost: cost || 0, h });
+  const CR = [
+    { id: 'apagon', ic: 'fa-bolt', t: 'APAGÓN NACIONAL', col: 'emp', st: [
+      ['Un apagón masivo deja a medio país sin luz, sin transporte y sin comunicaciones.', [O('Declarar la emergencia y movilizar a la UME', 2, { est: -1 }, 400, 'Respuesta firme'), O('Pedir calma por televisión y esperar a Red Eléctrica', 1, { apr: 1 }, 0, 'Prudente'), O('Cargar contra las eléctricas ante las cámaras', 0, { apr: 3, eco: -2 }, 0, 'Populista')]],
+      ['Pasadas 12 horas, los hospitales funcionan con generadores y hay saqueos en algunas ciudades.', [O('Desplegar la policía y priorizar hospitales', 2, {}, 300, 'Orden'), O('Pactar con las eléctricas un restablecimiento por fases', 2, { eco: -1 }, 0, 'Negociación'), O('Importar energía de Francia y Marruecos', 1, { eco: 1 }, 600, 'Costoso')]],
+      ['Vuelve la luz. Toca decidir cómo cerrar la crisis.', [O('Comisión de investigación independiente', 1, { apr: 2 }, 0, 'Transparencia'), O('Plan de refuerzo de la red eléctrica', 2, { eco: 2 }, 1000, 'Inversión'), O('Pasar página rápidamente', 0, { apr: -1 }, 0, 'Barato')]] ] },
+    { id: 'fuego', ic: 'fa-fire', t: 'OLA DE INCENDIOS', col: 'rur', st: [
+      ['Decenas de incendios simultáneos arrasan miles de hectáreas en varias comunidades.', [O('Activar el mecanismo europeo de ayuda', 2, {}, 0, 'Cooperación'), O('Movilizar al Ejército', 2, { mil: 1 }, 400, 'Fuerza'), O('Culpar a las comunidades autónomas', 0, { apr: 2, est: -2 }, 0, 'Confrontación')]],
+      ['El fuego amenaza núcleos urbanos y hay evacuaciones.', [O('Evacuación preventiva masiva', 2, {}, 300, 'Seguridad'), O('Concentrar los medios en los pueblos', 1, {}, 0, 'Selectivo'), O('Esperar a que cambie el viento', 0, { est: -2 }, 0, 'Pasivo')]],
+      ['Con el fuego extinguido, queda reconstruir.', [O('Ayudas directas a los afectados', 2, { apr: 2 }, 1200, 'Generoso'), O('Plan de reforestación y prevención', 2, { est: 2 }, 800, 'A largo plazo'), O('Declarar zona catastrófica y esperar fondos', 1, {}, 0, 'Lento')]] ] },
+    { id: 'huelga', ic: 'fa-bullhorn', t: 'HUELGA GENERAL', col: 'obr', st: [
+      ['Los sindicatos convocan una huelga general contra la política del Gobierno.', [O('Convocar a patronal y sindicatos a una mesa', 2, {}, 200, 'Diálogo'), O('Decretar servicios mínimos abusivos', 0, { est: -2 }, 0, 'Dureza'), O('Ignorar la convocatoria', 0, {}, 0, 'Indiferencia')]],
+      ['La huelga paraliza puertos y transporte; la calle está dividida.', [O('Ofrecer una subida del salario mínimo', 2, { emp: 1 }, 500, 'Cesión'), O('Apelar a la ciudadanía por televisión', 1, { apr: 1 }, 0, 'Comunicación'), O('Mantener la firmeza', 0, { est: -2 }, 0, 'Firmeza')]],
+      ['Hay un preacuerdo sobre la mesa.', [O('Firmarlo con foto de familia', 2, { apr: 2 }, 0, 'Acuerdo'), O('Rebajarlo con letra pequeña', 1, { eco: 1 }, 0, 'Astuto'), O('Romper la mesa', 0, { est: -3 }, 0, 'Ruptura')]]] }
+  ];
+  const S = () => window.socInit();
+  const fxPlay = n => { try { if (SND.muted) return; if (n in EFECTOS_ARCHIVO) { fxResolve(n).then(u => u ? playEffectFile(n) : (sndCtx(), SOUNDS[n] && SOUNDS[n]())); } else { sndCtx(); SOUNDS[n] && SOUNDS[n](); } } catch (e) {} };
+  ['crisis', 'victoria', 'derrota'].forEach(k => { EFECTOS_ARCHIVO[k] = k; });   // si existe musica/efectos/crisis.mp3 (etc.) suena ese archivo
+  SOUNDS.crisis = () => { for (let i = 0; i < 4; i++) sTone(700, 0.28, 'sawtooth', 0.09, i * 0.32, 1100); sKick(0, 0.3); };
+  SOUNDS.victoria = () => { [392, 523, 659, 784].forEach((f, i) => sTone(f, 0.4, 'triangle', 0.13, i * 0.12)); sTone(1047, 0.9, 'triangle', 0.12, 0.55); };
+  SOUNDS.derrota = () => { [330, 294, 247, 196].forEach((f, i) => sTone(f, 0.6, 'sawtooth', 0.07, i * 0.35)); sNoise(1.2, 0.08, 150, 0, 'lowpass'); };
+  window.fxPlay = fxPlay;
+
+  function openStage() {
+    const s = S(), c = s.cr, def = CR.find(x => x.id === c.id), st = def.st[c.stage];
+    s.speed3 = gameState.gameSpeed || 1; pauseGameSilently();
+    if (c.stage === 0) fxPlay('crisis'); else fxPlay('event');
+    const d = document.createElement('div'); d.id = 'crisis-modal';
+    d.className = 'fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4 overflow-y-auto';
+    d.innerHTML = `<div class="hoi-box border-2 border-red-500 max-w-xl w-full p-5 rounded space-y-3 font-hoi-tech">
+      <div class="flex justify-between"><span class="bg-red-600 text-black text-[10px] px-2 py-0.5 rounded font-bold animate-pulse"><i class="fa-solid ${def.ic} mr-1"></i>CRISIS NACIONAL · FASE ${c.stage + 1}/3</span><span class="text-[10px] text-slate-400">Control: ${'●'.repeat(c.ctrl)}${'○'.repeat(Math.max(0, 6 - c.ctrl))}</span></div>
+      <h3 class="font-hoi-header text-2xl text-red-400">${def.t}</h3>
+      <p class="text-xs text-slate-200 font-sans bg-slate-900 p-3 rounded border border-slate-800">${st[0]}</p>
+      ${st[1].map((o, i) => `<button onclick="crisisChoose(${i})" class="w-full text-left p-3 rounded bg-slate-900 hover:bg-slate-800 border border-red-900/60 hover:border-red-400 cursor-pointer"><div class="flex justify-between"><b class="text-xs text-slate-100">${o.x}</b><span class="text-[10px] text-amber-300">${o.cost ? '-' + o.cost + ' M€' : ''}</span></div><div class="text-[10px] text-slate-500 mt-0.5">${o.h}</div></button>`).join('')}</div>`;
+    document.body.appendChild(d);
+  }
+  window.crisisChoose = function (i) {
+    const s = S(), c = s.cr, def = CR.find(x => x.id === c.id), o = def.st[c.stage][1][i];
+    if (o.cost && (Number(gameState.treasury) || 0) < o.cost) return goalsToast('Fondos insuficientes (' + o.cost + ' M€).', '#ef4444');
+    if (o.cost) registerFinancialTransaction('Crisis: ' + def.t, -o.cost);
+    Object.keys(o.now).forEach(k => focusMetricAdd(k, o.now[k]));
+    c.ctrl += o.c; c.stage++;
+    const m = document.getElementById('crisis-modal'); if (m) m.remove();
+    if (c.stage >= 3) finish(); else c.next = (gameState.daysInOffice || 0) + 7;
+    setGameSpeed(s.speed3 || 1);
+  };
+  function finish() {
+    const s = S(), c = s.cr, def = CR.find(x => x.id === c.id), k = c.ctrl >= 5 ? 2 : c.ctrl >= 3 ? 1 : 0;
+    const R = [ { n: 'DESASTRE NACIONAL', fx: { apr: -6, est: -5, eco: -4 }, cp: -10, col: -15, s: 'derrota', cl: '#ef4444' },
+                { n: 'DAÑOS LIMITADOS', fx: { apr: -1, eco: -1 }, cp: 0, col: 0, s: 'ok', cl: '#d9a726' },
+                { n: 'CRISIS SUPERADA', fx: { apr: 4, est: 3 }, cp: 8, col: 10, s: 'victoria', cl: '#10b981' } ][k];
+    Object.keys(R.fx).forEach(q => focusMetricAdd(q, R.fx[q]));
+    goalsInit(); gameState.goals.capital = Math.max(0, Math.min(100, gameState.goals.capital + R.cp));
+    s.sat[def.col] = Math.max(0, Math.min(100, s.sat[def.col] + R.col));
+    (s.chist = s.chist || []).unshift(def.t + ' → ' + R.n); s.chist = s.chist.slice(0, 6);
+    fxPlay(R.s);
+    goalsToast(`<i class="fa-solid ${def.ic}"></i> <b>${def.t}: ${R.n}</b>`, R.cl);
+    s.cr = null; s.lastCrisis = gameState.daysInOffice || 0;
+  }
+  function tick() {
+    if (gameState.step !== 4 || gameState.coupActive || !gameState.metrics) return;
+    const s = S(), day = gameState.daysInOffice || 0;
+    if (document.getElementById('xm-modal') || document.getElementById('council-modal') || document.getElementById('crisis-modal') || gameState.activeDynamicEvent || gameState.activeNewsPopup) return;
+    if (s.cr) { if (day >= (s.cr.next || 0)) openStage(); return; }
+    if (day >= 40 && day % 10 === 0 && day - (s.lastCrisis || 0) >= 90 && Math.random() < 0.4) {
+      const pool = CR.filter(x => x.id !== s.lastId); const def = pool[Math.floor(Math.random() * pool.length)];
+      s.cr = { id: def.id, stage: 0, ctrl: 0, next: 0 }; s.lastId = def.id; openStage();
+    }
+  }
+  const _rtc = renderTabContent;
+  renderTabContent = function () {
+    const h = _rtc(); if (gameState.activeTab !== 'soc') return h;
+    const s = S(), l = (s.chist || []).map(x => `<div class="text-[11px] text-slate-300">• ${x}</div>`).join('') || '<div class="text-[11px] text-slate-500">Aún no ha habido ninguna crisis.</div>';
+    return h + `<div class="hoi-box p-5 rounded-xl space-y-2 font-hoi-tech mt-4"><h3 class="font-hoi-header text-xl text-red-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i>CRISIS NACIONALES</h3><p class="text-xs text-slate-400 font-sans">Cadenas de tres fases (apagón, incendios, huelga general). Cada respuesta suma o resta control, y el desenlace depende de tu gestión completa. Tienen sonido propio: pon tus archivos <b>crisis</b>, <b>victoria</b> o <b>derrota</b> (.mp3) en <b>musica/efectos/</b>.</p>${l}</div>`;
+  };
+  const _tick = gameTick;
+  gameTick = function () { const b = gameState.daysInOffice; _tick.apply(this, arguments); if (gameState.daysInOffice !== b) { try { tick(); } catch (e) { console.error(e); } } };
 })();
 
 // =====================================================================
