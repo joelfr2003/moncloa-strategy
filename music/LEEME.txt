@@ -1,0 +1,11 @@
+Música de fondo
+================
+Por defecto el juego genera una música ambiental propia (no necesita archivos).
+
+Para usar tu propia música, guarda un archivo con este nombre exacto en esta carpeta:
+
+    music/theme.mp3
+
+El juego la detectará solo y la pondrá en bucle. Usa música libre de derechos o con licencia
+(por ejemplo de pixabay.com/music, incompetech.com o freemusicarchive.org), sobre todo si vas
+a publicar el juego en GitHub. Pesos grandes (>5 MB) hacen más lenta la primera carga.
