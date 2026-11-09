@@ -8,7 +8,7 @@
   // ---------------- RELÉ ONLINE OPCIONAL (Supabase Realtime, plan gratuito) ----------------
   // Déjalo vacío para usar conexión directa PeerJS. Para más fiabilidad pega aquí los dos datos
   // de tu proyecto de Supabase (Settings → API): «Project URL» y la clave «anon public». Son públicos.
-  const RELAY = { url: 'https://yvqhhgtwuzytpbttqxem.supabase.co/rest/v1/', key: 'sb_publishable_VpXQABhAAWy5slgKgxk5pw_1tSvVHrl' };
+  const RELAY = { url: '', key: '' };
   const useRelay = () => !!(RELAY.url && RELAY.key);
 
   const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
@@ -255,10 +255,10 @@
   }
   const gsend = o => { if (link && link.open) link.send(o); };
   function snap() {
-    const m = S(), me = {};
-    STATS.forEach(([k]) => { me[k] = stat('ES', k); }); me.tes = treas('ES'); me.cap = cap('ES');
+    const m = S(), me = { eco: 0, est: 0, apr: 0, mil: 0, tes: 0, cap: 0 }, wait = gameState.step !== 4;
+    if (!wait) { STATS.forEach(([k]) => { me[k] = stat('ES', k); }); me.tes = treas('ES'); me.cap = cap('ES'); }
     const cd = {}; Object.keys(m.cd).forEach(k => { if (k[0] === 'P') cd[k] = m.cd[k]; });
-    return { day: gameState.daysInOffice || 0, pause: !gameState.gameSpeed, ES: me, rel: intlInit().rel[C().intl],
+    return { wait, day: gameState.daysInOffice || 0, pause: wait || !gameState.gameSpeed, ES: me, rel: wait ? 45 : intlInit().rel[C().intl],
       m: { partner: m.partner, turn: 'P', P: m.P, pacts: m.pacts, inbox: m.inbox, log: m.log, cd, evt: m.evt, mode: 'online', code: m.code } };
   }
   let lastPush = 0;
@@ -280,7 +280,7 @@
     if (!guest) { if (el) el.remove(); return; }
     if (!el) { el = document.createElement('div'); el.id = 'mp-guest'; el.className = 'fixed inset-0 overflow-y-auto p-4'; el.style.zIndex = 100000; el.style.background = '#0b0f12'; document.body.appendChild(el); }
     const s = guest.s;
-    el.innerHTML = `<div class="flex justify-between items-center mb-3 font-hoi-tech text-xs text-slate-300"><span>Sala <b class="text-amber-300">${guest.code}</b>${s ? ' · Día ' + s.day + (s.pause ? ' · <span class="text-amber-400">PARTIDA EN PAUSA</span>' : '') : ''}${guest.ok ? '' : ' · <span class="text-red-400">CONEXIÓN PERDIDA</span>'}</span><button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded">Salir de la sala</button></div><div class="max-w-3xl mx-auto space-y-3">${renderMulti()}</div>`;
+    el.innerHTML = `<div class="flex justify-between items-center mb-3 font-hoi-tech text-xs text-slate-300"><span>Sala <b class="text-amber-300">${guest.code}</b>${s ? ' · Día ' + s.day + (s.pause ? ' · <span class="text-amber-400">PARTIDA EN PAUSA</span>' : '') : ''}${guest.ok ? '' : ' · <span class="text-red-400">CONEXIÓN PERDIDA</span>'}</span><button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded">Salir de la sala</button></div><div class="max-w-3xl mx-auto space-y-3">${s && s.wait ? '<div class="hoi-box p-8 rounded-xl text-center font-hoi-tech text-slate-300"><div class="text-3xl mb-2">' + flag('P') + '</div>Estás dentro de la sala. Esperando a que el anfitrión empiece la partida…</div>' : renderMulti()}</div>`;
   }
 
   // ---------------- INTERFAZ ----------------
@@ -376,27 +376,55 @@
   };
 
   const _s = selectScenario;
-  selectScenario = function (id) { gameState.mp = null; _s(id); };
+  selectScenario = function (id) { if (!(gameState.mp && gameState.mp.mode === 'online')) gameState.mp = null; _s(id); };
 
+  // ---------------- PANTALLA DE INICIO (LOBBY) ----------------
+  const L = { on: true, view: 'home', partner: Object.keys(COUNTRIES)[0] };
+  const tile = (ic, t, d, click, dis) => `<div ${dis ? '' : `onclick="${click}"`} class="hoi-box p-4 rounded ${dis ? 'opacity-50' : 'cursor-pointer hover:border-amber-400'} flex flex-col gap-2 text-left"><div class="text-2xl text-amber-400">${ic}</div><h3 class="font-hoi-header text-xl text-slate-100">${t}</h3><p class="text-xs text-slate-400 font-sans">${d}</p></div>`;
+  const back = '<button onclick="MP.lobby(\'home\')" class="hoi-button px-3 py-1.5 rounded text-xs text-slate-300 self-start"><i class="fa-solid fa-chevron-left mr-1"></i>Volver</button>';
+  function lobbyBody() {
+    const m = gameState.mp;
+    if (m && m.mode === 'online' && peer) {   // sala de espera del anfitrión
+      const ok = link && link.open, url = location.origin + location.pathname + '#sala=' + m.code;
+      return `<div class="hoi-box p-5 rounded-xl space-y-4 text-center font-hoi-tech"><div class="text-[11px] text-slate-400 tracking-widest">CÓDIGO DE SALA</div><div class="font-hoi-header text-5xl text-amber-400 tracking-[0.4em]">${m.code}</div>
+        <button onclick="MP.copy('${url}')" class="hoi-button px-3 py-1.5 rounded text-xs"><i class="fa-solid fa-link mr-1"></i>Copiar enlace de invitación</button>
+        <div class="grid grid-cols-2 gap-3 text-sm"><div class="bg-slate-950 border border-emerald-500/50 rounded p-3">🇪🇸 España<div class="text-[11px] text-emerald-400">Tú · anfitrión ✔</div></div>
+        <div class="bg-slate-950 border ${ok ? 'border-emerald-500/50' : 'border-slate-700'} rounded p-3">${flag('P')} ${nm('P')}<div class="text-[11px] ${ok ? 'text-emerald-400' : 'text-amber-400'}">${ok ? 'Jugador 2 conectado ✔' : 'Esperando al jugador 2…'}</div></div></div>
+        <div class="flex gap-2 justify-center"><button ${ok ? '' : 'disabled'} onclick="MP.begin()" class="hoi-button-gold px-5 py-2 rounded text-sm ${ok ? '' : 'opacity-50'}">Empezar partida</button><button onclick="MP.cancel()" class="hoi-button px-4 py-2 rounded text-sm">Cancelar sala</button></div></div>`;
+    }
+    if (L.view === 'single') return `<div class="space-y-3">${back}<div class="text-center text-xs text-slate-400 font-hoi-tech tracking-widest">ESCOGE EL PAÍS QUE VAS A GOBERNAR</div><div class="grid grid-cols-1 md:grid-cols-3 gap-3">${tile('🇪🇸', 'España', 'Elige después la época: España actual o la Transición.', 'MP.single()')}${Object.keys(COUNTRIES).map(k => tile(COUNTRIES[k].flag, COUNTRIES[k].name, 'Solo disponible en multijugador (lo lleva el jugador 2).', '', true)).join('')}</div></div>`;
+    if (L.view === 'create') {
+      const opts = Object.keys(COUNTRIES).map(k => `<button onclick="MP.partner('${k}')" class="${L.partner === k ? 'hoi-button-gold' : 'hoi-button'} px-4 py-3 rounded text-sm">${COUNTRIES[k].flag} ${COUNTRIES[k].name}</button>`).join(' ');
+      return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech">${back}<div class="text-sm text-slate-200">Tú gobiernas <b class="text-amber-300">🇪🇸 España</b> y el jugador 2 gobierna:</div><div class="flex gap-2 flex-wrap">${opts}</div>
+        <div class="flex gap-2 flex-wrap"><button onclick="MP.create()" class="hoi-button-gold px-4 py-2 rounded text-sm"><i class="fa-solid fa-globe mr-1"></i>Crear sala online</button><button onclick="MP.local()" class="hoi-button px-4 py-2 rounded text-sm"><i class="fa-solid fa-desktop mr-1"></i>Mismo dispositivo (por turnos)</button></div>
+        <p class="text-[11px] text-slate-500 font-sans">Online: recibirás un código para tu amigo. El anfitrión siempre lleva España porque su navegador ejecuta la simulación.</p></div>`;
+    }
+    if (L.view === 'join') return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech">${back}<div class="text-sm text-slate-200">Introduce el código de la sala del anfitrión:</div><div class="flex gap-2"><input id="mp-code" maxlength="5" placeholder="CÓDIGO" class="bg-slate-900 border border-slate-700 rounded px-3 py-2 w-40 uppercase text-lg tracking-widest"><button onclick="MP.join(document.getElementById('mp-code').value)" class="hoi-button-gold px-4 py-2 rounded text-sm">Entrar</button></div></div>`;
+    let has = false; try { has = !!localStorage.getItem(SAVE_KEY); } catch (e) { /* sin guardado */ }
+    return `<div class="grid grid-cols-1 md:grid-cols-3 gap-4">${tile('<i class="fa-solid fa-user"></i>', 'Un jugador', 'Escoge país y época y gobierna en solitario.', "MP.lobby('single')")}${tile('<i class="fa-solid fa-people-arrows"></i>', 'Crear partida', 'Tú llevas España y otro jugador, otro país. Por internet o en el mismo dispositivo.', "MP.lobby('create')")}${tile('<i class="fa-solid fa-right-to-bracket"></i>', 'Unirme a una partida', 'Entra con el código de sala que te pase el anfitrión.', "MP.lobby('join')")}</div>
+      ${has ? '<div class="text-center"><button onclick="MP.cont()" class="hoi-button-gold px-8 py-2.5 rounded font-hoi-tech text-xs"><i class="fa-solid fa-play mr-1.5"></i>CONTINUAR PARTIDA GUARDADA</button></div>' : ''}`;
+  }
+  const lob = v => { L.view = v; render(); };
+  Object.assign(window.MP, {
+    lobby: lob, partner: k => { L.partner = k; render(); }, single: () => { L.on = false; render(); },
+    create: () => host(L.partner), local: () => { window.__mpStart = L.partner; L.on = false; render(); },
+    begin: () => { L.on = false; render(); }, cancel: () => { L.view = 'create'; stop(); },
+    cont: () => { L.on = false; loadGame(); },
+    copy: u => { try { navigator.clipboard.writeText(u); goalsToast('Enlace copiado.', '#10b981'); } catch (e) { prompt('Copia el enlace:', u); } }
+  });
   const _rs = renderScenarioSelect;
   renderScenarioSelect = function (app) {
-    _rs(app);
-    const keys = Object.keys(COUNTRIES), d = document.createElement('div');
-    d.className = 'hoi-box p-3 rounded mt-3 flex flex-wrap items-center gap-3 font-hoi-tech text-xs text-slate-300';
-    d.innerHTML = '<i class="fa-solid fa-people-arrows text-sky-400"></i><label class="flex items-center gap-2"><input type="checkbox" id="mp-start-chk"' + (window.__mpStart ? ' checked' : '') + '> MODO MULTIJUGADOR (2 jugadores)</label><select id="mp-start-sel" class="bg-slate-900 border border-slate-700 rounded px-2 py-1">' + keys.map(k => '<option value="' + k + '"' + (window.__mpStart === k ? ' selected' : '') + '>' + COUNTRIES[k].flag + ' España + ' + COUNTRIES[k].name + '</option>').join('') + '</select>';
-    app.appendChild(d);
-    const chk = d.querySelector('input'), sel = d.querySelector('select');
-    const net = document.createElement('label'); net.className = 'flex items-center gap-2'; net.innerHTML = '<input type="checkbox"' + (window.__mpNet ? ' checked' : '') + '> ONLINE (crear sala)'; d.appendChild(net);
-    const nchk = net.querySelector('input'); nchk.onchange = () => { window.__mpNet = nchk.checked; };
-    const j = document.createElement('div'); j.className = 'flex items-center gap-2 ml-auto';
-    j.innerHTML = '<input id="mp-code" maxlength="5" placeholder="CÓDIGO" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 w-24 uppercase"><button class="hoi-button px-3 py-1 rounded">Unirme a una sala</button>';
-    j.querySelector('button').onclick = () => join(j.querySelector('input').value); d.appendChild(j);
-    const upd = () => { window.__mpStart = chk.checked ? sel.value : null; };
-    chk.onchange = sel.onchange = upd; upd();
+    if (!L.on) return _rs(app);
+    app.innerHTML = `<div class="max-w-4xl mx-auto space-y-5 my-4"><div class="text-center space-y-1 border-b border-slate-800 pb-4"><div class="text-4xl text-amber-400"><i class="fa-solid fa-landmark"></i></div><h2 class="font-hoi-header text-4xl text-amber-400 tracking-wider">MONCLOA STRATEGY</h2><p class="font-hoi-tech text-[11px] text-slate-400 uppercase tracking-widest">Simulador político y estratégico</p></div>${lobbyBody()}</div>`;
   };
+  const hm = location.hash.match(/sala=([A-Za-z0-9]{5})/);
+  if (hm) { L.view = 'join'; setTimeout(() => join(hm[1]), 400); }
+  let lastStep = 1;
 
   const _r = render;
   render = function () {
+    if (gameState.step === 1 && lastStep > 1) { L.on = true; L.view = 'home'; if (gameState.mp) { closeNet(); gameState.mp = null; } }
+    lastStep = gameState.step;
     if (gameState.step === 4 && window.__mpStart && !gameState.mp) { const k = window.__mpStart, net = window.__mpNet; window.__mpStart = null; start(k); if (net) host(k); }
     const r = _r.apply(this, arguments);
     const b = document.getElementById('tab-btn-mp');
