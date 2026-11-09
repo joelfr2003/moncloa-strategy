@@ -63,7 +63,9 @@ Coloca archivos `.mp3` en `musica/efectos/`: `crisis`, `victoria`, `derrota`, `g
 
 ## Modo multijugador
 
-Al abrir el juego aparece una **pantalla de inicio** con tres opciones: *Un jugador* (escoges país y época), *Crear partida* (tú llevas España y eliges el país del jugador 2; online con código/enlace de invitación, o en el mismo dispositivo) y *Unirme a una partida* (con el código). Hay una sala de espera antes de empezar.
+Al abrir el juego aparece la **pantalla de inicio**: escribes tu nombre de usuario, eliges país y modo. España: *Un jugador* o *Crear partida multijugador* (online con código/enlace, o mismo dispositivo, con sala de espera). Otro país (Marruecos): entras con el código de sala del anfitrión. La portada se genera sola; si quieres una foto de fondo, guarda `img/portada.jpg` y se superpone automáticamente.
+
+El modo «Transición democrática» se ha eliminado: el juego se centra en la actualidad.
 
 Dos jugadores, en el mismo dispositivo **o en línea** (cada uno en el suyo: el anfitrión crea una sala con un código de 5 letras y el otro pulsa «Unirme a una sala»; conexión directa por WebRTC con PeerJS, sin servidor propio; el anfitrión debe mantener su pestaña abierta y en primer plano): uno gobierna **España** y el otro **Marruecos** (se activa con la casilla de la pantalla de inicio o desde la pestaña **Multijugador**, grupo Exterior). Se pasan el mando (la partida se pausa), se proponen pactos (comercial, fronterizo, defensa), se envían ayuda económica o se hacen presión diplomática y cierre de fronteras. Marruecos tiene su propia gestión: presupuesto por ministerios (educación, sanidad, defensa, infraestructuras, seguridad, agricultura), decretos propios, economía, tesoro y sucesos. Todo afecta a la relación bilateral de la partida.
 
