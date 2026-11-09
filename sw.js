@@ -1,7 +1,7 @@
 // Service worker de Moncloa Strategy. Sube el número de VERSION cuando publiques cambios.
-const VERSION = 'v15';
+const VERSION = 'v16';
 const CACHE = 'moncloa-' + VERSION;
-const CORE = ['./', 'index.html', 'multijugador.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CORE = ['./', 'index.html', 'multijugador.js', 'marruecos.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
@@ -12,9 +12,14 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const r = e.request;
   if (r.method !== 'GET' || r.headers.has('range')) return;
-  // Páginas: red primero (para recibir actualizaciones), caché si no hay conexión
+  const url = new URL(r.url);
+  // Páginas y scripts propios: red primero (así siempre llega la última versión), caché si no hay conexión
   if (r.mode === 'navigate') {
     e.respondWith(fetch(r).then(res => { caches.open(CACHE).then(c => c.put('index.html', res.clone())); return res; }).catch(() => caches.match('index.html')));
+    return;
+  }
+  if (url.origin === location.origin && /\.(js|html)$/.test(url.pathname)) {
+    e.respondWith(fetch(r).then(res => { if (res.ok) caches.open(CACHE).then(c => c.put(r, res.clone())); return res; }).catch(() => caches.match(r)));
     return;
   }
   // Resto (Tailwind, FontAwesome, fuentes, iconos, música): caché y se refresca en segundo plano
