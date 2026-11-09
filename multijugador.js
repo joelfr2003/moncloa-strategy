@@ -482,7 +482,7 @@
       <rect y="860" width="1600" height="40" fill="#04080e"/></svg>`;
   }
 
-  const L = { on: true, view: 'home', country: 'ES', partner: Object.keys(COUNTRIES)[0], err: '', code: '', mode: 'online', difficulty: (typeof gameState !== 'undefined' && gameState.difficulty) || 'normal' };
+  const L = { on: true, view: 'home', country: 'ES', partner: Object.keys(COUNTRIES)[0], err: '', code: '', mode: 'online', difficulty: (typeof gameState !== 'undefined' && gameState.difficulty) || 'normal', legs: (typeof gameState !== 'undefined' && gameState.campaignLegs) || 3, scen: (typeof SCENARIOS !== 'undefined' && Object.keys(SCENARIOS)[0]) || 'ACTUAL' };
   const CL = () => [{ id: 'ES', name: 'España', flag: '🇪🇸', tag: 'Gobierno · Anfitrión', sub: 'Presidente del Gobierno: coaliciones, economía, Defensa y diplomacia.' }]
     .concat(Object.keys(COUNTRIES).map(k => ({ id: k, name: COUNTRIES[k].name, flag: COUNTRIES[k].flag, tag: 'Solo multijugador', sub: 'Gobierno de Rabat: presupuesto, decretos y relación con España.' })));
   const userOk = () => USER.trim().length >= 2;
@@ -510,9 +510,11 @@
       const back2 = '<button onclick="MP.lobby(\'create\')" class="hoi-button px-3 py-1.5 rounded text-xs text-slate-300 self-start"><i class="fa-solid fa-chevron-left mr-1"></i>Volver</button>';
       const diffs = Object.keys(DIFFICULTY).map(k => { const d = DIFFICULTY[k];
         return `<button onclick="MP.selectDifficulty('${k}')" class="${L.difficulty === k ? 'hoi-button-gold' : 'hoi-button'} px-3 py-3 rounded-lg text-sm flex flex-col items-center gap-1 text-center"><i class="fa-solid ${d.icon} text-2xl"></i><b class="font-hoi-header">${d.name}</b><span class="text-[10px] text-slate-400 font-sans">${d.desc}</span><span class="text-[10px] text-amber-300">PUNTOS ×${d.score}</span></button>`; }).join('');
-      return `${back2}<div class="lb-label">Dificultad de la partida (afecta a España y a ${COUNTRIES[L.partner].name})</div><div class="grid grid-cols-2 md:grid-cols-4 gap-2">${diffs}</div>
+      const legsB = (typeof CAMPAIGN_MODES !== 'undefined' ? CAMPAIGN_MODES : []).map(c => `<button onclick="MP.selectLegs(${c.legs})" class="${L.legs === c.legs ? 'hoi-button-gold' : 'hoi-button'} px-3 py-2 rounded-lg text-sm flex flex-col items-center gap-1 text-center"><i class="fa-solid ${c.icon} text-xl"></i><b class="font-hoi-header">${c.title}</b><span class="text-[10px] text-slate-400 font-sans">${c.legs} ${c.legs === 1 ? 'legislatura' : 'legislaturas'} · ${c.years}</span></button>`).join('');
+      const scenB = (typeof SCENARIOS !== 'undefined' ? Object.values(SCENARIOS) : []).map(sc => `<button onclick="MP.selectScen('${sc.id}')" class="${L.scen === sc.id ? 'hoi-button-gold' : 'hoi-button'} px-3 py-2 rounded-lg text-sm text-left flex flex-col gap-1"><b class="font-hoi-header">${sc.title}</b><span class="text-[10px] text-slate-400 font-sans">${sc.desc}</span></button>`).join('');
+      return `${back2}<div class="lb-label">Duración de la campaña</div><div class="grid grid-cols-3 gap-2">${legsB}</div><div class="lb-label">Teatro político (época de partida)</div><div class="grid grid-cols-1 md:grid-cols-2 gap-2">${scenB}</div><div class="lb-label">Dificultad de la partida (afecta a España y a ${COUNTRIES[L.partner].name})</div><div class="grid grid-cols-2 md:grid-cols-4 gap-2">${diffs}</div>
         <div class="flex gap-2 flex-wrap">${btn('hoi-button-gold', L.mode === 'online' ? 'fa-globe' : 'fa-play', L.mode === 'online' ? 'Crear sala' : 'Iniciar partida', "MP.beginMultiplayer('" + L.partner + "','" + L.difficulty + "')")}</div>
-        <p class="text-[11px] text-slate-500 font-sans">Después elegirás época y formarás Gobierno. Ambos jugadores empiezan a gobernar el mismo día.</p>`;
+        <p class="text-[11px] text-slate-500 font-sans">Después formarás Gobierno. Ambos jugadores empiezan a gobernar el mismo día.</p>`;
     }
     let has = false; try { has = !!localStorage.getItem(SAVE_KEY); } catch (e) { /* sin guardado */ }
     const cards = CL().map(c => `<div class="lb-country ${L.country === c.id ? 'sel' : ''}" onclick="MP.country('${c.id}')"><div class="lb-flag">${c.flag}</div><div class="lb-cn">${c.name}</div><span class="lb-tag">${c.tag}</span><p class="text-[11px] text-slate-400 font-sans mt-2">${c.sub}</p></div>`).join('');
@@ -531,16 +533,18 @@
     single: () => { if (need()) { L.on = false; render(); } },
     create: () => { if (need()) { L.mode = 'online'; lob('difficulty'); } },
     local: () => { if (need()) { L.mode = 'local'; lob('difficulty'); } },
+    selectLegs: n => { L.legs = n; gameState.campaignLegs = n; render(); },
+    selectScen: id => { L.scen = id; render(); },
     selectDifficulty: d => { if (DIFFICULTY[d]) { L.difficulty = d; gameState.difficulty = d; render(); } },
     beginMultiplayer: (partner, d) => {
       if (!need()) return;
       L.partner = COUNTRIES[partner] ? partner : L.partner;
       L.difficulty = DIFFICULTY[d] ? d : L.difficulty; gameState.difficulty = L.difficulty;
-      if (L.mode === 'local') { window.__mpStart = L.partner; L.on = false; render(); }   // la partida arranca al formar Gobierno
+      if (L.mode === 'local') { window.__mpStart = L.partner; L.on = false; gameState.campaignLegs = L.legs; selectScenario(L.scen); }   // salta la pantalla de campaña/teatro; la partida arranca al formar Gobierno
       else host(L.partner);                                                                // sala de espera; «Empezar partida» continúa
     },
     enter: c => { if (need()) { L.code = (c || '').toUpperCase(); join(L.code); } },
-    begin: () => { L.on = false; render(); }, cancel: () => { L.view = 'create'; stop(); },
+    begin: () => { L.on = false; gameState.campaignLegs = L.legs; selectScenario(L.scen); }, cancel: () => { L.view = 'create'; stop(); },
     cont: () => { L.on = false; loadGame(); },
     copy: u => { try { navigator.clipboard.writeText(u); goalsToast('Enlace copiado.', '#10b981'); } catch (e) { prompt('Copia el enlace:', u); } }
   });
