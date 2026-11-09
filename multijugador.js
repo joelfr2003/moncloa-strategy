@@ -8,7 +8,7 @@
   // ---------------- RELÉ ONLINE OPCIONAL (Supabase Realtime, plan gratuito) ----------------
   // Déjalo vacío para usar conexión directa PeerJS. Para más fiabilidad pega aquí los dos datos
   // de tu proyecto de Supabase (Settings → API): «Project URL» y la clave «anon public». Son públicos.
-  const RELAY = { url: 'https://yvqhhgtwuzytpbttqxem.supabase.co/rest/v1/', key: 'sb_publishable_VpXQABhAAWy5slgKgxk5pw_1tSvVHrl' };
+  const RELAY = { url: '', key: '' };
   const useRelay = () => !!(RELAY.url && RELAY.key);
 
   const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
@@ -220,9 +220,9 @@
   }
   function wireHost(c) {
     link = c;
-    c.on('open', () => { log(nm('P') + ': jugador conectado.'); push(); render(); });
+    c.on('open', () => { log(nm('P') + ': jugador conectado.'); if (window.ESX) ESX.linked(true); push(); render(); });
     c.on('data', onCmd);
-    c.on('close', () => { link = null; log(nm('P') + ': jugador desconectado.'); render(); });
+    c.on('close', () => { link = null; log(nm('P') + ': jugador desconectado.'); if (window.ESX) ESX.linked(false); render(); });
   }
   function closeNet() { try { if (link) link.close(); if (peer) peer.destroy(); } catch (e) { /* ya cerrado */ } link = peer = null; guest = null; paintGuest(); }
   function host(partner) {
@@ -248,7 +248,7 @@
       if (useRelay()) {
         const L = relayLink(code, 'guest'); link = L; peer = { destroy: () => L.close() };
         L.on('open', () => { guest = { code, s: null, ok: true }; gsend({ t: 'hello', n: USER }); paintGuest(); });
-        L.on('data', d => { if (guest && d && d.t === 's') { guest.s = d.s; paintGuest(); } });
+        L.on('data', d => { if (d && d.t === 'x' && window.MORO) MORO.onMsg(d); if (guest && d && d.t === 's') { guest.s = d.s; paintGuest(); } });
         L.on('close', () => { if (guest) { guest.ok = false; paintGuest(); } });
         return;
       }
@@ -257,7 +257,7 @@
       peer.on('open', () => {
         const c = peer.connect('moncloa-' + code, { reliable: true }); link = c;
         c.on('open', () => { guest = { code, s: null, ok: true }; gsend({ t: 'hello', n: USER }); paintGuest(); });
-        c.on('data', d => { if (guest && d && d.t === 's') { guest.s = d.s; paintGuest(); } });
+        c.on('data', d => { if (d && d.t === 'x' && window.MORO) MORO.onMsg(d); if (guest && d && d.t === 's') { guest.s = d.s; paintGuest(); } });
         c.on('close', () => { if (guest) { guest.ok = false; paintGuest(); } });
       });
     });
@@ -273,6 +273,7 @@
   let lastPush = 0;
   function push() { if (!guest && link && link.open && S()) { lastPush = Date.now(); link.send({ t: 's', s: snap() }); } }
   function onCmd(d) {   // órdenes del jugador 2 (se ejecutan en la partida del anfitrión)
+    if (d && d.t === 'x') { if (window.ESX) ESX.onMsg(d); return; }
     const m = S(); if (!m || !d) return;
     if (d.t === 'hello') { m.gn = String(d.n || '').slice(0, 16); render(); return; }
     const prev = m.turn; m.turn = 'P';
@@ -287,7 +288,8 @@
   }
   function paintGuest() {
     let el = document.getElementById('mp-guest');
-    if (!guest) { if (el) el.remove(); return; }
+    if (!guest) { if (el) el.remove(); if (window.MORO) MORO.hide(); return; }
+    if (window.MORO) { if (el) el.remove(); MORO.show(guest); return; }
     if (!el) { el = document.createElement('div'); el.id = 'mp-guest'; el.className = 'fixed inset-0 overflow-y-auto p-4'; el.style.zIndex = 100000; el.style.background = '#0b0f12'; document.body.appendChild(el); }
     const s = guest.s;
     el.innerHTML = `<div class="flex justify-between items-center mb-3 font-hoi-tech text-xs text-slate-300"><span>Sala <b class="text-amber-300">${guest.code}</b>${s && s.m.hn ? ' · anfitrión: ' + s.m.hn : ''}${s ? ' · Día ' + s.day + (s.pause ? ' · <span class="text-amber-400">PARTIDA EN PAUSA</span>' : '') + (s.camp ? ' · <span class="text-sky-300">🗳️ Campaña en España: día ' + s.camp.d + '/' + s.camp.n + '</span>' : '') : ''}${guest.ok ? '' : ' · <span class="text-red-400">CONEXIÓN PERDIDA</span>'}</span><button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded">Salir de la sala</button></div><div class="max-w-3xl mx-auto space-y-3">${s && s.wait ? '<div class="hoi-box p-8 rounded-xl text-center font-hoi-tech text-slate-300"><div class="text-3xl mb-2">' + flag('P') + '</div>Estás dentro de la sala. Esperando a que el anfitrión empiece la partida…</div>' : renderMulti()}</div>`;
@@ -359,6 +361,7 @@
 
   // ---------------- ENGANCHES CON EL JUEGO ----------------
   window.MP = { start, stop, swap, host, join, leave: closeNet, COUNTRIES,
+    sendX: o => { if (link && link.open) link.send(Object.assign({ t: 'x' }, o)); },
     act: id => (guest ? gsend({ t: 'act', id }) : act(id)),
     answer: (i, ok) => (guest ? gsend({ t: 'ans', i, ok }) : answer(i, ok)),
     evt: i => (guest ? gsend({ t: 'evt', i }) : resolveEvt(i)),
