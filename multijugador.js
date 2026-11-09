@@ -80,7 +80,11 @@
     { id: 'press', t: 'Presión diplomática', ic: 'fa-bullhorn', k: 'now', cap: 4, d: 'Presionas al otro gobierno: baja su aprobación y estabilidad; la relación se resiente.',
       run(a, b) { st(b, 'apr', -3); st(b, 'est', -3); st(a, 'apr', 2); rel(-9); return nm(a) + ' presiona diplomáticamente a ' + nm(b) + '.'; } },
     { id: 'embargo', t: 'Cierre de frontera y aranceles', ic: 'fa-ban', k: 'now', cap: 6, d: 'Golpe económico al otro (y algo a ti). Rompe los pactos comercial y fronterizo.',
-      run(a, b) { st(b, 'eco', -5); st(a, 'eco', -2); S().pacts.trade = false; S().pacts.border = false; rel(-14); return nm(a) + ' cierra la frontera y sube aranceles a ' + nm(b) + '.'; } }
+      run(a, b) { st(b, 'eco', -5); st(a, 'eco', -2); S().pacts.trade = false; S().pacts.border = false; rel(-14); return nm(a) + ' cierra la frontera y sube aranceles a ' + nm(b) + '.'; } },
+    { id: 'campjoint', t: 'Cumbre bilateral en plena campaña', ic: 'fa-handshake', k: 'prop', camp: true, cap: 4, d: 'Foto de Estado durante la campaña: España gana impulso electoral y ambos mejoran relación y economía.',
+      run() { campMom(2.5); st('P', 'eco', 1); st('P', 'apr', 1); rel(6); return 'Cumbre bilateral España–' + C().name + ' en plena campaña electoral.'; } },
+    { id: 'campmig', t: 'Presión migratoria electoral', ic: 'fa-triangle-exclamation', k: 'now', camp: true, who: 'P', cap: 5, d: 'Aprietas a España en plena campaña: pierde impulso electoral. Sube tu aprobación, pero la relación se hunde.',
+      run(a) { campMom(-3); st(a, 'apr', 2); rel(-10); return nm(a) + ' presiona a España en plena campaña con la cuestión migratoria.'; } }
   ];
   const STATS = [['eco', 'Economía'], ['est', 'Estabilidad'], ['apr', 'Aprobación'], ['mil', 'Militar']];
 
@@ -88,6 +92,10 @@
   let peer = null, link = null, guest = null, tab = 'res', USER = '';
   try { USER = localStorage.getItem('moncloa_user') || ''; } catch (e) { /* sin almacenamiento */ }
   const G = () => guest && guest.s;
+  // La campaña electoral de España dura 90 días y el socio sigue gobernando mientras tanto
+  const campOn = () => (G() ? !!G().camp : !!(window.CAMP && CAMP.live()));
+  const campMom = v => { if (window.CAMP) CAMP.addMom(v); };
+  const visible = (x, me) => (!x.camp || campOn()) && (!x.who || x.who === me);
   const S = () => (G() ? G().m : gameState.mp);
   const C = () => COUNTRIES[S().partner];
   const oth = s => (s === 'ES' ? 'P' : 'ES');
@@ -126,7 +134,7 @@
   }
   function act(id) {
     const m = S(), a = m.turn, b = oth(a), x = ACTIONS.find(z => z.id === id);
-    if (!x || (x.pact && m.pacts[id]) || (m.cd[a + id] || 0) > 0) return;
+    if (!x || !visible(x, a) || (x.pact && m.pacts[id]) || (m.cd[a + id] || 0) > 0) return;
     if (cap(a) < x.cap) return toast('Capital político insuficiente.');
     if (x.k === 'prop') {
       if (m.inbox.some(i => i.from === a && i.id === id)) return toast('Ya hay una propuesta pendiente.');
@@ -256,10 +264,10 @@
   }
   const gsend = o => { if (link && link.open) link.send(o); };
   function snap() {
-    const m = S(), me = { eco: 0, est: 0, apr: 0, mil: 0, tes: 0, cap: 0 }, wait = gameState.step !== 4;
+    const m = S(), me = { eco: 0, est: 0, apr: 0, mil: 0, tes: 0, cap: 0 }, wait = gameState.step !== 4 && !(gameState.step === 5 && window.CAMP && CAMP.live());
     if (!wait) { STATS.forEach(([k]) => { me[k] = stat('ES', k); }); me.tes = treas('ES'); me.cap = cap('ES'); }
     const cd = {}; Object.keys(m.cd).forEach(k => { if (k[0] === 'P') cd[k] = m.cd[k]; });
-    return { wait, day: gameState.daysInOffice || 0, pause: wait || !gameState.gameSpeed, ES: me, rel: wait ? 45 : intlInit().rel[C().intl],
+    return { wait, camp: (window.CAMP && CAMP.live()) ? CAMP.info() : null, day: gameState.daysInOffice || 0, pause: wait || !gameState.gameSpeed || !!gameState.currentCampaignQuestion, ES: me, rel: wait ? 45 : intlInit().rel[C().intl],
       m: { partner: m.partner, turn: 'P', P: m.P, pacts: m.pacts, inbox: m.inbox, log: m.log, cd, evt: m.evt, mode: 'online', code: m.code, hn: USER, gn: m.gn } };
   }
   let lastPush = 0;
@@ -282,7 +290,7 @@
     if (!guest) { if (el) el.remove(); return; }
     if (!el) { el = document.createElement('div'); el.id = 'mp-guest'; el.className = 'fixed inset-0 overflow-y-auto p-4'; el.style.zIndex = 100000; el.style.background = '#0b0f12'; document.body.appendChild(el); }
     const s = guest.s;
-    el.innerHTML = `<div class="flex justify-between items-center mb-3 font-hoi-tech text-xs text-slate-300"><span>Sala <b class="text-amber-300">${guest.code}</b>${s && s.m.hn ? ' · anfitrión: ' + s.m.hn : ''}${s ? ' · Día ' + s.day + (s.pause ? ' · <span class="text-amber-400">PARTIDA EN PAUSA</span>' : '') : ''}${guest.ok ? '' : ' · <span class="text-red-400">CONEXIÓN PERDIDA</span>'}</span><button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded">Salir de la sala</button></div><div class="max-w-3xl mx-auto space-y-3">${s && s.wait ? '<div class="hoi-box p-8 rounded-xl text-center font-hoi-tech text-slate-300"><div class="text-3xl mb-2">' + flag('P') + '</div>Estás dentro de la sala. Esperando a que el anfitrión empiece la partida…</div>' : renderMulti()}</div>`;
+    el.innerHTML = `<div class="flex justify-between items-center mb-3 font-hoi-tech text-xs text-slate-300"><span>Sala <b class="text-amber-300">${guest.code}</b>${s && s.m.hn ? ' · anfitrión: ' + s.m.hn : ''}${s ? ' · Día ' + s.day + (s.pause ? ' · <span class="text-amber-400">PARTIDA EN PAUSA</span>' : '') + (s.camp ? ' · <span class="text-sky-300">🗳️ Campaña en España: día ' + s.camp.d + '/' + s.camp.n + '</span>' : '') : ''}${guest.ok ? '' : ' · <span class="text-red-400">CONEXIÓN PERDIDA</span>'}</span><button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded">Salir de la sala</button></div><div class="max-w-3xl mx-auto space-y-3">${s && s.wait ? '<div class="hoi-box p-8 rounded-xl text-center font-hoi-tech text-slate-300"><div class="text-3xl mb-2">' + flag('P') + '</div>Estás dentro de la sala. Esperando a que el anfitrión empiece la partida…</div>' : renderMulti()}</div>`;
   }
 
   // ---------------- INTERFAZ ----------------
@@ -334,7 +342,7 @@
       return `<div class="bg-slate-900 border border-amber-500/40 rounded p-2 text-[11px] space-y-1"><div><b>${flag(it.from)} ${nm(it.from)}</b> ${it.asks ? 'solicita' : 'propone'}: <b class="text-amber-300">${x.t}</b></div><div class="flex gap-2"><button onclick="MP.answer(${i},true)" class="hoi-button px-2 py-1 rounded text-emerald-300">Aceptar</button><button onclick="MP.answer(${i},false)" class="hoi-button px-2 py-1 rounded text-red-300">Rechazar</button></div></div>`;
     }).join('');
     const evt = me === 'P' && m.evt != null ? (e => `<div class="bg-slate-900 border border-sky-500/40 rounded p-3 space-y-2"><b class="text-sm text-sky-300">${e.title}</b><p class="text-[11px] text-slate-400 font-sans">${e.desc}</p>${e.opts.map((o, i) => `<button onclick="MP.evt(${i})" class="hoi-button w-full p-2 rounded text-[11px] text-left">${o.t}</button>`).join('')}</div>`)(c.events[m.evt]) : '';
-    const acts = ACTIONS.map(x => {
+    const acts = ACTIONS.filter(x => visible(x, me)).map(x => {
       const on = x.pact && m.pacts[x.id], cd = m.cd[me + x.id] || 0, pend = m.inbox.some(i => i.from === me && i.id === x.id);
       const off = on || cd > 0 || pend || cap(me) < x.cap;
       return `<button ${off ? 'disabled' : ''} onclick="MP.act('${x.id}')" class="hoi-button p-2 rounded text-[11px] text-left ${off ? 'opacity-50' : ''} ${x.k === 'now' ? 'border-red-500/40' : ''}"><div><i class="fa-solid ${x.ic} mr-1 ${x.k === 'now' ? 'text-red-400' : 'text-emerald-400'}"></i><b>${x.t}</b> <span class="text-slate-400">· ${x.cap} cap.</span></div><div class="text-slate-400 font-sans">${x.d}</div><div class="text-[10px] ${on ? 'text-emerald-300' : 'text-slate-500'}">${on ? '✔ Pacto activo' : pend ? 'Propuesta pendiente…' : cd ? 'Disponible en ' + cd + ' días' : x.k === 'prop' ? 'Requiere aceptación de ' + nm(ot) : 'Efecto inmediato'}</div></button>`;
