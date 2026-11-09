@@ -123,7 +123,7 @@
    function start(partner) {
     const c = COUNTRIES[partner]; if (!c) return;
     gameState.mp = { on: true, partner, turn: 'ES', P: Object.assign({}, c.start, { bud: Object.fromEntries(c.budget.map(b => [b.id, 50])) }), pacts: { trade: false, border: false, defense: false },
-      inbox: [], log: [], cd: {}, evt: null, next: (gameState.daysInOffice || 0) + 30, synced: false, started: false, began: false };
+      inbox: [], log: [], cd: {}, evt: null, next: (gameState.daysInOffice || 0) + 30, synced: false, started: false };
     if (partner === 'MA' && window.initMorocco) {
       gameState.mp.P = window.initMorocco(gameState.mp.gn || '');
       // 👇 si initMorocco no registró el adaptador (por la razón que sea), lo forzamos aquí
@@ -298,7 +298,7 @@
     if (!wait) { STATS.forEach(([k]) => { me[k] = stat('ES', k); }); me.tes = treas('ES'); me.cap = cap('ES'); }
     const cd = {}; Object.keys(m.cd).forEach(k => { if (k[0] === 'P') cd[k] = m.cd[k]; });
     return { wait, camp: (window.CAMP && CAMP.live()) ? CAMP.info() : null, diff: (gameState.campaign && gameState.campaign.diff) || gameState.difficulty || 'normal', day: gameState.daysInOffice || 0, pause: wait || !gameState.gameSpeed || !!gameState.currentCampaignQuestion, ES: me, rel: wait ? 45 : intlInit().rel[C().intl],
-      m: { partner: m.partner, turn: 'P', P: m.P, pacts: m.pacts, inbox: m.inbox, log: m.log, cd, evt: m.evt, mode: 'online', code: m.code, hn: USER, gn: m.gn, began: !!m.began } };
+      m: { partner: m.partner, turn: 'P', P: m.P, pacts: m.pacts, inbox: m.inbox, log: m.log, cd, evt: m.evt, mode: 'online', code: m.code, hn: USER, gn: m.gn } };
   }
   let lastPush = 0;
   function push() { if (!guest && link && link.open && S()) { lastPush = Date.now(); link.send({ t: 's', s: snap() }); } }
@@ -324,9 +324,7 @@
     if (!el) { el = document.createElement('div'); el.id = 'mp-guest'; el.className = 'fixed inset-0 overflow-y-auto p-4'; el.style.zIndex = 100000; el.style.background = '#0b0f12'; document.body.appendChild(el); }
     const s = guest.s;
     const morG = !!(s && s.m && s.m.P && s.m.P.army && window.renderMoroccoTab);
-    const setupG = !!(morG && s.m.began && s.m.P.setup && !s.m.P.setup.done);
-    const govDone = !!(s && s.m && s.m.P && s.m.P.setup && s.m.P.setup.done);
-    el.innerHTML = `<div class="flex justify-between items-center mb-3 font-hoi-tech text-xs text-slate-300"><span>Sala <b class="text-amber-300">${guest.code}</b>${s && s.diff && typeof DIFFICULTY !== 'undefined' && DIFFICULTY[s.diff] ? ' · ' + DIFFICULTY[s.diff].name : ''}${s && s.m.hn ? ' · anfitrión: ' + s.m.hn : ''}${s ? ' · Día ' + s.day + (s.pause ? ' · <span class="text-amber-400">PARTIDA EN PAUSA</span>' : '') + (s.camp ? ' · <span class="text-sky-300">🗳️ Campaña en España: día ' + s.camp.d + '/' + s.camp.n + '</span>' : '') : ''}${guest.ok ? '' : ' · <span class="text-red-400">CONEXIÓN PERDIDA</span>'}</span><button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded">Salir de la sala</button></div><div class="${morG ? 'max-w-5xl' : 'max-w-3xl'} mx-auto space-y-3">${s && s.wait && !setupG ? '<div class="hoi-box p-8 rounded-xl text-center font-hoi-tech text-slate-300"><div class="text-3xl mb-2">' + flag('P') + '</div>' + (govDone ? 'Tu Gobierno ya está formado. Esperando a que España termine de formar el suyo…' : 'Estás dentro de la sala. Esperando a que el anfitrión empiece la partida…') + '</div>' : morG ? window.renderMoroccoTab(s.m.P, { guest: true }) : renderMulti()}</div>`;
+    el.innerHTML = `<div class="flex justify-between items-center mb-3 font-hoi-tech text-xs text-slate-300"><span>Sala <b class="text-amber-300">${guest.code}</b>${s && s.diff && typeof DIFFICULTY !== 'undefined' && DIFFICULTY[s.diff] ? ' · ' + DIFFICULTY[s.diff].name : ''}${s && s.m.hn ? ' · anfitrión: ' + s.m.hn : ''}${s ? ' · Día ' + s.day + (s.pause ? ' · <span class="text-amber-400">PARTIDA EN PAUSA</span>' : '') + (s.camp ? ' · <span class="text-sky-300">🗳️ Campaña en España: día ' + s.camp.d + '/' + s.camp.n + '</span>' : '') : ''}${guest.ok ? '' : ' · <span class="text-red-400">CONEXIÓN PERDIDA</span>'}</span><button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded">Salir de la sala</button></div><div class="${morG ? 'max-w-5xl' : 'max-w-3xl'} mx-auto space-y-3">${s && s.wait ? '<div class="hoi-box p-8 rounded-xl text-center font-hoi-tech text-slate-300"><div class="text-3xl mb-2">' + flag('P') + '</div>Estás dentro de la sala. Esperando a que el anfitrión empiece la partida…</div>' : morG ? window.renderMoroccoTab(s.m.P, { guest: true }) : renderMulti()}</div>`;
   }
 
   // ---------------- INTERFAZ ----------------
@@ -546,21 +544,12 @@
       else host(L.partner);                                                                // sala de espera; «Empezar partida» continúa
     },
     enter: c => { if (need()) { L.code = (c || '').toUpperCase(); join(L.code); } },
-    begin: () => {
-      if (gameState.mp) { gameState.mp.began = true; gameState.mp.synced = false; }
-      L.on = false; gameState.campaignLegs = L.legs; gameState.difficulty = L.difficulty;
-      selectScenario(L.scen);                 // pasa directo a los escaños de España; Marruecos forma Gobierno a la vez
-      setTimeout(push, 0);
-    }, cancel: () => { L.view = 'create'; stop(); },
+    begin: () => { L.on = false; gameState.campaignLegs = L.legs; selectScenario(L.scen); }, cancel: () => { L.view = 'create'; stop(); },
     cont: () => { L.on = false; loadGame(); },
     copy: u => { try { navigator.clipboard.writeText(u); goalsToast('Enlace copiado.', '#10b981'); } catch (e) { prompt('Copia el enlace:', u); } }
   });
   const _rs = renderScenarioSelect;
   renderScenarioSelect = function (app) {
-    if (!L.on && gameState.mp && gameState.mp.mode === 'online' && gameState.mp.began && gameState.step === 1) {
-      setTimeout(() => { if (gameState.step === 1 && gameState.mp) selectScenario(L.scen); }, 0);   // continúa la partida en vez de mostrar el selector
-      return;
-    }
     if (!L.on) {
       _rs(app);
       const mpChosen = (gameState.mp && gameState.mp.mode === 'online') || window.__mpStart;
@@ -584,12 +573,12 @@
     if (gameState.step === 1 && lastStep > 1) { L.on = true; L.view = 'home'; if (gameState.mp) { closeNet(); gameState.mp = null; } }
     lastStep = gameState.step;
     document.body.classList.toggle('mp-lobby', gameState.step === 1 && L.on);
-    if (gameState.step === 4 && window.__mpStart && !gameState.mp) { const k = window.__mpStart, net = window.__mpNet; window.__mpStart = null; start(k); if (gameState.mp) gameState.mp.began = true; if (net) host(k); }
+    if (gameState.step === 4 && window.__mpStart && !gameState.mp) { const k = window.__mpStart, net = window.__mpNet; window.__mpStart = null; start(k); if (net) host(k); }
     if (gameState.step === 4 && gameState.mp && gameState.mp.synced === false) {
       const m = gameState.mp, d = gameState.daysInOffice || 1;
       m.synced = true; m.next = d + 30;
       if (m.P && m.P.army) { m.P.day = d; m.P.next = d + 25; }
-      if (m.mode === 'online') setTimeout(() => goalsToast(m.P && m.P.setup && !m.P.setup.done ? 'Esperando a que ' + nm('P') + ' forme Gobierno: pulsa ▶ cuando termine.' : 'Pulsa ▶ para empezar: la partida arrancará a la vez para ' + nm('ES') + ' y ' + nm('P') + '.', '#d9a726'), 300);
+      if (m.mode === 'online') setTimeout(() => goalsToast('Pulsa ▶ para empezar: la partida arrancará a la vez para ' + nm('ES') + ' y ' + nm('P') + '.', '#d9a726'), 300);
     }
     const r = _r.apply(this, arguments);
     const b = document.getElementById('tab-btn-mp');
