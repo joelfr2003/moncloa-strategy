@@ -206,6 +206,10 @@
   }
   // Canal de Supabase con la misma interfaz que una conexión PeerJS (open, send, on, close)
   function relayLink(code, role) {
+    // Normaliza y valida los datos antes de conectar, para dar un error claro
+    RELAY.url = (RELAY.url || '').trim().replace(/^(https?:\/\/[^\/]+).*$/i, '$1').replace(/^http:/i, 'https:'); RELAY.key = (RELAY.key || '').trim();
+    if (!/^https:\/\/[a-z0-9-]+\.supabase\.(co|in)$/i.test(RELAY.url)) toast('La URL debe ser la «Project URL», tipo https://xxxx.supabase.co (sin /rest/v1).');
+    if (/^sb_secret_/.test(RELAY.key)) toast('Has pegado una clave SECRETA. Usa la «anon» (eyJ…) o la «publishable».');
     const sb = window.supabase.createClient(RELAY.url, RELAY.key), other = role === 'host' ? 'guest' : 'host';
     const ch = sb.channel('moncloa-' + code, { config: { broadcast: { self: false }, presence: { key: role + Math.random().toString(36).slice(2, 7) } } });
     const L = { open: false, h: {}, on(e, f) { this.h[e] = f; }, send(d) { ch.send({ type: 'broadcast', event: 'm', payload: { from: role, d } }); }, close() { L.open = false; try { sb.removeChannel(ch); } catch (e) { /* ya cerrado */ } } };
@@ -215,7 +219,12 @@
       if (has && !L.open) { L.open = true; if (L.h.open) L.h.open(); }
       else if (!has && L.open) { L.open = false; if (L.h.close) L.h.close(); }
     });
-    ch.subscribe(st => { if (st === 'SUBSCRIBED') ch.track({ role }); else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') toast('No se pudo conectar con Supabase. Revisa la URL y la clave.'); });
+    let ok = false;
+    setTimeout(() => { if (!ok) toast('Supabase no responde tras 10 s: ¿proyecto pausado, URL mal o websockets bloqueados?'); }, 10000);
+    ch.subscribe((st, err) => {
+      if (st === 'SUBSCRIBED') { ok = true; ch.track({ role }); }
+      else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') { console.error('Supabase Realtime:', st, err); toast('Supabase: ' + st + (err && err.message ? ' — ' + err.message : '') + '. Revisa la URL y la clave (consola F12 para más detalle).'); }
+    });
     return L;
   }
   function wireHost(c) {
