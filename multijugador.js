@@ -388,9 +388,13 @@
     renderMulti, repaint: () => paintGuest(), isGuest: () => !!guest, toast,
     sendMA: (f, a) => gsend({ t: 'ma', f, a }),
     canAct: () => !!guest || (!!S() && S().mode !== 'online' && S().turn === 'P'),
-    cross: (esFx, r, txt, ask) => {   // efecto de una decisión de Marruecos sobre España y la relación bilateral
+    cross: (esFx, r, txt, ask) => {
       try { applyFx('ES', esFx); if (r) rel(r); if (txt) log(txt); if (ask && S()) S().inbox.push({ from: 'P', id: 'aid', asks: true }); } catch (e) { console.error(e); }
-    } };
+    },
+    // --- NUEVO: registro y consulta del adaptador de país ---
+    setAdapter: a => { window.MP_ADAPTER = a; },
+    adapter: () => window.MP_ADAPTER || null
+  };
 
   function addTab() {
     if (document.getElementById('tab-btn-mp')) return;
