@@ -61,6 +61,12 @@ Pestaña **Militar y Guerra** (grupo Exterior): mapamundi por países, fuerzas d
 
 Coloca archivos `.mp3` en `musica/efectos/`: `crisis`, `victoria`, `derrota`, `guerra`, `paz` y `disturbios`. Si no existen, el juego usa sonidos generados.
 
+## Modo multijugador
+
+Dos jugadores en el mismo dispositivo: uno gobierna **España** y el otro **Marruecos** (se activa con la casilla de la pantalla de inicio o desde la pestaña **Multijugador**, grupo Exterior). Se pasan el mando (la partida se pausa), se proponen pactos (comercial, fronterizo, defensa), se envían ayuda económica o se hacen presión diplomática y cierre de fronteras. Marruecos tiene su propia economía, tesoro y sucesos. Todo afecta a la relación bilateral de la partida.
+
+**Añadir más países:** en `multijugador.js`, añade una entrada a `COUNTRIES` (estadísticas iniciales, ingresos y sucesos).
+
 ## Publicar cambios
 
 Cuando cambies `index.html`, sube también un `VERSION` nuevo en `sw.js` (`'v2'`, `'v3'`…) para que los dispositivos que ya lo tienen instalado reciban la actualización.
@@ -71,6 +77,7 @@ Cuando cambies `index.html`, sube también un `VERSION` nuevo en `sw.js` (`'v2'`
 |---|---|
 | `index.html` | El juego completo |
 | `manifest.webmanifest` | Datos de la app instalable (nombre, iconos, colores) |
+| `multijugador.js` | Modo multijugador (países ampliables) |
 | `sw.js` | Service worker: modo sin conexión |
 | `icons/` | Iconos de la app |
 | `music/` | Aquí va `theme.mp3` si quieres tu propia música |
