@@ -5,6 +5,12 @@
 // =====================================================================
 (function () {
   'use strict';
+  // ---------------- RELÉ ONLINE OPCIONAL (Supabase Realtime, plan gratuito) ----------------
+  // Déjalo vacío para usar conexión directa PeerJS. Para más fiabilidad pega aquí los dos datos
+  // de tu proyecto de Supabase (Settings → API): «Project URL» y la clave «anon public». Son públicos.
+  const RELAY = { url: '', key: '' };
+  const useRelay = () => !!(RELAY.url && RELAY.key);
+
   const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
 
   // ---------------- REGISTRO DE PAÍSES ----------------
@@ -184,29 +190,60 @@
     const el = document.createElement('script'); el.src = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
     el.onload = cb; el.onerror = () => toast('No se pudo cargar PeerJS (¿sin conexión?).'); document.head.appendChild(el);
   }
+  function loadSb(cb) {
+    if (window.supabase) return cb();
+    const el = document.createElement('script'); el.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';
+    el.onload = cb; el.onerror = () => toast('No se pudo cargar Supabase (¿sin conexión?).'); document.head.appendChild(el);
+  }
+  // Canal de Supabase con la misma interfaz que una conexión PeerJS (open, send, on, close)
+  function relayLink(code, role) {
+    const sb = window.supabase.createClient(RELAY.url, RELAY.key), other = role === 'host' ? 'guest' : 'host';
+    const ch = sb.channel('moncloa-' + code, { config: { broadcast: { self: false }, presence: { key: role + Math.random().toString(36).slice(2, 7) } } });
+    const L = { open: false, h: {}, on(e, f) { this.h[e] = f; }, send(d) { ch.send({ type: 'broadcast', event: 'm', payload: { from: role, d } }); }, close() { L.open = false; try { sb.removeChannel(ch); } catch (e) { /* ya cerrado */ } } };
+    ch.on('broadcast', { event: 'm' }, ({ payload }) => { if (payload && payload.from !== role && L.h.data) L.h.data(payload.d); });
+    ch.on('presence', { event: 'sync' }, () => {
+      const has = Object.keys(ch.presenceState()).some(k => k.indexOf(other) === 0);
+      if (has && !L.open) { L.open = true; if (L.h.open) L.h.open(); }
+      else if (!has && L.open) { L.open = false; if (L.h.close) L.h.close(); }
+    });
+    ch.subscribe(st => { if (st === 'SUBSCRIBED') ch.track({ role }); else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') toast('No se pudo conectar con Supabase. Revisa la URL y la clave.'); });
+    return L;
+  }
+  function wireHost(c) {
+    link = c;
+    c.on('open', () => { log(nm('P') + ': jugador conectado.'); push(); render(); });
+    c.on('data', onCmd);
+    c.on('close', () => { link = null; log(nm('P') + ': jugador desconectado.'); render(); });
+  }
   function closeNet() { try { if (link) link.close(); if (peer) peer.destroy(); } catch (e) { /* ya cerrado */ } link = peer = null; guest = null; paintGuest(); }
   function host(partner) {
-    loadPeer(() => {
+    (useRelay() ? loadSb : loadPeer)(() => {
       if (peer) { try { peer.destroy(); } catch (e) { /* nada */ } }
       if (!S()) start(partner);
       const m = S(); m.mode = 'online'; m.turn = 'ES'; m.code = Math.random().toString(36).slice(2, 7).toUpperCase();
+      if (useRelay()) { const L = relayLink(m.code, 'host'); peer = { destroy: () => L.close() }; wireHost(L); render(); return; }
       peer = new Peer('moncloa-' + m.code);
       peer.on('open', () => render());
       peer.on('error', e => { toast('Error de conexión: ' + e.type); peer = null; render(); });
       peer.on('connection', c => {
         if (link && link.open) { c.close(); return; }
-        link = c;
-        c.on('open', () => { log(nm('P') + ': jugador conectado.'); push(); render(); });
-        c.on('data', onCmd);
-        c.on('close', () => { link = null; log(nm('P') + ': jugador desconectado.'); render(); });
+        wireHost(c);
       });
       render();
     });
   }
   function join(code) {
     code = (code || '').trim().toUpperCase(); if (!code) return;
-    loadPeer(() => {
-      closeNet(); peer = new Peer();
+    (useRelay() ? loadSb : loadPeer)(() => {
+      closeNet();
+      if (useRelay()) {
+        const L = relayLink(code, 'guest'); link = L; peer = { destroy: () => L.close() };
+        L.on('open', () => { guest = { code, s: null, ok: true }; paintGuest(); });
+        L.on('data', d => { if (guest && d && d.t === 's') { guest.s = d.s; paintGuest(); } });
+        L.on('close', () => { if (guest) { guest.ok = false; paintGuest(); } });
+        return;
+      }
+      peer = new Peer();
       peer.on('error', e => { toast('No se pudo conectar: ' + e.type); closeNet(); });
       peer.on('open', () => {
         const c = peer.connect('moncloa-' + code, { reliable: true }); link = c;
