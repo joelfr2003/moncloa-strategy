@@ -11179,7 +11179,7 @@ const POPUP_GAP_DAYS = 30;   // margen entre emergencias aleatorias (las de fech
 function popupGapOk() {
   const day = gameState.daysInOffice || 0, last = gameState.lastPopupDay;
   if (last == null || day < last) { gameState.lastPopupDay = null; return true; }
-  return day - last >= POPUP_GAP_DAYS;
+  return day - last >= (window.UX_GAP || POPUP_GAP_DAYS);
 }
 function popupMark() { gameState.lastPopupDay = gameState.daysInOffice || 0; }
 
@@ -15443,7 +15443,7 @@ function playSound(n) {
   const PN = ['{n} expulsa a varios diplomáticos españoles', '{n} critica duramente a España en la ONU', 'Incidente diplomático con {n}', '{n} congela su cooperación con España'];
   const PP = ['{n} refuerza sus lazos con España', '{n} apoya a España en un foro internacional', 'Visita de cortesía de {n} a Madrid'];
   function drift() {
-    const W = gameState.wr; if (!W || !W.rel) return;
+    const W = gameState.wr; if (!W || !W.rel || window.UX_NODRIFT) return;
     const pool = FOES.filter(f => !ISO2[f[0]] && !(W.war && W.war.id === f[0]));
     for (let i = 0; i < 3; i++) {
       const f = pool[Math.floor(Math.random() * pool.length)], old = W.rel[f[0]] != null ? W.rel[f[0]] : f[5];
@@ -15565,6 +15565,118 @@ function playSound(n) {
         <p class="text-[10px] text-slate-500 font-sans">La economía y el empleo suben o bajan la recaudación y el crecimiento. Si la Tesorería cae de ${fmt(FLOOR)} M€, el Tesoro emite deuda automáticamente; si la deuda pasa del ${MARKET_CLOSE} % del PIB, los mercados se cierran y la economía se resiente.</p></div>`;
       return h.replace(/<\/div>\s*$/, box + '</div>');
     } catch (err) { console.error(err); return h; }
+  };
+})();
+
+// =====================================================================
+//  COMODIDAD DE JUEGO: modos (Completo / Esencial / Tranquilo), avisos ordenados,
+//  "Qué hacer ahora" y delegación de tareas repetitivas.
+// =====================================================================
+(function () {
+  const KEY = 'moncloa_ux_v1';
+  const MODES = { completo: { n: 'Completo', d: 'Todas las pestañas y avisos.', gap: 0 }, esencial: { n: 'Esencial', d: 'Solo lo importante: menos pestañas y más tiempo entre crisis.', gap: 45 }, tranquilo: { n: 'Tranquilo', d: 'Esencial + muchas menos crisis y solo avisos urgentes.', gap: 75 } };
+  const UX = { mode: 'completo', autoProj: false, noDrift: false, log: [], unread: 0, open: false };
+  try { Object.assign(UX, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+  if (!MODES[UX.mode]) UX.mode = 'completo'; UX.log = []; UX.unread = 0; UX.open = false;
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ mode: UX.mode, autoProj: UX.autoProj, noDrift: UX.noDrift })); } catch (e) {} };
+
+  // ---------- estilos ----------
+  const css = document.createElement('style');
+  css.textContent = `
+  #ux-toasts{position:fixed;top:12px;right:12px;z-index:99999;display:flex;flex-direction:column;gap:8px;width:min(340px,calc(100vw - 24px));pointer-events:none}
+  #ux-toasts .ux-t{pointer-events:auto;cursor:pointer;background:#11171b;color:#f1f5f9;border:2px solid #d9a726;border-radius:10px;padding:9px 12px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.5);animation:uxin .18s ease-out}
+  @keyframes uxin{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+  #ux-pill{position:fixed;right:14px;bottom:14px;z-index:99990;background:#11171b;border:1px solid #d9a726;color:#f8e7b0;border-radius:999px;padding:8px 14px;font-size:11px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.5);display:flex;gap:8px;align-items:center}
+  #ux-pill .ux-badge{background:#ef4444;color:#fff;border-radius:999px;font-size:10px;min-width:16px;height:16px;display:none;align-items:center;justify-content:center;padding:0 4px}
+  #ux-pop{position:fixed;right:14px;bottom:56px;z-index:99991;width:min(360px,calc(100vw - 28px));max-height:min(78vh,640px);overflow:auto;background:#0b1114;border:1px solid #d9a726;border-radius:12px;padding:12px;font-size:12px;color:#e2e8f0;box-shadow:0 12px 40px rgba(0,0,0,.65);display:none}
+  #ux-pop h4{font-size:11px;letter-spacing:.08em;color:#d9a726;margin:10px 0 6px}
+  #ux-pop .ux-row{display:flex;gap:8px;align-items:center;background:#11171b;border:1px solid #243039;border-radius:8px;padding:7px 9px;margin-bottom:5px;cursor:pointer;width:100%;text-align:left;color:inherit}
+  #ux-pop .ux-row:hover{border-color:#d9a726}
+  #ux-pop .ux-row.red{border-left:3px solid #ef4444}#ux-pop .ux-row.amber{border-left:3px solid #d9a726}
+  #ux-pop .ux-mode{flex:1;padding:6px 4px;border-radius:8px;border:1px solid #243039;background:#11171b;color:#cbd5e1;cursor:pointer;font-size:11px}
+  #ux-pop .ux-mode.on{border-color:#d9a726;background:rgba(217,167,38,.18);color:#f8e7b0}
+  #ux-pop label{display:flex;gap:8px;align-items:flex-start;margin:5px 0;cursor:pointer}
+  body.ux-lite #tab-btn-media,body.ux-lite #tab-btn-bde,body.ux-lite #tab-btn-focus,body.ux-lite #tab-btn-soc,body.ux-lite #tab-btn-ue,body.ux-lite #tab-btn-stats,body.ux-lite #tab-btn-cis,body.ux-lite #tab-btn-ach{display:none !important}
+  body.ux-lite .nav-group[data-ids="stats,cis,ach"]{display:none !important}`;
+  document.head.appendChild(css);
+
+  // ---------- avisos ordenados: apilados, sin duplicados, con historial ----------
+  const box = document.createElement('div'); box.id = 'ux-toasts'; document.body.appendChild(box);
+  const MAX = 3; let lastHtml = '', lastAt = 0;
+  const urgent = c => /ef4444|dc2626|f87171/i.test(c || '');
+  goalsToast = function (html, color) {
+    const now = Date.now();
+    UX.log.unshift({ html: html, color: color || '#d9a726', at: gameState && gameState.currentDate ? new Date(gameState.currentDate).toLocaleDateString('es-ES') : '' }); UX.log = UX.log.slice(0, 40);
+    if (UX.mode === 'tranquilo' && !urgent(color)) { UX.unread++; refresh(); return; }
+    if (html === lastHtml && now - lastAt < 8000) return;
+    lastHtml = html; lastAt = now;
+    const t = document.createElement('div'); t.className = 'ux-t'; t.style.borderColor = color || '#d9a726'; t.innerHTML = html;
+    t.onclick = () => t.remove(); box.appendChild(t);
+    while (box.children.length > MAX) box.removeChild(box.firstChild);
+    setTimeout(() => { try { t.remove(); } catch (e) {} }, urgent(color) ? 7000 : 4000);
+    UX.unread++; refresh();
+  };
+
+  // ---------- qué hacer ahora ----------
+  function todo() {
+    const g = gameState, out = []; if (!g || g.step !== 4) return out;
+    if (g.pgeActive) out.push(['fa-file-invoice-dollar', 'Aprobar los Presupuestos (PGE)', "switchTab('budget')", 'red']);
+    const W = g.wr; if (W && !W.gen && typeof warGenOpen === 'function') out.push(['fa-star', 'Nombrar al Jefe del Estado Mayor', 'warGenOpen()', 'red']);
+    if (W && W.war) out.push(['fa-crosshairs', 'Guerra en curso: revisa el frente', "switchTab('war')", 'red']);
+    const P = g.proj; if (P && P.active) P.active.filter(a => a.st === 'wait').forEach(a => { const p = PROJECTS.find(x => x.id === a.id); out.push(['fa-helmet-safety', 'Aprobar la fase ' + (a.ph + 1) + ': ' + p.title, "switchTab('proj')", 'amber']); });
+    const ms = g.ministers ? Object.keys(g.ministers) : [], vac = ms.filter(k => !g.ministers[k]).length;
+    if (vac > 0) out.push(['fa-user-tie', vac + (vac === 1 ? ' ministerio sin ministro' : ' ministerios sin ministro'), "switchTab('cabinet')", 'amber']);
+    if ((Number(g.treasury) || 0) < 10000) out.push(['fa-coins', 'Tesorería muy baja (' + Math.round(Number(g.treasury) || 0).toLocaleString('es-ES') + ' M€)', "switchTab('fin')", 'amber']);
+    if (W && W.rel && window.WAR_C) { const hs = window.WAR_C.filter(c => c.p >= .5 && W.rel[c.id] != null && W.rel[c.id] <= 25).sort((a, b) => W.rel[a.id] - W.rel[b.id]); if (hs.length) out.push(['fa-earth-europe', 'Riesgo exterior: ' + hs[0].n + ' (relación ' + Math.round(W.rel[hs[0].id]) + ' %)', "switchTab('intl')", 'amber']); }
+    return out;
+  }
+
+  // ---------- panel ----------
+  const pill = document.createElement('button'); pill.id = 'ux-pill'; pill.type = 'button';
+  pill.innerHTML = '<span>☰ Ayuda y modo</span><span class="ux-badge" id="ux-badge"></span>';
+  const pop = document.createElement('div'); pop.id = 'ux-pop';
+  document.body.appendChild(pill); document.body.appendChild(pop);
+  function applyMode() {
+    document.body.classList.toggle('ux-lite', UX.mode !== 'completo');
+    window.UX_GAP = MODES[UX.mode].gap; window.UX_NODRIFT = !!UX.noDrift || UX.mode === 'tranquilo';
+  }
+  function refresh() {
+    const n = todo().filter(x => x[3] === 'red' || x[3] === 'amber').length, b = document.getElementById('ux-badge');
+    if (b) { b.textContent = n; b.style.display = n ? 'flex' : 'none'; }
+    if (UX.open) draw();
+  }
+  function draw() {
+    const items = todo();
+    const list = items.length ? items.map(x => `<button class="ux-row ${x[3]}" onclick="${x[2].replace(/"/g, '&quot;')};uxClose()"><i class="fa-solid ${x[0]}"></i><span>${x[1]}</span></button>`).join('') : '<div style="color:#34d399;padding:4px 2px">✔ Todo en orden. Deja correr el tiempo.</div>';
+    const modes = Object.keys(MODES).map(k => `<button class="ux-mode ${UX.mode === k ? 'on' : ''}" onclick="uxMode('${k}')">${MODES[k].n}</button>`).join('');
+    const log = UX.log.slice(0, 8).map(l => `<div style="border-left:3px solid ${l.color};background:#11171b;border-radius:6px;padding:5px 8px;margin-bottom:4px;font-size:11px">${l.html}</div>`).join('') || '<div style="color:#64748b">Sin avisos recientes.</div>';
+    pop.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><b style="color:#f8e7b0;font-size:13px">Panel de calma</b><button onclick="uxClose()" style="color:#94a3b8;cursor:pointer">✕</button></div>
+      <h4>QUÉ HACER AHORA</h4>${list}
+      <h4>MODO DE JUEGO</h4><div style="display:flex;gap:6px">${modes}</div><div style="color:#94a3b8;font-size:11px;margin-top:5px">${MODES[UX.mode].d}</div>
+      <h4>DELEGAR</h4>
+      <label><input type="checkbox" ${UX.autoProj ? 'checked' : ''} onchange="uxSet('autoProj',this.checked)"><span>Aprobar solo las fases de proyectos si hay caja de sobra (el doble del coste)</span></label>
+      <label><input type="checkbox" ${UX.noDrift || UX.mode === 'tranquilo' ? 'checked' : ''} ${UX.mode === 'tranquilo' ? 'disabled' : ''} onchange="uxSet('noDrift',this.checked)"><span>Sin incidentes diplomáticos aleatorios</span></label>
+      <h4>ÚLTIMOS AVISOS</h4>${log}`;
+    UX.unread = 0;
+  }
+  window.uxClose = () => { UX.open = false; pop.style.display = 'none'; };
+  window.uxMode = m => { UX.mode = m; save(); applyMode(); draw(); };
+  window.uxSet = (k, v) => { UX[k] = !!v; save(); applyMode(); draw(); };
+  pill.onclick = () => { UX.open = !UX.open; pop.style.display = UX.open ? 'block' : 'none'; if (UX.open) draw(); };
+  applyMode();
+
+  // ---------- delegación de proyectos y refresco ----------
+  const _t = gameTick;
+  gameTick = function () {
+    const b = gameState.daysInOffice; _t.apply(this, arguments);
+    if (gameState.daysInOffice === b || gameState.step !== 4) return;
+    const day = gameState.daysInOffice || 0;
+    try {
+      if (UX.autoProj && day % 5 === 0 && gameState.proj) {
+        gameState.proj.active.filter(a => a.st === 'wait').forEach(a => { const p = PROJECTS.find(x => x.id === a.id), c = p.phases[a.ph].cost; if ((Number(gameState.treasury) || 0) >= c * 2) projApprove(a.id); });
+      }
+      if (day % 3 === 0) refresh();
+    } catch (e) { console.error(e); }
   };
 })();
 </script>
