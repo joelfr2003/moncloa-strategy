@@ -15911,56 +15911,7 @@ function playSound(n) {
 
 </script>
 
-<!-- 👇 AÑADIR AQUÍ (bloque nuevo de integración de Marruecos) -->
-<script>
-(function () {
-  'use strict';
-
-  // 1) Cuando se renderiza la pestaña "morocco", se pinta el panel de Marruecos
-  const _rtc = renderTabContent;
-  renderTabContent = function () {
-    if (gameState.activeTab === 'morocco' && typeof window.renderMoroccoTab === 'function') {
-      return window.renderMoroccoTab();
-    }
-    return _rtc.apply(this, arguments);
-  };
-
-  // 2) El reloj principal también avanza el día de Marruecos
-  const _gt = gameTick;
-  gameTick = function () {
-    const before = gameState.daysInOffice;
-    _gt.apply(this, arguments);
-    if (gameState.daysInOffice !== before && gameState.step === 4 &&
-        gameState.mp && gameState.mp.partner === 'MA' &&
-        typeof window.moroccoTick === 'function') {
-      try { window.moroccoTick(); } catch (e) { console.error(e); }
-    }
-  };
-
-  // 3) Añadir dinámicamente la pestaña "Marruecos" al menú lateral
-  function addMoroccoTab() {
-    if (!gameState.mp || gameState.mp.partner !== 'MA') return;
-    if (document.getElementById('tab-btn-morocco')) return;
-    const goalsBtn = document.getElementById('tab-btn-goals');
-    if (!goalsBtn) return;
-    const b = document.createElement('button');
-    b.id = 'tab-btn-morocco';
-    b.className = 'nav-tab-btn';
-    b.setAttribute('onclick', "switchTab('morocco')");
-    b.innerHTML = '<i class="fa-solid fa-flag text-amber-400 w-4 text-center"></i><span>Marruecos</span>';
-    goalsBtn.parentNode.insertBefore(b, goalsBtn);
-  }
-
-  // Se engancha al render para que la pestaña aparezca en cuanto haya partida MP con Marruecos
-  const _render = render;
-  render = function () {
-    const r = _render.apply(this, arguments);
-    try { addMoroccoTab(); } catch (e) { console.error(e); }
-    return r;
-  };
-})();
-</script>
-<!-- 👆 FIN DEL BLOQUE NUEVO -->
+<!-- La integración de Marruecos (pestaña, reloj y render) vive solo en marruecos.js: este bloque duplicaba el avance diario y se ha eliminado. -->
 
   <script src="multijugador.js"></script>
   <script src="marruecos.js"></script>
