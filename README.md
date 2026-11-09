@@ -63,7 +63,7 @@ Coloca archivos `.mp3` en `musica/efectos/`: `crisis`, `victoria`, `derrota`, `g
 
 ## Modo multijugador
 
-Dos jugadores en el mismo dispositivo: uno gobierna **España** y el otro **Marruecos** (se activa con la casilla de la pantalla de inicio o desde la pestaña **Multijugador**, grupo Exterior). Se pasan el mando (la partida se pausa), se proponen pactos (comercial, fronterizo, defensa), se envían ayuda económica o se hacen presión diplomática y cierre de fronteras. Marruecos tiene su propia economía, tesoro y sucesos. Todo afecta a la relación bilateral de la partida.
+Dos jugadores, en el mismo dispositivo **o en línea** (cada uno en el suyo: el anfitrión crea una sala con un código de 5 letras y el otro pulsa «Unirme a una sala»; conexión directa por WebRTC con PeerJS, sin servidor propio; el anfitrión debe mantener su pestaña abierta y en primer plano): uno gobierna **España** y el otro **Marruecos** (se activa con la casilla de la pantalla de inicio o desde la pestaña **Multijugador**, grupo Exterior). Se pasan el mando (la partida se pausa), se proponen pactos (comercial, fronterizo, defensa), se envían ayuda económica o se hacen presión diplomática y cierre de fronteras. Marruecos tiene su propia gestión: presupuesto por ministerios (educación, sanidad, defensa, infraestructuras, seguridad, agricultura), decretos propios, economía, tesoro y sucesos. Todo afecta a la relación bilateral de la partida.
 
 **Añadir más países:** en `multijugador.js`, añade una entrada a `COUNTRIES` (estadísticas iniciales, ingresos y sucesos).
 
