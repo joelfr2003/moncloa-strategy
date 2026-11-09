@@ -7527,6 +7527,7 @@ function triggerRandomMinistryAction() {
 }
 
 function triggerElectionsWithModal(title, description) {
+  if (window.__electionGuard && window.__electionGuard()) return;   // ya hay aviso o campaña en curso
   // Congelar el tiempo al instante para que no sigan saltando eventos de fondo
   if (typeof setGameSpeed === 'function') setGameSpeed(0);
 
@@ -7557,7 +7558,8 @@ function triggerElectionsWithModal(title, description) {
     </div>
   `;
 
-  app.insertAdjacentHTML('beforeend', modalHTML);
+  if (window.__showElectionOverlay) window.__showElectionOverlay(title, description, gameState.metrics ? gameState.metrics.apr : 20);
+  else app.insertAdjacentHTML('beforeend', modalHTML);
 }
 
 function negotiateWithOpposition() {
@@ -7578,6 +7580,70 @@ function negotiateWithOpposition() {
   }
   gameState.lastNews = 'Moncloa llega a un acuerdo de Estado puntual con la oposición a cambio de cesiones presupuestarias.';
   render();
+}
+
+// Comprobación diaria (y al decidir): moción de censura, dimisión, fin de legislatura y fin del régimen militar.
+// Devuelve true si ha convocado elecciones.
+function checkTermEnd() {
+  // 14. COMPROBACIÓN REFORZADA DE GOBIERNO EN MINORÍA Y MOCIÓN DE CENSURA
+  if (!gameState.coupActive && gameState.parties) {
+    const coalition = gameState.coalitionIds || [gameState.leaderPartyId];
+    
+    const totalCoalitionSeats = gameState.parties
+      .filter(p => coalition.includes(p.id))
+      .reduce((sum, p) => sum + (p.seats || 0), 0);
+
+    gameState.coalitionSeats = totalCoalitionSeats;
+    gameState.isMinorityGov = totalCoalitionSeats < 176;
+
+    if (!gameState.oppositionLoyalty) gameState.oppositionLoyalty = {};
+
+    const hostileOppSeats = gameState.parties
+      .filter(p => !coalition.includes(p.id) && ((gameState.oppositionLoyalty[p.id] ?? 40) < 25))
+      .reduce((sum, p) => sum + (p.seats || 0), 0);
+
+    const extremeCrisis = (gameState.metrics && gameState.metrics.est < 20 && gameState.metrics.apr < 20);
+    const judicialScandal = (gameState.flags && (gameState.flags.judicialCorruptionScandal || gameState.flags.ministersIndicted)) || 
+                           (gameState.corruptionLevel && gameState.corruptionLevel > 70);
+
+    if (hostileOppSeats >= 176 && (extremeCrisis || judicialScandal)) {
+      let motivoDetallado = "";
+      if (judicialScandal) {
+        motivoDetallado = `Los continuos <strong>procesos judiciales y casos de corrupción en la cúpula del partido del Gobierno</strong> han unido a los bloques opositores hostiles.<br><br>Con <strong>${hostileOppSeats} votos a favor</strong>, el Congreso ha aprobado una Moción de Censura.`;
+      } else {
+        motivoDetallado = `El colapso del país (Estabilidad y Aprobación por debajo del 20%) ha provocado un bloque de censura de la oposición.<br><br>Con <strong>${hostileOppSeats} votos</strong>, las Cortes disuelven el Ejecutivo.`;
+      }
+
+      triggerElectionsWithModal("¡MOCIÓN DE CENSURA PROSPERADA!", motivoDetallado);
+      return true;
+    }
+
+    if (gameState.metrics && (gameState.metrics.est <= 0 || gameState.metrics.apr <= 0)) {
+      triggerElectionsWithModal(
+        "¡DIMISIÓN Y ELECCIONES ANTICIPADAS!",
+        "La estabilidad política o la aprobación popular han tocado fondo (0%). El Presidente presenta su dimisión."
+      );
+      return true;
+    }
+
+    if (gameState.daysInOffice >= 1460) {
+      triggerElectionsWithModal(
+        "¡FIN DE LA LEGISLATURA (4 AÑOS)!",
+        "Has completado con éxito los 4 años de mandato constitucional al frente del Ejecutivo."
+      );
+      return true;
+    }
+  }
+
+  // 15. Transición tras Régimen Militar (Dictadura de 365 días)
+  if (gameState.coupActive && gameState.daysInCoup >= 365) {
+    triggerElectionsWithModal(
+      "¡TRANSICIÓN TRAS EL RÉGIMEN MILITAR!",
+      "Ha transcurrido 1 año completo bajo la Junta Militar. La presión internacional y popular fuerzan la apertura democrática."
+    );
+    return true;
+  }
+  return false;
 }
 
 function makeDecision(optionIdx) {
@@ -7846,64 +7912,7 @@ function makeDecision(optionIdx) {
     gameState.usedDecisionIds.push(decision.id);
   }
 
-  // 14. COMPROBACIÓN REFORZADA DE GOBIERNO EN MINORÍA Y MOCIÓN DE CENSURA
-  if (!gameState.coupActive && gameState.parties) {
-    const coalition = gameState.coalitionIds || [gameState.leaderPartyId];
-    
-    const totalCoalitionSeats = gameState.parties
-      .filter(p => coalition.includes(p.id))
-      .reduce((sum, p) => sum + (p.seats || 0), 0);
-
-    gameState.coalitionSeats = totalCoalitionSeats;
-    gameState.isMinorityGov = totalCoalitionSeats < 176;
-
-    if (!gameState.oppositionLoyalty) gameState.oppositionLoyalty = {};
-
-    const hostileOppSeats = gameState.parties
-      .filter(p => !coalition.includes(p.id) && ((gameState.oppositionLoyalty[p.id] ?? 40) < 25))
-      .reduce((sum, p) => sum + (p.seats || 0), 0);
-
-    const extremeCrisis = (gameState.metrics && gameState.metrics.est < 20 && gameState.metrics.apr < 20);
-    const judicialScandal = (gameState.flags && (gameState.flags.judicialCorruptionScandal || gameState.flags.ministersIndicted)) || 
-                           (gameState.corruptionLevel && gameState.corruptionLevel > 70);
-
-    if (hostileOppSeats >= 176 && (extremeCrisis || judicialScandal)) {
-      let motivoDetallado = "";
-      if (judicialScandal) {
-        motivoDetallado = `Los continuos <strong>procesos judiciales y casos de corrupción en la cúpula del partido del Gobierno</strong> han unido a los bloques opositores hostiles.<br><br>Con <strong>${hostileOppSeats} votos a favor</strong>, el Congreso ha aprobado una Moción de Censura.`;
-      } else {
-        motivoDetallado = `El colapso del país (Estabilidad y Aprobación por debajo del 20%) ha provocado un bloque de censura de la oposición.<br><br>Con <strong>${hostileOppSeats} votos</strong>, las Cortes disuelven el Ejecutivo.`;
-      }
-
-      triggerElectionsWithModal("¡MOCIÓN DE CENSURA PROSPERADA!", motivoDetallado);
-      return;
-    }
-
-    if (gameState.metrics && (gameState.metrics.est <= 0 || gameState.metrics.apr <= 0)) {
-      triggerElectionsWithModal(
-        "¡DIMISIÓN Y ELECCIONES ANTICIPADAS!",
-        "La estabilidad política o la aprobación popular han tocado fondo (0%). El Presidente presenta su dimisión."
-      );
-      return;
-    }
-
-    if (gameState.daysInOffice >= 1460) {
-      triggerElectionsWithModal(
-        "¡FIN DE LA LEGISLATURA (4 AÑOS)!",
-        "Has completado con éxito los 4 años de mandato constitucional al frente del Ejecutivo."
-      );
-      return;
-    }
-  }
-
-  // 15. Transición tras Régimen Militar (Dictadura de 365 días)
-  if (gameState.coupActive && gameState.daysInCoup >= 365) {
-    triggerElectionsWithModal(
-      "¡TRANSICIÓN TRAS EL RÉGIMEN MILITAR!",
-      "Ha transcurrido 1 año completo bajo la Junta Militar. La presión internacional y popular fuerzan la apertura democrática."
-    );
-    return;
-  }
+  if (checkTermEnd()) return;
 
   // Re-renderizar la interfaz gráfica para actualizar el mapa, la tarjeta o el bloqueo semanal inmediatamente
   if (typeof render === 'function') render();
@@ -15665,6 +15674,239 @@ function playSound(n) {
       if (day % 3 === 0) refresh();
     } catch (e) { console.error(e); }
   };
+})();
+
+// =====================================================================
+//  CAMPAÑA ELECTORAL DE 90 DÍAS (3 MESES) + CIERRE DE LEGISLATURA ROBUSTO
+//  - Dimisión, fin de legislatura, moción de censura, etc. se comprueban cada día (antes solo al decidir)
+//  - El aviso de elecciones vive en <body>, así que ningún render() lo borra
+//  - La campaña dura 90 días reales de juego: acciones, encuestas, debate, impulso electoral
+//  - Compatible con el modo online: el socio sigue jugando mientras dura la campaña
+// =====================================================================
+(function () {
+  const DAYS = 90, DEBATE_DAY = 80, Q_EVERY = 8, Q_FIRST = 4;
+  const cl = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
+  const C = () => gameState.camp;
+  const live = () => !!(gameState.camp && !gameState.camp.done && gameState.step === 5);
+  const money = () => Number(gameState.treasury) || 0;
+  const fm = n => Math.round(n).toLocaleString('es-ES');
+  const dt = d => (d instanceof Date ? d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+  const stat = (k, v) => { const m = gameState.metrics; if (m && m[k] !== undefined) m[k] = cl(m[k] + v); };
+  const warn = t => { try { goalsToast(t, '#ef4444'); } catch (e) { console.log(t); } };
+  function log(t) {
+    const c = C(); if (!c) return;
+    c.log.unshift({ d: c.day, t }); c.log.length = Math.min(c.log.length, 8);
+    try { addNewsToTicker(t, 'CAMPAÑA'); } catch (e) { /* sin teletipo */ }
+  }
+  function addMom(v) { const c = C(); if (c) c.mom = cl(c.mom + v, -40, 40); }
+  const leader = () => (gameState.parties || []).find(p => p.id === gameState.leaderPartyId) || { id: gameState.leaderPartyId };
+  const rival = () => (gameState.parties || []).filter(p => p.id !== gameState.leaderPartyId).sort((a, b) => (b.seats || 0) - (a.seats || 0))[0];
+  const pname = p => (p && (p.short || p.name || p.id)) || '—';
+
+  // ---------------- AVISO DE ELECCIONES (persistente, fuera de #app) ----------------
+  window.__electionGuard = () => gameState.step !== 4 || !!document.getElementById('election-overlay');
+  window.__showElectionOverlay = function (title, desc, apr) {
+    const old = document.getElementById('election-overlay'); if (old) old.remove();
+    const o = document.createElement('div'); o.id = 'election-overlay';
+    o.style.cssText = 'position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;';
+    o.innerHTML = `<div class="hoi-box border-2 border-amber-500 max-w-xl w-full p-6 rounded space-y-4 shadow-2xl text-center">
+      <div class="w-12 h-12 bg-amber-500/20 border-2 border-amber-500 rounded-full flex items-center justify-center mx-auto text-amber-400 text-xl"><i class="fa-solid fa-check-to-slot"></i></div>
+      <h2 class="font-hoi-header text-2xl text-amber-400 tracking-wider uppercase">${title}</h2>
+      <p class="text-xs text-slate-300 bg-slate-900/90 p-3 rounded border border-slate-800 font-sans leading-relaxed">${desc}</p>
+      <p class="text-xs text-slate-400 font-sans">Se abre una <b class="text-amber-300">campaña electoral de 90 días</b>: mítines, anuncios, debate y encuestas hasta las urnas.</p>
+      <p class="text-xs text-red-400 font-hoi-tech font-bold"><i class="fa-solid fa-arrow-trend-down mr-1"></i> PENALIZACIÓN ELECTORAL: tu Aprobación cae al ${Math.round(apr)}%</p>
+      <button onclick="CAMP.begin()" class="hoi-button-gold w-full py-2.5 text-xs font-hoi-tech rounded uppercase font-bold tracking-wider cursor-pointer">ABRIR LA CAMPAÑA ELECTORAL <i class="fa-solid fa-arrow-right ml-1"></i></button></div>`;
+    document.body.appendChild(o);
+  };
+
+  // ---------------- CAMPAÑA ----------------
+  const ACTS = [
+    { id: 'mitin', t: 'Mitin multitudinario', ic: 'fa-people-group', cost: 60, cd: 5, mom: 1.2, apr: 0.5, d: 'Plaza llena y titulares favorables.' },
+    { id: 'spot', t: 'Campaña de spots en TV y redes', ic: 'fa-tv', cost: 150, cd: 10, mom: 2.5, d: 'Inversión publicitaria masiva.' },
+    { id: 'gira', t: 'Gira por provincias clave', ic: 'fa-bus', cost: 90, cd: 7, mom: 1.5, est: 1, d: 'Más cercanía y algo de calma social.' },
+    { id: 'entrevista', t: 'Entrevista en horario de máxima audiencia', ic: 'fa-microphone', cost: 0, cd: 12, mom: 0.8, apr: 1, d: 'Gratis, pero el impacto es modesto.' },
+    { id: 'ataque', t: 'Ataque a la oposición', ic: 'fa-fire', cost: 40, cd: 8, mom: 2, apr: -2, risk: 0.3, d: 'Efectivo pero arriesgado: 30% de que se vuelva en tu contra.' },
+    { id: 'promesa', t: 'Promesa electoral estrella', ic: 'fa-handshake', cost: 0, cd: 25, mom: 3, max: 3, pledge: true, d: 'Sube mucho, pero se paga: 300 M€ por promesa al cierre de campaña (máx. 3).' }
+  ];
+  const off = x => { const c = C(); return (c.cd[x.id] || 0) > 0 || (x.cost && money() < x.cost) || (x.pledge && c.pledges >= x.max); };
+
+  function init() {
+    const s = gameState;
+    s.camp = { day: 0, mom: 0, cd: {}, spent: 0, pledges: 0, debate: false, debateOpen: false, nextQ: Q_FIRST, polls: [], log: [], done: false };
+    s.usedCampaignIds = []; s.currentCampaignQuestion = null; s.inCampaign = true;
+    s.coupActive = false; s.pgeActive = false; s.activeDynamicEvent = null; s.activeNewsPopup = null;
+    const m = document.getElementById('emergent-alert-modal'); if (m) m.remove();
+    log('Se disuelven las Cortes: 90 días de campaña hasta las urnas.');
+  }
+  function begin() {
+    const o = document.getElementById('election-overlay'); if (o) o.remove();
+    init(); gameState.step = 5; setGameSpeed(1);
+  }
+  function poll() {
+    const c = C(), L = leader(), R = rival(), m = gameState.metrics || {};
+    const lp = cl((L.basePct || 30) + c.mom * 0.15 + ((m.apr || 50) - 50) * 0.08 + (Math.random() - 0.5) * 1.2, 5, 60);
+    const rp = cl((R && R.basePct || 30) - c.mom * 0.05 + (Math.random() - 0.5) * 1.2, 5, 60);
+    c.polls.unshift({ d: c.day, ln: pname(L), lp, rn: pname(R), rp }); c.polls.length = Math.min(c.polls.length, 5);
+    log(`Barómetro: ${pname(L)} ${lp.toFixed(1)}% · ${pname(R)} ${rp.toFixed(1)}%.`);
+  }
+  function openQuestion() {
+    const c = C(), s = gameState, all = typeof CAMPAIGN_HEADLINES !== 'undefined' ? CAMPAIGN_HEADLINES : [];
+    const pool = all.filter(h => !s.usedCampaignIds.includes(h.id));
+    c.nextQ = c.day + Q_EVERY;
+    if (!pool.length) { c.nextQ = 9999; return paint(); }
+    s.currentCampaignQuestion = pool[Math.floor(Math.random() * pool.length)];
+    render();
+  }
+  function openDebate() { C().debateOpen = true; render(); }
+  function debate(i) {
+    const c = C(); if (!c || !c.debateOpen) return;
+    const m = gameState.metrics || {};
+    const S = [{ base: 0.45, win: 7, lose: -6 }, { base: 0.55, win: 5, lose: -3 }, { base: 0.5, win: 6, lose: -4 }][i]; if (!S) return;
+    const p = cl(S.base + ((m.apr || 50) - 50) / 250 + ((m.con === undefined ? 50 : m.con) - 50) / 400, 0.15, 0.85);
+    const win = Math.random() < p;
+    addMom(win ? S.win : S.lose); stat('apr', win ? 2 : -2);
+    log(win ? 'Ganas el debate cara a cara: los sondeos instantáneos te dan ventaja.' : 'Pierdes el debate: tu rival sale reforzado.');
+    c.debate = true; c.debateOpen = false; render();
+  }
+  function act(id) {
+    const c = C(), x = ACTS.find(a => a.id === id);
+    if (!live() || !x || gameState.currentCampaignQuestion || c.debateOpen || off(x)) return;
+    if (x.cost) { registerFinancialTransaction('Campaña: ' + x.t, -x.cost, 'economia'); c.spent += x.cost; }
+    c.cd[id] = x.cd; if (x.pledge) c.pledges++;
+    let r = x.mom || 0;
+    if (x.risk && Math.random() < x.risk) { r = -3; stat('apr', -2); log('Tu ataque se vuelve en tu contra: la prensa critica la campaña sucia.'); }
+    else { if (x.apr) stat('apr', x.apr); if (x.est) stat('est', x.est); log(x.t + ' (' + (x.cost ? '-' + x.cost + ' M€' : 'sin coste') + ').'); }
+    addMom(r); render();
+  }
+  function end() {
+    const s = gameState, c = C(); c.done = true;
+    if (c.pledges) registerFinancialTransaction('Compromisos de las promesas electorales', -300 * c.pledges, 'economia');
+    log('Cierre de campaña: jornada de reflexión y urnas.');
+    s.inCampaign = false; s.currentCampaignQuestion = null;
+    s.step = 6; setGameSpeed(0);   // setGameSpeed vuelve a pintar → Noche Electoral
+  }
+  function campTick() {
+    const s = gameState, c = C();
+    if (!c || c.done || s.currentCampaignQuestion || c.debateOpen) return;
+    s.daysInOffice = (s.daysInOffice || 1) + 1; c.day++;
+    if (s.currentDate instanceof Date) s.currentDate.setDate(s.currentDate.getDate() + 1);
+    Object.keys(c.cd).forEach(k => { if (c.cd[k] > 0) c.cd[k]--; });
+    c.mom = cl(c.mom * 0.96 + (((s.metrics && s.metrics.apr) || 50) - 50) * 0.003, -40, 40);   // el impulso se enfría un 4% al día
+    if (c.day % 15 === 0) poll();
+    if (c.day >= DAYS) return end();
+    if (c.day === DEBATE_DAY && !c.debate) return openDebate();
+    if (c.day >= c.nextQ && s.usedCampaignIds.length < 10) return openQuestion();
+    paint();
+  }
+  const momLabel = () => { const m = C().mom; return (m >= 15 ? 'Ola a favor' : m >= 5 ? 'Ventaja' : m > -5 ? 'Igualado' : m > -15 ? 'En contra' : 'Desplome') + ' (' + (m > 0 ? '+' : '') + m.toFixed(1) + ')'; };
+
+  // ---------------- PANTALLA ----------------
+  function banner() {
+    const c = C(), sp = gameState.gameSpeed || 0;
+    const btn = n => `<button onclick="CAMP.speed(${n})" class="${sp === n ? 'hoi-button-gold' : 'hoi-button'} px-3 py-1 rounded text-xs">${['⏸', '▶', '▶▶', '▶▶▶'][n]}</button>`;
+    return `<div class="hoi-box p-4 rounded space-y-2 font-hoi-tech">
+      <div class="flex justify-between items-center flex-wrap gap-1"><span class="font-hoi-header text-xl text-amber-400"><i class="fa-solid fa-bullhorn mr-2"></i>CAMPAÑA ELECTORAL</span>
+      <span class="text-xs text-slate-300">Día <b id="camp-day" class="text-amber-300">${c.day}</b> / ${DAYS} · <span id="camp-date">${dt(gameState.currentDate)}</span></span></div>
+      <div class="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800"><div id="camp-bar" class="h-full bg-amber-500" style="width:${Math.round(c.day / DAYS * 100)}%"></div></div>
+      <div class="flex justify-between items-center text-[11px] text-slate-400"><span>Faltan <b id="camp-left" class="text-slate-200">${DAYS - c.day}</b> días para las urnas</span><span class="flex gap-1">${[0, 1, 2, 3].map(btn).join('')}</span></div></div>`;
+  }
+  function dash() {
+    const c = C(), m = gameState.metrics || {};
+    const acts = ACTS.map(x => `<button id="camp-a-${x.id}" ${off(x) ? 'disabled' : ''} onclick="CAMP.act('${x.id}')" class="hoi-button p-2 rounded text-[11px] text-left ${off(x) ? 'opacity-50' : ''}">
+      <div><i class="fa-solid ${x.ic} mr-1 text-amber-400"></i><b>${x.t}</b> <span class="text-slate-400">· ${x.cost ? x.cost + ' M€' : 'gratis'} · espera <span id="camp-cd-${x.id}">${(c.cd[x.id] || 0) > 0 ? c.cd[x.id] + ' d' : x.cd + ' d'}</span></span></div>
+      <div class="text-slate-400 font-sans">${x.d}</div></button>`).join('');
+    const polls = c.polls.length ? c.polls.map(p => `<div class="flex justify-between text-[11px] text-slate-300"><span class="text-slate-500 font-mono">día ${p.d}</span><span>${p.ln} <b class="text-amber-300">${p.lp.toFixed(1)}%</b> · ${p.rn} <b>${p.rp.toFixed(1)}%</b></span></div>`).join('') : '<div class="text-[11px] text-slate-600">El primer barómetro sale el día 15.</div>';
+    const lg = c.log.map(l => `<div class="text-[11px] text-slate-400"><span class="text-slate-600 font-mono">día ${l.d}</span> · ${l.t}</div>`).join('');
+    return banner() + `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div class="hoi-box p-4 rounded space-y-1 font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">ESTADO DE LA CAMPAÑA</div>
+        <div class="flex justify-between text-xs"><span>Impulso electoral</span><b id="camp-mom" class="text-amber-300">${momLabel()}</b></div>
+        <div class="flex justify-between text-xs"><span>Aprobación</span><b>${Math.round(m.apr || 0)}%</b></div>
+        <div class="flex justify-between text-xs"><span>Tesorería</span><b id="camp-tes">${fm(money())} M€</b></div>
+        <div class="flex justify-between text-xs"><span>Gastado en campaña</span><b>${fm(c.spent)} M€</b></div>
+        <div class="flex justify-between text-xs"><span>Promesas hechas</span><b>${c.pledges}</b></div>
+        <div class="flex justify-between text-xs"><span>Debate cara a cara</span><b>${c.debate ? 'Celebrado' : 'Día ' + DEBATE_DAY}</b></div></div>
+      <div class="hoi-box p-4 rounded space-y-1 font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">BARÓMETROS</div>${polls}</div></div>
+      <div class="hoi-box p-4 rounded space-y-2 font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">ACCIONES DE CAMPAÑA</div><div class="grid grid-cols-1 md:grid-cols-2 gap-2">${acts}</div></div>
+      <div class="hoi-box p-4 rounded space-y-1 font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">DIARIO DE CAMPAÑA</div>${lg}</div>`;
+  }
+  function debateCard() {
+    const o = ['Agresivo: ir a la yugular', 'Presidencial: balance de gestión', 'Cercano: hablar de lo cotidiano'];
+    return banner() + `<div class="hoi-box p-5 rounded space-y-3 font-hoi-tech border border-amber-500/50">
+      <div class="font-hoi-header text-2xl text-amber-400"><i class="fa-solid fa-tv mr-2"></i>DEBATE CARA A CARA</div>
+      <p class="text-xs text-slate-300 font-sans">Millones de espectadores. Tu aprobación y confianza inclinan la balanza, pero nada está escrito. ¿Qué estrategia eliges?</p>
+      ${o.map((t, i) => `<button onclick="CAMP.debate(${i})" class="hoi-button w-full p-3 rounded text-xs text-left"><span class="text-amber-500 font-mono mr-2">[${String.fromCharCode(65 + i)}]</span>${t}</button>`).join('')}</div>`;
+  }
+  function paint() {   // actualiza sin repintar la pantalla (evita perder clics)
+    const c = C(); if (!c) return;
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    set('camp-day', c.day); set('camp-left', DAYS - c.day); set('camp-date', dt(gameState.currentDate));
+    set('camp-mom', momLabel()); set('camp-tes', fm(money()) + ' M€');
+    const bar = document.getElementById('camp-bar'); if (bar) bar.style.width = Math.round(c.day / DAYS * 100) + '%';
+    ACTS.forEach(x => {
+      const e = document.getElementById('camp-a-' + x.id); if (!e) return;
+      e.disabled = !!off(x); e.classList.toggle('opacity-50', !!off(x));
+      set('camp-cd-' + x.id, (c.cd[x.id] || 0) > 0 ? c.cd[x.id] + ' d' : x.cd + ' d');
+    });
+    try { updateTimeDisplayOnly(); } catch (e) { /* sin reloj HUD */ }
+  }
+
+  const _rcp = renderCampaignPhase;
+  renderCampaignPhase = function (app) {
+    let fresh = false;
+    if (!gameState.camp) { init(); fresh = true; }   // repetición electoral y flujos antiguos
+    if (gameState.currentCampaignQuestion) { _rcp.call(this, app); app.insertAdjacentHTML('afterbegin', '<div class="max-w-3xl mx-auto mb-3">' + banner() + '</div>'); }
+    else app.innerHTML = '<div class="max-w-3xl mx-auto space-y-3">' + (C().debateOpen ? debateCard() : dash()) + '</div>';
+    if (fresh) setTimeout(() => { if (live() && !gameState.gameSpeed) setGameSpeed(1); }, 0);
+  };
+  startNextCampaignTurn = function () {   // se llama tras responder a la prensa (y desde pantallas antiguas)
+    if (!gameState.camp) init();
+    gameState.step = 5; gameState.currentCampaignQuestion = null;
+    if (C().day >= DAYS) return end();
+    render();
+  };
+  const _ans = answerCampaignOption;
+  answerCampaignOption = function (i) {
+    const q = gameState.currentCampaignQuestion, o = q && q.options && q.options[i];
+    if (o && C()) addMom(((o.score || 0) + ((o.stats && o.stats.apr) || 0)) * 0.2);
+    return _ans.apply(this, arguments);
+  };
+
+  // ---------------- RELOJ: campaña y cierre de legislatura ----------------
+  function termCheck() {
+    const d = gameState.daysInOffice || 0;
+    if (window.__electionGuard()) return;
+    if (gameState.__termTry && d - gameState.__termTry < 30 && d >= gameState.__termTry) return;   // modo libre: no repetir cada día
+    if (checkTermEnd()) gameState.__termTry = d;
+  }
+  const _gt = gameTick;
+  gameTick = function () {
+    if (gameState.step === 5) { if (live()) campTick(); return; }
+    const b = gameState.daysInOffice;
+    _gt.apply(this, arguments);
+    if (gameState.step === 4 && gameState.daysInOffice !== b) { try { termCheck(); } catch (e) { console.error(e); } }
+  };
+
+  // ---------------- ENGANCHES ----------------
+  const _cnl = continueNextLegislature;
+  continueNextLegislature = function () {
+    const s = gameState;
+    if (s.camp && s.camp.done && s.currentDate instanceof Date) s.currentDate.setMonth(s.currentDate.getMonth() - 3);   // la campaña ya consumió los 3 meses
+    s.camp = null; s.inCampaign = false;
+    return _cnl.apply(this, arguments);
+  };
+  const _ss = selectScenario;
+  selectScenario = function () {
+    gameState.camp = null; gameState.__termTry = 0;
+    const o = document.getElementById('election-overlay'); if (o) o.remove();
+    return _ss.apply(this, arguments);
+  };
+  const _cis = window.cisElectionSwing;
+  window.cisElectionSwing = function (id) {
+    let v = typeof _cis === 'function' ? _cis(id) : 0; const c = gameState.camp;
+    if (c) { if (id === gameState.leaderPartyId) v += c.mom * 0.12; else if ((gameState.coalitionIds || []).includes(id)) v += c.mom * 0.05; }
+    return v;
+  };
+  window.CAMP = { begin, act, debate, speed: n => { setGameSpeed(n); }, addMom, live, info: () => ({ d: C() ? C().day : 0, n: DAYS }) };
 })();
 </script>
   <script src="multijugador.js"></script>
