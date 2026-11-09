@@ -11241,44 +11241,113 @@ function renderIntlTab() {
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${cards}</div></div>`;
 }
 
-// ---------------- PROYECTOS DE ESTADO ----------------
+// ---------------- PROYECTOS DE ESTADO (por fases) ----------------
+// Cada proyecto tiene 3 fases: se paga y se aprueba una a una. Las obras pueden sufrir sobrecostes,
+// retrasos o protestas; tras la fase 2 el proyecto ya da la mitad de su beneficio permanente.
 const PROJECTS = [
-  { id: 'ave',   icon: 'fa-train',          title: 'Alta Velocidad y Cercanías', cost: 12000, days: 90,  now: { eco: 3, emp: 3 }, spirit: { name: 'Red Ferroviaria',     daily: { eco: .04, emp: .02 }, money: 500 } },
-  { id: 'hosp',  icon: 'fa-hospital',       title: 'Red de Hospitales',          cost: 10000, days: 75,  now: { apr: 4 },         spirit: { name: 'Sanidad Moderna',     daily: { est: .03, apr: .02 }, money: -300 } },
-  { id: 'agua',  icon: 'fa-droplet',        title: 'Plan Hidrológico',           cost: 9000, days: 80,  now: { est: 3 },         spirit: { name: 'Seguridad Hídrica',   daily: { est: .03, eco: .02 }, money: 0 } },
-  { id: 'renov', icon: 'fa-solar-panel',    title: 'Energías Renovables',        cost: 14000, days: 110, now: { eco: 4 },         spirit: { name: 'Independencia Energética', daily: { eco: .05 }, money: 900 } },
-  { id: 'viv',   icon: 'fa-house',          title: 'Vivienda Pública',           cost: 11000, days: 85,  now: { apr: 5 },         spirit: { name: 'Parque Público',      daily: { apr: .04, est: .02 }, money: -400 } },
-  { id: 'digi',  icon: 'fa-microchip',      title: 'Transformación Digital',     cost: 8000, days: 70,  now: { eco: 2, emp: 2 }, spirit: { name: 'Estado Digital',      daily: { eco: .03, emp: .03 }, money: 300 } }
+  { id: 'ave', icon: 'fa-train', title: 'Alta Velocidad y Cercanías', spirit: { name: 'Red Ferroviaria', daily: { eco: .04, emp: .02 }, money: 80 },
+    phases: [{ n: 'Estudios, trazado y licitación', cost: 1500, days: 30, now: {}, run: {} }, { n: 'Obra civil y vías', cost: 9500, days: 110, now: { emp: 2, eco: 1 }, run: { emp: .02, eco: .01 } }, { n: 'Material móvil y puesta en servicio', cost: 4000, days: 45, now: { eco: 2, emp: 1 }, run: {} }] },
+  { id: 'hosp', icon: 'fa-hospital', title: 'Red de Hospitales', spirit: { name: 'Sanidad Moderna', daily: { est: .03, apr: .02 }, money: -350 },
+    phases: [{ n: 'Planificación y suelo', cost: 900, days: 25, now: {}, run: {} }, { n: 'Construcción de los centros', cost: 6000, days: 90, now: { emp: 1 }, run: { emp: .015 } }, { n: 'Equipamiento y contratación de personal', cost: 2100, days: 40, now: { apr: 4 }, run: {} }] },
+  { id: 'agua', icon: 'fa-droplet', title: 'Plan Hidrológico', spirit: { name: 'Seguridad Hídrica', daily: { est: .03, eco: .02 }, money: -60 },
+    phases: [{ n: 'Estudios y evaluación ambiental', cost: 1000, days: 35, now: {}, run: {} }, { n: 'Presas, desaladoras y conducciones', cost: 7500, days: 120, now: { emp: 1 }, run: { emp: .012 } }, { n: 'Interconexión y puesta en marcha', cost: 2500, days: 45, now: { est: 3 }, run: {} }] },
+  { id: 'renov', icon: 'fa-solar-panel', title: 'Energías Renovables', spirit: { name: 'Independencia Energética', daily: { eco: .05 }, money: 250 },
+    phases: [{ n: 'Concursos y permisos', cost: 1600, days: 40, now: {}, run: {} }, { n: 'Parques solares, eólicos y redes', cost: 9800, days: 130, now: { eco: 1, emp: 1 }, run: { emp: .015, eco: .01 } }, { n: 'Almacenamiento y conexión a red', cost: 2600, days: 50, now: { eco: 3 }, run: {} }] },
+  { id: 'viv', icon: 'fa-house', title: 'Vivienda Pública', spirit: { name: 'Parque Público', daily: { apr: .04, est: .02 }, money: -200 },
+    phases: [{ n: 'Cesión de suelo y proyecto', cost: 800, days: 30, now: {}, run: {} }, { n: 'Construcción de viviendas', cost: 5600, days: 100, now: { emp: 1 }, run: { emp: .015 } }, { n: 'Adjudicación y entrega', cost: 1600, days: 35, now: { apr: 5 }, run: {} }] },
+  { id: 'digi', icon: 'fa-microchip', title: 'Transformación Digital', spirit: { name: 'Estado Digital', daily: { eco: .03, emp: .03 }, money: 150 },
+    phases: [{ n: 'Diseño y contratación', cost: 700, days: 25, now: {}, run: {} }, { n: 'Despliegue de redes y sistemas', cost: 5200, days: 80, now: { eco: 1 }, run: { eco: .01 } }, { n: 'Migración y formación', cost: 2100, days: 40, now: { eco: 2, emp: 2 }, run: {} }] }
 ];
+PROJECTS.forEach(p => { p.cost = p.phases.reduce((s, x) => s + x.cost, 0); p.days = p.phases.reduce((s, x) => s + x.days, 0); });
 const PROJECT_SLOTS = 2;
-function projInit() { if (!gameState.proj) gameState.proj = { active: [], done: [] }; return gameState.proj; }
+function projInit() {
+  if (!gameState.proj) gameState.proj = { active: [], done: [] };
+  gameState.proj.active.forEach(a => { if (a.ph == null) { a.ph = 0; a.st = 'run'; if (a.left == null) a.left = 30; } });
+  return gameState.proj;
+}
+const projPhaseCost = (p, a) => Math.round(p.phases[a.ph].cost * (a.ph === 1 ? (a.mult || 1) : 1));
 function projStart(id) {
   const P = projInit(), p = PROJECTS.find(x => x.id === id);
   if (!p || P.done.includes(id) || P.active.some(a => a.id === id)) return;
   if (P.active.length >= PROJECT_SLOTS) { goalsToast('Solo puedes llevar ' + PROJECT_SLOTS + ' proyectos a la vez.', '#ef4444'); return; }
-  if ((Number(gameState.treasury) || 0) < p.cost) { goalsToast('Fondos insuficientes (' + p.cost + ' M€).', '#ef4444'); return; }
-  registerFinancialTransaction('Proyecto de Estado: ' + p.title, -p.cost);
-  P.active.push({ id, left: p.days });
+  const c = p.phases[0].cost;
+  if ((Number(gameState.treasury) || 0) < c) { goalsToast('Fondos insuficientes (' + fmt(c) + ' M€).', '#ef4444'); return; }
+  registerFinancialTransaction('Proyecto de Estado: ' + p.title + ' · fase 1', -c, 'infraestructuras');
+  P.active.push({ id, ph: 0, st: 'run', left: p.phases[0].days, mult: 1 });
   render();
 }
-function projSpirits() { return projInit().done.map(id => PROJECTS.find(p => p.id === id).spirit); }
+function projApprove(id) {
+  const P = projInit(), p = PROJECTS.find(x => x.id === id), a = P.active.find(x => x.id === id);
+  if (!p || !a || a.st !== 'wait') return;
+  const ph = p.phases[a.ph], c = ph.cost;
+  if ((Number(gameState.treasury) || 0) < c) { goalsToast('Fondos insuficientes (' + fmt(c) + ' M€).', '#ef4444'); return; }
+  registerFinancialTransaction('Proyecto de Estado: ' + p.title + ' · fase ' + (a.ph + 1), -c, 'infraestructuras');
+  a.st = 'run'; a.left = ph.days;
+  if (a.ph === 1) {                                   // las obras son donde salen los problemas
+    const r = Math.random();
+    if (r < .25) { const x = Math.round(c * (0.08 + Math.random() * 0.12)); registerFinancialTransaction('Sobrecoste en las obras: ' + p.title, -x, 'infraestructuras'); goalsToast('<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> <b>SOBRECOSTE</b> en ' + p.title + '<br><span class="text-xs">+' + fmt(x) + ' M€ por modificados y revisión de precios.</span>', '#ef4444'); }
+    else if (r < .45) { const d = 10 + Math.floor(Math.random() * 16); a.left += d; goalsToast('<i class="fa-solid fa-hourglass-half text-amber-400"></i> <b>RETRASO</b> en ' + p.title + '<br><span class="text-xs">Las obras se alargan ' + d + ' días.</span>', '#ef4444'); }
+    else if (r < .60) { focusMetricAdd('apr', -2); goalsToast('<i class="fa-solid fa-bullhorn text-amber-400"></i> <b>PROTESTAS VECINALES</b> por ' + p.title + '<br><span class="text-xs">Aprobación −2.</span>', '#ef4444'); }
+  }
+  render();
+}
+function projCancel(id) {
+  const P = projInit(), p = PROJECTS.find(x => x.id === id);
+  if (!p || !P.active.some(a => a.id === id)) return;
+  if (typeof confirm === 'function' && !confirm('¿Cancelar ' + p.title + '? Se pierde lo ya invertido.')) return;
+  P.active = P.active.filter(a => a.id !== id); focusMetricAdd('apr', -2); render();
+}
+// Beneficio permanente: completo al terminar; la mitad cuando ya está hecha la obra (fase 2) y falta la puesta en marcha
+function projSpirits() {
+  const P = projInit(), out = PROJECTS.filter(p => P.done.includes(p.id)).map(p => p.spirit);
+  P.active.forEach(a => { if (a.ph >= 2 || (a.ph === 1 && a.st === 'wait')) { const p = PROJECTS.find(x => x.id === a.id), s = p.spirit, d = {}; Object.keys(s.daily).forEach(k => d[k] = s.daily[k] / 2); out.push({ name: s.name + ' (parcial)', daily: d, money: (s.money || 0) / 2 }); } });
+  return out;
+}
+function projTick(F) {
+  const P = projInit();
+  P.active.slice().forEach(a => {
+    if (a.st !== 'run') return;
+    const p = PROJECTS.find(x => x.id === a.id), ph = p.phases[a.ph];
+    Object.keys(ph.run || {}).forEach(k => focusAccum(F, k, ph.run[k]));
+    a.left--;
+    if (a.left > 0) return;
+    Object.keys(ph.now || {}).forEach(k => focusMetricAdd(k, ph.now[k]));
+    goalsInit();
+    if (a.ph >= p.phases.length - 1) {
+      P.active = P.active.filter(x => x !== a); P.done.push(p.id); gameState.goals.score += 40;
+      goalsToast(`<i class="fa-solid ${p.icon} text-amber-400"></i> <b>PROYECTO FINALIZADO:</b> ${p.title}<br><span class="text-xs text-emerald-400">Nuevo espíritu: ${p.spirit.name}</span>`, '#d9a726');
+    } else {
+      gameState.goals.score += 10; a.st = 'wait'; a.ph++;
+      goalsToast(`<i class="fa-solid ${p.icon} text-amber-400"></i> <b>FASE ${a.ph} COMPLETADA:</b> ${p.title}<br><span class="text-xs text-slate-300">Aprueba la fase ${a.ph + 1} (${fmt(p.phases[a.ph].cost)} M€) en Proyectos de Estado.</span>`, '#d9a726');
+    }
+  });
+}
 
 function renderProjTab() {
   const P = projInit();
   const cards = PROJECTS.map(p => {
     const act = P.active.find(a => a.id === p.id), done = P.done.includes(p.id);
-    const pct = act ? Math.round((1 - act.left / p.days) * 100) : 0;
     const eff = Object.entries(p.spirit.daily).map(([k, v]) => METRIC_NAMES[k] + ' +' + v + '/d').join(', ') + (p.spirit.money ? ' · ' + (p.spirit.money > 0 ? '+' : '') + p.spirit.money + ' M€/mes' : '');
+    const steps = p.phases.map((ph, i) => {
+      const fin = done || (act && (i < act.ph || (i === act.ph && false))), cur = act && i === act.ph;
+      const running = cur && act.st === 'run', waiting = cur && act.st === 'wait';
+      const pct = running ? Math.round((1 - act.left / ph.days) * 100) : 0;
+      const col = fin ? 'border-emerald-700 text-emerald-400' : running ? 'border-amber-500 text-amber-300' : waiting ? 'border-sky-500 text-sky-300' : 'border-slate-800 text-slate-500';
+      return `<div class="border ${col} rounded p-1.5 bg-slate-900"><div class="text-[10px] font-bold">${fin ? '✔ ' : ''}Fase ${i + 1}</div><div class="text-[9px] leading-tight">${ph.n}</div><div class="text-[9px] text-slate-500">${fmt(ph.cost)} M€ · ${ph.days} d</div>${running ? `<div class="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden mt-1"><div class="h-full bg-amber-500" style="width:${pct}%"></div></div><div class="text-[9px] text-amber-300">${act.left} días</div>` : waiting ? '<div class="text-[9px] text-sky-300">Pendiente de aprobar</div>' : ''}</div>`;
+    }).join('');
+    let foot;
+    if (done) foot = '<div class="text-[11px] text-emerald-400">✔ COMPLETADO</div>';
+    else if (act && act.st === 'wait') { const c = p.phases[act.ph].cost; foot = `<div class="flex gap-2"><button onclick="projApprove('${p.id}')" class="hoi-button-gold px-3 py-1.5 rounded text-[11px] cursor-pointer">APROBAR FASE ${act.ph + 1} · ${fmt(c)} M€</button><button onclick="projCancel('${p.id}')" class="hoi-button px-2 py-1.5 rounded text-[11px] cursor-pointer text-red-300">Cancelar</button></div>`; }
+    else if (act) foot = `<button onclick="projCancel('${p.id}')" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer text-red-300">Cancelar proyecto</button>`;
+    else foot = `<button onclick="projStart('${p.id}')" class="hoi-button-gold px-3 py-1.5 rounded text-[11px] cursor-pointer">INICIAR · FASE 1 · ${fmt(p.phases[0].cost)} M€</button>`;
     return `<div class="bg-slate-950 border ${done ? 'border-emerald-700' : act ? 'border-amber-500' : 'border-slate-800'} rounded-lg p-3 space-y-2">
-      <div class="flex justify-between"><b class="text-sm text-slate-100"><i class="fa-solid ${p.icon} text-amber-400 mr-1.5"></i>${p.title}</b><span class="text-[10px] text-slate-400">${p.cost} M€ · ${p.days}d</span></div>
+      <div class="flex justify-between"><b class="text-sm text-slate-100"><i class="fa-solid ${p.icon} text-amber-400 mr-1.5"></i>${p.title}</b><span class="text-[10px] text-slate-400">${fmt(p.cost)} M€ · ${p.days}d</span></div>
       <div class="text-[11px] text-slate-400">★ ${p.spirit.name}: ${eff}</div>
-      ${act ? `<div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800"><div class="h-full bg-amber-500" style="width:${pct}%"></div></div><div class="text-[10px] text-slate-400">${act.left} días restantes</div>`
-        : done ? '<div class="text-[11px] text-emerald-400">✔ COMPLETADO</div>'
-        : `<button onclick="projStart('${p.id}')" class="hoi-button-gold px-3 py-1.5 rounded text-[11px] cursor-pointer">INICIAR PROYECTO</button>`}</div>`;
+      <div class="grid grid-cols-3 gap-1.5">${steps}</div>${foot}</div>`;
   }).join('');
   return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech">
     <div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-amber-400"><i class="fa-solid fa-helmet-safety mr-2"></i>PROYECTOS DE ESTADO</h3>
-    <p class="text-xs text-slate-400 font-sans">Grandes obras con inversión inicial. Máximo ${PROJECT_SLOTS} a la vez (${P.active.length}/${PROJECT_SLOTS} en marcha). Al terminar dan efectos permanentes.</p></div>
+    <p class="text-xs text-slate-400 font-sans">Grandes obras en <b>3 fases</b>: cada una se aprueba y se paga por separado (${P.active.length}/${PROJECT_SLOTS} proyectos en marcha). Las obras (fase 2) pueden sufrir sobrecostes, retrasos o protestas. Al acabar la fase 2 ya recibes la mitad del beneficio permanente; al terminar, el total.</p></div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${cards}</div></div>`;
 }
 
@@ -11292,17 +11361,8 @@ function extraDailyTick() {
     const t = intlTier(c);
     if (t) Object.keys(t.daily).forEach(k => focusAccum(F, k, t.daily[k]));
   });
-  // proyectos: avance y espíritus
-  P.active.slice().forEach(a => {
-    a.left--;
-    if (a.left <= 0) {
-      const p = PROJECTS.find(x => x.id === a.id);
-      P.active = P.active.filter(x => x !== a); P.done.push(p.id);
-      Object.keys(p.now).forEach(k => focusMetricAdd(k, p.now[k]));
-      goalsInit(); gameState.goals.score += 40;
-      goalsToast(`<i class="fa-solid ${p.icon} text-amber-400"></i> <b>PROYECTO FINALIZADO:</b> ${p.title}<br><span class="text-xs text-emerald-400">Nuevo espíritu: ${p.spirit.name}</span>`, '#d9a726');
-    }
-  });
+  // proyectos por fases: avance, obras y espíritus
+  projTick(F);
   projSpirits().forEach(s => Object.keys(s.daily).forEach(k => focusAccum(F, k, s.daily[k])));
   if (day % 30 === 0) {
     const net = projSpirits().reduce((s, x) => s + (x.money || 0), 0) + Object.keys(INTL).reduce((s, c) => { const t = intlTier(c); return s + (t && t.money || 0); }, 0);
@@ -11463,7 +11523,7 @@ function hudUpdate() {
 // =====================================================================
 //  FINANZAS (DEUDA), INFORMES, LOGROS, GUARDADO Y OPORTUNIDADES
 // =====================================================================
-const DEBT_MAX = 100000, SAVE_KEY = 'moncloa_save_v1', ACH_KEY = 'moncloa_ach_v1';
+const DEBT_MAX = 300000, SAVE_KEY = 'moncloa_save_v1', ACH_KEY = 'moncloa_ach_v1';
 const fmt = n => Math.round(n).toLocaleString('es-ES');
 
 // ---------- Oportunidades (eventos positivos, usan el mismo popup y el margen de 30 días) ----------
@@ -11482,7 +11542,7 @@ SHOCK_POOL.push(
 function debtInit() { if (!gameState.debt) gameState.debt = { amount: 0 }; return gameState.debt; }
 function debtRate() {
   const m = gameState.metrics || { eco: 50 };
-  let r = 2 + (50 - m.eco) * 0.05 + (debtInit().amount / 50000) * 0.6;
+  let r = 1.9 + (50 - m.eco) * 0.04;   // la prima por nivel de deuda se suma en el módulo del Banco de España (deuda total / PIB)
   if (gameState.intl && gameState.intl.rel.ue >= 70) r -= 0.5;
   return Math.max(0.5, +r.toFixed(2));
 }
@@ -11505,7 +11565,7 @@ function renderFinTab() {
   const btn = (fn, x, label, c) => `<button onclick="${fn}(${x})" class="hoi-button px-3 py-2 rounded text-[11px] cursor-pointer ${c}">${label}</button>`;
   return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech">
     <div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-amber-400"><i class="fa-solid fa-coins mr-2"></i>FINANZAS Y DEUDA PÚBLICA</h3>
-    <p class="text-xs text-slate-400 font-sans">Endeudarte da liquidez hoy, pero los intereses salen cada mes de la Tesorería y, por encima de 50.000 M€ de deuda nueva la deuda lastra la economía.</p></div>
+    <p class="text-xs text-slate-400 font-sans">Endeudarte da liquidez hoy, pero los intereses salen cada mes de la Tesorería y, por encima de 150.000 M€ de deuda nueva la deuda lastra la economía.</p></div>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
       <div class="bg-slate-950 border border-slate-800 rounded-lg p-3"><div class="text-[10px] text-slate-500">TESORERÍA</div><b class="${t < 0 ? 'text-red-400' : 'text-amber-400'} text-lg">${fmt(t)} M€</b></div>
       <div class="bg-slate-950 border border-slate-800 rounded-lg p-3"><div class="text-[10px] text-slate-500">DEUDA</div><b class="text-slate-100 text-lg">${fmt(D.amount)} M€</b></div>
@@ -11513,7 +11573,7 @@ function renderFinTab() {
       <div class="bg-slate-950 border border-slate-800 rounded-lg p-3"><div class="text-[10px] text-slate-500">GASTO FIJO / MES</div><b class="text-red-300 text-lg">−${fmt(interest + minis)} M€</b><div class="text-[9px] text-slate-500">${fmt(interest)} intereses + ${fmt(minis)} ministerios</div></div>
     </div>
     <div><div class="flex justify-between text-[11px] text-slate-400 mb-1"><span>Endeudamiento</span><span>${pct}% del límite</span></div><div class="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800"><div class="h-full ${col}" style="width:${pct}%"></div></div></div>
-    <div class="flex flex-wrap gap-2">${btn('debtIssue', 5000, '+ Emitir 5.000 M€', 'text-emerald-300')}${btn('debtIssue', 10000, '+ Emitir 10.000 M€', 'text-emerald-300')}${btn('debtRepay', 5000, '− Amortizar 5.000 M€', 'text-amber-300')}${btn('debtRepay', 10000, '− Amortizar 10.000 M€', 'text-amber-300')}</div>
+    <div class="flex flex-wrap gap-2">${btn('debtIssue', 10000, '+ Emitir 10.000 M€', 'text-emerald-300')}${btn('debtIssue', 25000, '+ Emitir 25.000 M€', 'text-emerald-300')}${btn('debtRepay', 10000, '− Amortizar 10.000 M€', 'text-amber-300')}${btn('debtRepay', 25000, '− Amortizar 25.000 M€', 'text-amber-300')}</div>
     <div><h4 class="font-hoi-header text-lg text-slate-200 mb-1">ÚLTIMOS MOVIMIENTOS DE TESORERÍA</h4>${log}</div></div>`;
 }
 
@@ -11554,7 +11614,7 @@ const ACHIEVEMENTS = [
   { id: 'dip', icon: 'fa-handshake', title: 'Diplomático', desc: 'Sé aliado de los 4 socios exteriores a la vez', ok: s => s.intl && Object.values(s.intl.rel).every(r => r >= 70) },
   { id: 'rich', icon: 'fa-vault', title: 'Caja Fuerte', desc: 'Llega a 150.000 M€ en Tesorería', ok: s => (Number(s.treasury) || 0) >= 150000 },
   { id: 'all', icon: 'fa-star', title: 'País de Primera', desc: 'Todas las métricas ≥ 70% a la vez', ok: s => s.metrics && ['eco', 'est', 'emp', 'apr', 'mil'].every(k => s.metrics[k] >= 70) },
-  { id: 'abyss', icon: 'fa-skull', title: 'Al Borde del Abismo', desc: 'Supera los 100.000 M€ de deuda', ok: s => s.debt && s.debt.amount >= 100000 },
+  { id: 'abyss', icon: 'fa-skull', title: 'Al Borde del Abismo', desc: 'Emite más de 250.000 M€ de deuda nueva', ok: s => s.debt && s.debt.amount >= 250000 },
   { id: 'surv', icon: 'fa-shield', title: 'Superviviente', desc: 'Completa una legislatura', ok: s => s.campaign && s.campaign.history.length >= 1 },
   { id: 'iron', icon: 'fa-fire', title: 'Veterano de Hierro', desc: 'Llega a la 2.ª legislatura en Crisis Permanente', ok: s => s.campaign && s.campaign.diff === 'extremo' && s.campaign.current >= 2 }
 ];
@@ -11600,7 +11660,7 @@ function proDailyTick() {
     if (i > 0) registerFinancialTransaction('Intereses de la deuda pública', -i, 'economia');
     histRecord(); saveGame(false);
   }
-  if (D.amount > 50000) { focusAccum(F, 'eco', -0.05); focusAccum(F, 'apr', -0.02); }
+  if (D.amount > 150000) { focusAccum(F, 'eco', -0.05); focusAccum(F, 'apr', -0.02); }
   achCheck();
   if ((gameState.activeTab === 'fin' || gameState.activeTab === 'stats') && day % 3 === 0) render();
 }
@@ -13182,7 +13242,7 @@ function playSound(n) {
   'use strict';
 
   // ---------- Parámetros (ajustables) ----------
-  const REAL_DEBT = { amount: 100000, pib: 100300 };   // Escala de juego: la deuda real (99,7 % del PIB) se reduce a la proporción del presupuesto de 100.000 M€   // Banco de España, agosto de 2026: 100.000 M€, 99,7 % del PIB
+  const REAL_DEBT = { amount: 1695000, pib: 1700000 };   // Escala de juego: la deuda real (99,7 % del PIB) se reduce a la proporción del presupuesto de 100.000 M€   // Banco de España, agosto de 2026: 100.000 M€, 99,7 % del PIB
   const LEGACY_SERVICE = 1.0;     // fracción del coste real de intereses que se carga a la Tesorería (escala de juego)
   const LEGACY_DRAG = 0.004;       // puntos de Economía al día por cada 100 % de deuda/PIB
   const EXIT_DAYS = 180, EXIT_FAST_DAYS = 60;
@@ -15395,7 +15455,7 @@ function playSound(n) {
   function daily() {
     const W = gameState.wr, day = gameState.daysInOffice || 0; if (!W || W.t == null) return;
     sync();
-    if (day % 30 === 0 && typeof registerFinancialTransaction === 'function') registerFinancialTransaction('Mantenimiento de las Fuerzas Armadas', -Math.round(1.1 * (W.t + W.m + W.a)), 'defensa');
+    if (day % 30 === 0 && typeof registerFinancialTransaction === 'function') registerFinancialTransaction('Mantenimiento de las Fuerzas Armadas', -Math.round(6 * (W.t + W.m + W.a)), 'defensa');
     if (W.mob && day >= W.mob.until) { ['t', 'm', 'a'].forEach(k => W[k] = Math.max(0, W[k] - W.mob.add[k])); W.mob = null; toast('Fin de la movilización: los reservistas vuelven a casa.', '#94a3b8'); }
     // vecinos inquietos con un ejército enorme / socios tranquilos con uno sólido
     if (day % 30 === 11) { const p = own(); if (p > 60) { intlShift('ma', -1.5, 'Rearme español', true); intlShift('dz', -1, 'Rearme español', true); } if (p > 40) intlShift('us', .8, 'España cumple con la defensa', true); if (p < 22) intlShift('us', -1, 'España descuida su defensa', true); }
@@ -15445,6 +15505,66 @@ function playSound(n) {
     const b = gameState.daysInOffice;
     _t.apply(this, arguments);
     if (gameState.daysInOffice !== b && gameState.step === 4 && M()) { try { daily(); } catch (e) { console.error(e); } }
+  };
+})();
+
+// =====================================================================
+//  CALIBRACIÓN ECONÓMICA (M€ reales). España: PIB ≈ 1,7 billones, deuda ≈ 100 % del PIB,
+//  déficit estructural ≈ 3 % del PIB, coste medio de la deuda ≈ 2,1 %, crecimiento nominal ≈ 3,5 %.
+//  El Tesoro financia el déficit emitiendo deuda; si los mercados se cierran (deuda > 160 % del PIB), hay crisis.
+// =====================================================================
+(function () {
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const M = () => gameState.metrics;
+  const E = () => (gameState.econ || (gameState.econ = { ord: 0, gdpG: 3.5, last: 0 }));
+  const legacyD = () => Number((debtInit().legacy)) || 0;
+  const totalD = () => legacyD() + (Number(debtInit().amount) || 0);
+  const pibOf = () => { const D = debtInit(); if (!D.pib) D.pib = 1700000; return D.pib; };
+  const ratioD = () => totalD() / pibOf() * 100;
+  const FLOOR = 30000, TARGET = 50000, MARKET_CLOSE = 160;
+  function fiscalMonth() {
+    const m = M(), D = debtInit(), e = E();
+    // crecimiento nominal del PIB
+    const g = 0.035 + (m.eco - 50) * 0.0007 + (m.emp - 50) * 0.0003; e.gdpG = g * 100;
+    D.pib = Math.round(pibOf() * (1 + g / 12));
+    // saldo fiscal ordinario: recaudación menos pensiones, prestaciones y transferencias (antes de ministerios, PGE e intereses)
+    const a = 0.026 + (m.eco - 50) * 0.0007 + (m.emp - 50) * 0.0004;
+    e.ord = Math.round(D.pib * a / 12);
+    registerFinancialTransaction(e.ord >= 0 ? 'Saldo fiscal del mes: recaudación tributaria y cotizaciones sobre pensiones y prestaciones' : 'Saldo fiscal del mes: pensiones y prestaciones por encima de la recaudación', e.ord, 'economia');
+  }
+  function financeMonth() {
+    const t = Number(gameState.treasury) || 0; if (t >= FLOOR) return;
+    const e = E(), D = debtInit();
+    if (ratioD() >= MARKET_CLOSE) {
+      if (!e.closed) { e.closed = 1; goalsToast('<i class="fa-solid fa-triangle-exclamation text-red-400"></i> <b>LOS MERCADOS SE CIERRAN</b><br><span class="text-xs">Deuda del ' + Math.round(ratioD()) + ' % del PIB: el Tesoro no consigue financiarse.</span>', '#ef4444'); }
+      focusMetricAdd('eco', -2); focusMetricAdd('est', -1); return;
+    }
+    e.closed = 0;
+    const x = Math.ceil((TARGET - t) / 5000) * 5000;
+    D.amount += x; registerFinancialTransaction('Emisión de deuda del Tesoro para financiar el déficit', x, 'economia');
+    goalsToast('<i class="fa-solid fa-landmark text-amber-400"></i> <b>El Tesoro emite ' + fmt(x) + ' M€ de deuda</b><br><span class="text-xs">Financia el déficit (deuda total: ' + ratioD().toFixed(1) + ' % del PIB).</span>', '#d9a726');
+  }
+  const _t = gameTick;
+  gameTick = function () {
+    const b = gameState.daysInOffice; _t.apply(this, arguments);
+    if (gameState.daysInOffice === b || gameState.step !== 4 || !M() || gameState.coupActive) return;
+    const day = gameState.daysInOffice || 0;
+    try { if (day % 30 === 3) fiscalMonth(); if (day % 30 === 5) financeMonth(); } catch (err) { console.error(err); }
+  };
+  // ---- Panel macroeconómico en Finanzas y Deuda ----
+  const _rf = renderFinTab;
+  renderFinTab = function () {
+    const h = _rf.apply(this, arguments);
+    try {
+      const D = debtInit(), e = E(), pib = pibOf(), r = ratioD(), rate = debtRate();
+      const interest = Math.round(totalD() * rate / 100 / 12), minis = ministryMonthlyCost();
+      const def = (e.ord - minis - interest) * 12 / pib * 100;      // saldo anual estimado (sin PGE ni decisiones extraordinarias)
+      const cell = (l, v, c, s) => `<div class="bg-slate-900 border border-slate-800 rounded-lg p-3"><div class="text-[10px] text-slate-500">${l}</div><b class="${c || 'text-slate-100'} text-base">${v}</b>${s ? `<div class="text-[9px] text-slate-500">${s}</div>` : ''}</div>`;
+      const box = `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2"><b class="text-sm text-slate-100"><i class="fa-solid fa-chart-line text-sky-400 mr-1.5"></i>MACROECONOMÍA</b>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">${cell('PIB (nominal)', fmt(pib) + ' M€', '', 'crecimiento ' + e.gdpG.toFixed(1) + ' % anual')}${cell('DEUDA TOTAL / PIB', r.toFixed(1) + ' %', r > 120 ? 'text-red-400' : r > 100 ? 'text-amber-400' : 'text-emerald-400', fmt(totalD()) + ' M€')}${cell('SALDO ANUAL ESTIMADO', (def >= 0 ? '+' : '') + def.toFixed(1) + ' % PIB', def < -3 ? 'text-red-400' : def < 0 ? 'text-amber-400' : 'text-emerald-400', 'sin contar los PGE ni decisiones')}${cell('SALDO FISCAL / MES', (e.ord >= 0 ? '+' : '') + fmt(e.ord) + ' M€', e.ord >= 0 ? 'text-emerald-300' : 'text-red-300', 'intereses −' + fmt(interest) + ' M€/mes')}</div>
+        <p class="text-[10px] text-slate-500 font-sans">La economía y el empleo suben o bajan la recaudación y el crecimiento. Si la Tesorería cae de ${fmt(FLOOR)} M€, el Tesoro emite deuda automáticamente; si la deuda pasa del ${MARKET_CLOSE} % del PIB, los mercados se cierran y la economía se resiente.</p></div>`;
+      return h.replace(/<\/div>\s*$/, box + '</div>');
+    } catch (err) { console.error(err); return h; }
   };
 })();
 </script>
