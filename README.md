@@ -67,6 +67,15 @@ Dos jugadores, en el mismo dispositivo **o en línea** (cada uno en el suyo: el 
 
 **Añadir más países:** en `multijugador.js`, añade una entrada a `COUNTRIES` (estadísticas iniciales, ingresos y sucesos).
 
+### Online más fiable con Supabase (opcional, gratis)
+
+Por defecto el online usa PeerJS (sin cuentas), que a veces no conecta en redes móviles o de empresa. Para mayor fiabilidad:
+1. Crea una cuenta gratuita en supabase.com y un proyecto nuevo (no hace falta crear tablas).
+2. En **Project Settings → API** copia **Project URL** y la clave **anon public**.
+3. Pégalas en `RELAY` al principio de `multijugador.js` (`url` y `key`) y sube el archivo. Esos dos datos son públicos, es seguro ponerlos en GitHub.
+
+Con ellas rellenas, las salas pasan por Supabase Realtime; vacías, vuelve a PeerJS. Los proyectos gratuitos se pausan tras una semana sin uso (se reactivan desde el panel).
+
 ## Publicar cambios
 
 Cuando cambies `index.html`, sube también un `VERSION` nuevo en `sw.js` (`'v2'`, `'v3'`…) para que los dispositivos que ya lo tienen instalado reciban la actualización.
