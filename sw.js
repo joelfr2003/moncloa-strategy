@@ -1,5 +1,5 @@
 // Service worker de Moncloa Strategy. Sube el número de VERSION cuando publiques cambios.
-const VERSION = 'v18';
+const VERSION = 'v19';
 const CACHE = 'moncloa-' + VERSION;
 const CORE = ['./', 'index.html', 'multijugador.js', 'marruecos.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 
