@@ -197,6 +197,13 @@
     });
     return m;
   }
+  // Datos extra para que Marruecos tenga los mismos indicadores que España
+  function ex(m) {
+    if (m.emp == null) m.emp = 48; if (m.debt == null) m.debt = 68; if (m.leg == null) m.leg = 1;
+    if (!m.wk) m.wk = { w: Math.floor((m.day || 1) / 7), n: 0 }; if (m.decN == null) m.decN = 0;
+    return m;
+  }
+  const prima = m => Math.round(Math.max(20, Math.min(900, 40 + (55 - m.eco) * 2.4 + Math.max(0, m.debt - 60) * 1.5 + (50 - m.est) * 0.9)));
   const M = () => { const s = gameState.mp; return s && s.partner === 'MA' && s.P && s.P.army ? wrap(s.P) : null; };
   const UI = { tab: 'main', sel: null };   // estado de pantalla (local de cada jugador, no se sincroniza)
   const pending = m => !!(m && m.setup && !m.setup.done);
@@ -219,7 +226,7 @@
       reg: REG.map(() => ({ est: 50 + Math.floor(Math.random() * 25), crisis: 0 })),
       cd: {}, evt: null, next: day + 25, log: ['Comienza tu mandato al frente del Gobierno de Marruecos.']
     };
-    wrap(m);
+    wrap(m); ex(m);
     gameState.morocco = m;
     if (window.MP && typeof MP.setAdapter === 'function') {
       MP.setAdapter({
@@ -338,7 +345,7 @@
       Object.keys(o.P || {}).forEach(k => addSt(m, k, o.P[k]));
       Object.keys(o.loy || {}).forEach(p => { if (p in m.coal) m.coal[p] = clamp(m.coal[p] + o.loy[p]); });
       if (o.ES || o.rel) MP.cross(o.ES, o.rel, 'Marruecos: ' + d.title.toLowerCase() + '.');
-      lg(m, d.title + ' → ' + o.t.replace(/ \(.*\)$/, '') + '.'); m.dec = null; m.decCd = 6; redraw();
+      lg(m, d.title + ' → ' + o.t.replace(/ \(.*\)$/, '') + '.'); m.dec = null; m.decCd = 4; ex(m); m.decN++; m.wk.n++; redraw();
     },
     invest: i => { const m = M(); if (!m || !m.reg[i] || !need(m, 2, 250)) return; m.tes -= 250; m.cap -= 2; m.reg[i].est = clamp(m.reg[i].est + 15); lg(m, 'Plan de inversión en ' + REG[i][1] + '.'); redraw(); },
     repress: i => { const m = M(); if (!m || !m.reg[i]) return; m.reg[i].est = clamp(m.reg[i].est + 10); m.reg[i].crisis = 0; m.apr = clamp(m.apr - 3); lg(m, 'Las fuerzas del orden toman ' + REG[i][1] + '.'); redraw(); },
@@ -444,11 +451,47 @@
   }
 
   function decisionHtml(m) {
-    if (m.dec == null) return box('DECISIÓN DE GOBIERNO', `<div class="text-[11px] text-slate-500">${m.decCd > 0 ? 'Próxima decisión en ' + m.decCd + ' días.' : 'Sin decisiones pendientes.'}</div>`);
+    ex(m);
+    const wk = `<span class="text-[10px] bg-slate-900 border border-slate-700 px-2 py-1 text-slate-300"><i class="fa-regular fa-calendar mr-1"></i>SEMANA: ${m.wk.n} / 10 DECISIONES</span>`;
+    if (m.dec == null) return `<div class="hoi-box p-5 rounded-xl space-y-3 font-hoi-tech"><div class="flex justify-between items-center"><span class="text-[11px] bg-slate-900 border border-amber-500/60 px-2 py-1 text-amber-400">DECISIÓN N.º ${m.decN + 1}</span>${wk}</div><div class="text-xs text-slate-500 py-8 text-center">${m.decCd > 0 ? 'Próxima decisión en ' + m.decCd + ' días.' : 'Sin decisiones pendientes.'}</div></div>`;
     const d = DECS[m.dec], can = MP.canAct();
     const chips = o => Object.keys(o.P || {}).map(k => `<span class="${o.P[k] > 0 ? 'text-emerald-400' : 'text-red-400'}">${STN[k] || k} ${o.P[k] > 0 ? '+' : ''}${o.P[k]}</span>`).join(' · ') + (o.ES ? ' · <span class="text-sky-300">efecto en España</span>' : '');
-    return `<div class="hoi-box p-4 rounded-xl border-amber-500/60 space-y-2 font-hoi-tech"><div class="flex justify-between items-center"><span class="text-[10px] bg-slate-900 border border-slate-700 px-2 py-0.5 text-amber-400">${d.cat}</span><span class="text-[10px] text-slate-500">DECISIÓN DE GOBIERNO</span></div><b class="text-sm text-slate-100">${d.title}</b><p class="text-[11px] text-slate-400 font-sans">${d.desc}</p>
-      ${d.opts.map((o, i) => `<button ${can ? '' : 'disabled'} onclick="MA.pick(${i})" class="hoi-button w-full p-2 rounded text-[11px] text-left ${can ? '' : 'opacity-50'}"><div>${o.t}</div><div class="text-[10px] text-slate-400 mt-0.5">${chips(o)}${o.tes ? ' · <span class="' + (o.tes > 0 ? 'text-emerald-400' : 'text-red-400') + '">' + (o.tes > 0 ? '+' : '−') + Math.abs(o.tes) + ' M€</span>' : ''}</div></button>`).join('')}</div>`;
+    return `<div class="hoi-box p-5 rounded-xl space-y-3 font-hoi-tech"><div class="flex justify-between items-center"><span class="text-[11px] bg-slate-900 border border-amber-500/60 px-2 py-1 text-amber-400">DECISIÓN N.º ${m.decN + 1}</span>${wk}</div>
+      <h3 class="font-hoi-header text-xl text-slate-100 uppercase leading-tight">${d.title}</h3>
+      <div class="text-xs text-slate-300 font-sans bg-slate-950 border border-slate-800 rounded p-3">${d.desc}</div>
+      ${d.opts.map((o, i) => `<button ${can ? '' : 'disabled'} onclick="MA.pick(${i})" class="hoi-button w-full p-3 rounded text-xs text-left ${can ? '' : 'opacity-50'}"><div class="flex justify-between gap-2"><span>${o.t}</span>${can ? '' : '<span class="text-[10px] text-red-400">ESPERA TU TURNO</span>'}</div><div class="text-[10px] text-slate-400 mt-1">${chips(o)}${o.tes ? ' · <span class="' + (o.tes > 0 ? 'text-emerald-400' : 'text-red-400') + '">' + (o.tes > 0 ? '+' : '−') + Math.abs(o.tes) + ' M€</span>' : ''}</div></button>`).join('')}</div>`;
+  }
+
+  // ---------- Interfaz idéntica a la de España: barra superior, menú lateral, contenido ----------
+  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const mdate = m => { const d = m.date ? new Date(m.date) : new Date(2023, 0, Math.max(1, m.day || 1)); return d.getDate() + ' ' + MESES[d.getMonth()] + ' ' + d.getFullYear(); };
+  const tcol = v => v >= 60 ? 'text-emerald-400' : v >= 35 ? 'text-amber-400' : 'text-red-400';
+  const bcol = v => v >= 60 ? 'bg-emerald-500' : v >= 35 ? 'bg-amber-500' : 'bg-red-500';
+  function hud(m, mil) {
+    const hs = (ic, l, v) => `<div class="min-w-[74px]"><div class="flex justify-between items-center gap-2 text-[11px]"><span class="text-slate-300"><i class="fa-solid ${ic} mr-1 text-slate-400"></i>${l}</span><b class="${tcol(v)}">${Math.round(v)}%</b></div><div class="h-0.5 bg-slate-800 mt-1"><div class="h-full ${bcol(v)}" style="width:${clamp(v)}%"></div></div></div>`;
+    const kv = (l, v, c) => `<div><div class="text-[9px] tracking-widest text-slate-500">${l}</div><div class="text-base font-bold ${c || 'text-slate-100'}">${v}</div></div>`;
+    return `<div class="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2 bg-slate-950/95 border-b border-slate-800 font-hoi-tech">
+      ${kv('FECHA', mdate(m))}${kv('TESORERÍA', Math.round(m.tes).toLocaleString('es-ES') + ' M€', 'text-amber-300')}${kv('LEGISLATURA', m.leg + '/3')}
+      <div class="flex gap-4 flex-wrap">${hs('fa-chart-line', 'Econ.', m.eco)}${hs('fa-shield-halved', 'Esta.', m.est)}${hs('fa-briefcase', 'Empl.', m.emp)}${hs('fa-heart', 'Apro.', m.apr)}${hs('fa-person-military-rifle', 'Ejér.', mil)}</div>
+      <div class="flex gap-5 ml-auto">${kv('PRIMA', prima(m) + ' pb', prima(m) > 300 ? 'text-red-400' : 'text-amber-300')}${kv('DEUDA/PIB', m.debt.toFixed(1) + ' %', m.debt > 90 ? 'text-red-400' : 'text-amber-300')}</div></div>`;
+  }
+  function sidebar(m) {
+    const it = (k, ic, l, dot) => `<button onclick="MA.tab('${k}')" class="w-full flex items-center gap-2 px-3 py-2.5 text-[11px] font-bold tracking-wider uppercase rounded border ${UI.tab === k ? 'border-amber-500 text-amber-300 bg-amber-500/10' : 'border-slate-800 text-slate-300 bg-slate-900/80 hover:border-slate-600'}"><i class="fa-solid ${ic} w-4 text-center ${UI.tab === k ? 'text-amber-400' : 'text-sky-400'}"></i>${l}${dot ? ' <span class="text-amber-400">●</span>' : ''}</button>`;
+    const gp = t => `<div class="px-1 pt-3 pb-1 text-[10px] font-bold tracking-[.2em] text-slate-400">${t}</div>`;
+    return `<div class="space-y-1.5">
+      <div class="flex items-center gap-2 mb-2"><div class="w-9 h-9 border-2 border-amber-500 rounded flex items-center justify-center text-lg">🇲🇦</div><div><div class="font-hoi-header text-amber-400 text-base leading-none">MAROC STRATEGY</div><div class="text-[9px] text-slate-500 tracking-widest">STRATEGY SIMULATOR</div></div></div>
+      <div class="text-center text-[11px] text-amber-300 border border-slate-800 bg-slate-900/80 rounded py-1.5"><i class="fa-solid fa-landmark mr-1"></i>LEGISLATURA ${m.leg} / 3</div>
+      <div class="border border-slate-800 bg-slate-900/80 rounded p-2"><div class="flex justify-between text-[10px] text-sky-300"><span><i class="fa-solid fa-star mr-1"></i>CAPITAL POLÍTICO</span><b>${Math.floor(m.cap)}/100</b></div><div class="h-1 bg-slate-800 mt-1"><div class="h-full bg-sky-500" style="width:${clamp(m.cap)}%"></div></div></div>
+      ${gp('GOBIERNO')}${it('main', 'fa-landmark', 'Decisiones', m.dec != null)}${it('dec', 'fa-scroll', 'Dahires (Decretos)')}${it('cab', 'fa-users', 'Ministros')}${it('press', 'fa-bullhorn', 'Prensa', m.evt != null)}
+      ${gp('ECONOMÍA')}${it('eco', 'fa-coins', 'Presupuesto')}
+      ${gp('POLÍTICA')}${it('gov', 'fa-scale-balanced', 'Parlamento y coalición')}
+      ${gp('EXTERIOR')}${it('dip', 'fa-earth-africa', 'Diplomacia')}${it('mil', 'fa-shield', 'Fuerzas armadas')}
+      ${gp('ANÁLISIS')}${it('stats', 'fa-chart-pie', 'Estadísticas')}</div>`;
+  }
+  function situation(m) {
+    const loy = Object.keys(m.coal || {}).map(p => m.coal[p]), mn = loy.length ? Math.round(Math.min.apply(null, loy)) : 100;
+    return `<details class="hoi-box rounded-xl font-hoi-tech"><summary class="cursor-pointer px-4 py-3 flex items-center justify-between text-xs tracking-widest text-amber-400">SITUACIÓN DEL GOBIERNO<span class="flex gap-2 text-[10px] tracking-normal"><span class="px-2 py-0.5 rounded-full border ${mn < 50 ? 'border-red-500/60 text-red-300' : 'border-emerald-500/60 text-emerald-300'}">Socios: mín. ${mn}%</span><span class="px-2 py-0.5 rounded-full border ${m.minority ? 'border-red-500/60 text-red-300' : 'border-emerald-500/60 text-emerald-300'}">${m.minority ? 'GOBIERNO EN MINORÍA' : 'GOBIERNO CON MAYORÍA'}</span></span></summary>
+      <div class="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-3">${bar('Confianza del Palacio', m.palace)}${bar('Aprobación', m.apr)}${Object.keys(m.coal || {}).map(p => bar('Socio ' + p, m.coal[p])).join('')}</div></details>`;
   }
 
   // m = estado de Marruecos (del anfitrión, o la copia que recibe el jugador 2)
@@ -458,6 +501,7 @@
     if (!m || !m.army) return '<div class="hoi-box p-8 text-center text-slate-400 font-hoi-tech">Marruecos solo está disponible en el modo multijugador.</div>';
     if (pending(m)) return renderSetup(m, ctx);
     const cdl = k => (m.cd || {})[k] || 0;
+    ex(m);
     const mil = Math.round((m.army.tierra + m.army.mar + m.army.aire) / 3);
 
     const map = REG.map((r, i) => { const g = m.reg[i], col = g.est < 35 ? '#ef4444' : g.est < 55 ? '#d9a726' : '#22c55e'; return `<polygon points="${pts(r[2])}" fill="${col}" fill-opacity=".5" stroke="${UI.sel === i ? '#fff' : '#0b0f12'}" stroke-width="${UI.sel === i ? 2.5 : 1}" class="${g.crisis ? 'ma-pulse' : ''}" style="cursor:pointer" onclick="MA.reg(${i})"><title>${r[1]}</title></polygon>`; }).join('');
@@ -470,6 +514,17 @@
       const pol = POL.map(x => { const off = cdl('p' + x.id) > 0; return `<button ${off ? 'disabled' : `onclick="MA.pol('${x.id}')"`} class="hoi-button p-2 rounded text-[11px] text-left ${off ? 'opacity-50' : ''}"><div><b>${x.t}</b> <span class="text-slate-400">· ${x.cost} M€ · ${x.cap} cap.</span></div><div class="text-slate-400 font-sans">${x.d}</div><div class="text-[10px] text-slate-500">${off ? 'Disponible en ' + cdl('p' + x.id) + ' días' : Object.keys(x.P).map(k => k + ' ' + (x.P[k] > 0 ? '+' : '') + x.P[k]).join(' · ') + (x.ES ? ' · efecto en España' : '')}</div></button>`; }).join('');
       body = box('CÁMARA DE REPRESENTANTES', `<div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-center"><svg viewBox="0 0 500 250" class="w-full max-w-sm mx-auto">${hemi(m.seats)}</svg><div class="text-[11px] text-slate-300 space-y-1"><div>Jefe de Gobierno: <b class="text-amber-300">${lead ? lead.leader : ''}</b> (${m.leader})</div><div>Coalición: <b>${cs}</b> / ${TOTAL} escaños ${m.minority ? '<span class="text-red-400">· GOBIERNO EN MINORÍA</span>' : '<span class="text-emerald-400">· mayoría</span>'}</div><div class="flex flex-wrap gap-1">${MPARTIES.map(p => `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-900 rounded border border-slate-800"><span class="w-2 h-2 rounded-full" style="background:${p.color}"></span>${p.id} ${m.seats[p.id]}</span>`).join('')}</div></div></div>`)
         + '<div class="h-3"></div>' + box('COALICIÓN DE GOBIERNO (si un socio cae por debajo de 20, abandona el Gobierno)', co + `<div class="flex items-center gap-3"><div class="flex-1">${bar('Palacio Real', m.palace)}</div>${btn('MA.aud()', cdl('aud') ? cdl('aud') + 'd' : 'Audiencia · 5 cap.', cdl('aud') > 0)}</div>`) + '<div class="h-3"></div>' + box('DECRETOS', `<div class="grid grid-cols-1 md:grid-cols-2 gap-2">${pol}</div>`);
+    } else if (UI.tab === 'dec') {
+      const pol = POL.map(x => { const off = cdl('p' + x.id) > 0; return `<button ${off ? 'disabled' : `onclick="MA.pol('${x.id}')"`} class="hoi-button p-3 rounded text-[11px] text-left ${off ? 'opacity-50' : ''}"><div><b>${x.t}</b> <span class="text-slate-400">· ${x.cost} M€ · ${x.cap} cap.</span></div><div class="text-slate-400 font-sans">${x.d}</div><div class="text-[10px] text-slate-500">${off ? 'Disponible en ' + cdl('p' + x.id) + ' días' : Object.keys(x.P).map(k => (STN[k] || k) + ' ' + (x.P[k] > 0 ? '+' : '') + x.P[k]).join(' · ') + (x.ES ? ' · efecto en España' : '')}</div></button>`; }).join('');
+      body = box('DAHIRES Y DECRETOS DEL GOBIERNO (Boletín Oficial)', `<div class="grid grid-cols-1 md:grid-cols-2 gap-2">${pol}</div>`);
+    } else if (UI.tab === 'press') {
+      const e = m.evt != null ? EVS[m.evt] : null;
+      body = (e ? `<div class="hoi-box p-5 rounded-xl border-sky-500/60 space-y-2 font-hoi-tech"><span class="text-[10px] text-sky-300 tracking-widest">ÚLTIMA HORA</span><b class="block text-sky-300 text-lg">${e.title}</b><p class="text-[11px] text-slate-400 font-sans">${e.desc}</p>${e.opts.map((o, k) => `<button onclick="MA.evt(${k})" class="hoi-button w-full p-3 rounded text-xs text-left">${o.t}</button>`).join('')}</div>` : '')
+        + box('TELETIPO · REGISTRO DE PRENSA', m.log.map(l => `<div class="text-[11px] text-slate-300 border-b border-slate-800/60 py-1"><i class="fa-solid fa-newspaper text-slate-500 mr-2"></i>${l}</div>`).join('') || '<div class="text-[11px] text-slate-500">Sin noticias.</div>');
+    } else if (UI.tab === 'stats') {
+      const regs = REG.map((r, i) => [r[1], m.reg[i].est, m.reg[i].crisis]).sort((a, b) => a[1] - b[1]);
+      body = `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">${box('INDICADORES NACIONALES', bar('Economía', m.eco) + bar('Estabilidad', m.est) + bar('Empleo', m.emp) + bar('Aprobación', m.apr) + bar('Ejército', mil) + bar('Confianza del Palacio', m.palace) + `<div class="text-[11px] text-slate-300 pt-1">Prima de riesgo <b>${prima(m)} pb</b> · Deuda/PIB <b>${m.debt.toFixed(1)}%</b></div>`)}
+        ${box('ESTABILIDAD POR REGIÓN (de peor a mejor)', regs.map(r => bar((r[2] ? '⚠ ' : '') + r[0], r[1])).join(''))}</div>`;
     } else if (UI.tab === 'cab') {
       body = cabinetHtml(m);
     } else if (UI.tab === 'eco') {
@@ -481,30 +536,23 @@
     } else if (UI.tab === 'dip') {
       body = MP.renderMulti();
     } else {
-      const i = UI.sel, sel = i == null ? '<div class="text-[11px] text-slate-500">Pulsa una región del mapa para gestionarla.</div>' : `<div class="text-sm text-slate-100"><b>${REG[i][1]}</b></div>${bar('Estabilidad regional', m.reg[i].est)}${m.reg[i].crisis ? '<div class="text-[11px] text-red-400">⚠ Disturbios en curso</div>' : ''}<div class="flex gap-2 flex-wrap">${btn('MA.invest(' + i + ')', 'Invertir 250 M€ · 2 cap.')}${m.reg[i].crisis ? btn('MA.repress(' + i + ')', 'Reprimir (−3 aprobación)') : ''}</div>`;
-      const e = m.evt != null ? EVS[m.evt] : null;
-      body = `<div class="space-y-3">${decisionHtml(m)}<div class="grid grid-cols-1 md:grid-cols-2 gap-3"><div>${box('MAPA DE MARRUECOS', `<svg viewBox="0 0 340 330" class="w-full" style="max-height:440px">${map}</svg>`)}</div>
-        <div class="space-y-3">${box('ESTADO DEL PAÍS', bar('Economía', m.eco) + bar('Estabilidad', m.est) + bar('Aprobación', m.apr) + bar('Poder militar', mil) + bar('Confianza del Palacio', m.palace))}
-        ${box('REGIÓN', sel)}
-        ${e ? `<div class="hoi-box p-4 rounded-xl border-sky-500/60 space-y-2"><b class="text-sky-300 text-sm">${e.title}</b><p class="text-[11px] text-slate-400 font-sans">${e.desc}</p>${e.opts.map((o, k) => `<button onclick="MA.evt(${k})" class="hoi-button w-full p-2 rounded text-[11px] text-left">${o.t}</button>`).join('')}</div>` : ''}
-        ${box('REGISTRO', m.log.map(l => `<div class="text-[11px] text-slate-400">${l}</div>`).join(''))}</div></div></div>`;
+      const i = UI.sel, sel = i == null ? '' : `<div class="bg-slate-950 border border-slate-800 rounded p-3 space-y-2"><div class="text-sm text-slate-100"><b>${REG[i][1]}</b></div>${bar('Estabilidad regional', m.reg[i].est)}${m.reg[i].crisis ? '<div class="text-[11px] text-red-400">⚠ Disturbios en curso</div>' : ''}<div class="flex gap-2 flex-wrap">${btn('MA.invest(' + i + ')', 'Invertir 250 M€ · 2 cap.')}${m.reg[i].crisis ? btn('MA.repress(' + i + ')', 'Reprimir (−3 aprobación)') : ''}</div></div>`;
+      const e = m.evt != null ? EVS[m.evt] : null, alerts = m.reg.filter(r => r.est < 35).length;
+      body = `<div class="grid grid-cols-1 xl:grid-cols-2 gap-3">
+        <div class="hoi-box p-4 rounded-xl space-y-2 font-hoi-tech"><div class="flex justify-between items-center text-xs flex-wrap gap-1"><span class="text-amber-400"><i class="fa-solid fa-map-location-dot mr-1"></i>Mapa Provincial de Marruecos</span><span class="text-[10px] text-slate-300">${i == null ? 'PULSA UNA REGIÓN' : REG[i][1].toUpperCase() + ': ' + Math.round(m.reg[i].est) + '% ESTABILIDAD'}</span></div>
+          <div class="bg-slate-950 rounded border border-slate-800"><svg viewBox="0 0 340 330" class="w-full" style="max-height:400px">${map}</svg></div>
+          <div class="flex justify-between text-[10px] bg-slate-900/90 border border-slate-800 rounded px-3 py-2"><span class="text-slate-300">ESTADO TERRITORIAL:</span><b class="${alerts ? 'text-red-400' : 'text-emerald-400'}">${alerts} REGIONES EN ALERTA</b></div>${sel}</div>
+        <div class="space-y-3">${e ? `<div class="hoi-box p-4 rounded-xl border-sky-500/60 space-y-2 font-hoi-tech"><span class="text-[10px] text-sky-300 tracking-widest">ÚLTIMA HORA</span><b class="block text-sky-300 text-sm">${e.title}</b><p class="text-[11px] text-slate-400 font-sans">${e.desc}</p>${e.opts.map((o, k) => `<button onclick="MA.evt(${k})" class="hoi-button w-full p-2 rounded text-[11px] text-left">${o.t}</button>`).join('')}</div>` : ''}${decisionHtml(m)}</div></div>`;
     }
 
     const spectator = !ctx.guest && !MP.canAct()
       ? `<div class="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded p-2 font-hoi-tech">${gameState.mp && gameState.mp.mode === 'online' ? 'Modo espectador: Marruecos lo gobierna el jugador 2.' : 'Ahora manda España. Pasa el mando desde la pestaña Multijugador para gestionar Marruecos.'}</div>` : '';
-    return `<div class="space-y-3">
-      <div class="flex flex-wrap items-center gap-3 p-2 bg-slate-900/90 border border-slate-800 rounded font-hoi-tech text-xs">
-        <b class="text-amber-400 text-lg font-hoi-header">🇲🇦 MARRUECOS</b>
-        <span class="text-slate-400">${m.name}</span>
-        <span>Día ${m.day}</span>
-        <span>💰 ${Math.round(m.tes)} M€</span>
-        <span>🏛 ${Math.floor(m.cap)}</span>
-        ${m.dec != null ? '<span class="text-amber-300">⚖ Decisión pendiente</span>' : ''}
-      </div>
-      ${spectator}
-      <div class="flex gap-2 flex-wrap">${tabs}</div>
-      ${body}
-    </div>`;
+    const strip = `<div class="flex flex-wrap items-center justify-between gap-2 hoi-box rounded-xl px-3 py-2 font-hoi-tech"><div class="flex gap-2 text-[11px]"><span class="border border-amber-500/60 text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded"><i class="fa-regular fa-calendar mr-1"></i>${mdate(m).toUpperCase()}</span><span class="border border-slate-700 text-slate-300 px-3 py-1.5 rounded">DÍAS EN EL PODER: <b>${m.day}</b></span></div><span class="text-[10px] text-slate-500"><i class="fa-regular fa-clock mr-1"></i>Reloj sincronizado con la partida de España</span></div>
+      <div class="flex items-center gap-3 hoi-box rounded-xl px-3 py-2 font-hoi-tech text-[11px]"><span class="bg-red-600 text-white px-2 py-0.5 rounded font-bold"><i class="fa-solid fa-tower-broadcast mr-1"></i>TELETIPO MAP</span><span class="text-slate-300 truncate">${m.log[0] || 'Esperando teletipo de noticias…'}</span></div>`;
+    return `${hud(m, mil)}
+      <div class="p-3 grid grid-cols-1 md:grid-cols-[215px_1fr] gap-3">
+        ${sidebar(m)}
+        <div class="space-y-3 min-w-0">${spectator}${strip}${body}${situation(m)}</div></div>`;
   }
 
   // ---------------- SIMULACIÓN DIARIA (la llama multijugador.js una vez por día de España) ----------------
@@ -523,7 +571,9 @@
     if (pending(m)) return;                        // el Gobierno marroquí aún no se ha formado
     const cfg = diff();
     m.day = gameState.daysInOffice || m.day + 1;   // mismo calendario que España
-    m.cap = Math.min(60, m.cap + 0.3);
+    ex(m); m.date = gameState.currentDate ? +gameState.currentDate : m.date;
+    { const w = Math.floor(m.day / 7); if (m.wk.w !== w) { m.wk.w = w; m.wk.n = 0; } }
+    m.cap = Math.min(100, m.cap + 0.3);
     m.tes += 10 * (0.6 + m.eco / 100) - 1 - m.army.tierra / 50 * 1.5;
     if (cfg.expense && m.day % 30 === 0) m.tes -= cfg.expense * 0.25;   // gasto corriente según dificultad
     BUD.forEach(b => { const l = m.bud[b.id]; m.tes -= l / 50 * b.cost; Object.keys(b.fx).forEach(k => { m[k] = clamp(m[k] + (l - 50) * b.fx[k]); }); });
@@ -531,6 +581,10 @@
     m.apr = clamp(m.apr + (m.eco - 50) * 0.002 + (m.est - 50) * 0.002 - 0.01 - (cfg.attr || 0) * 0.5 - m.reg.filter(r => r.crisis).length * 0.04);
     m.est = clamp(m.est + (m.apr - 50) * 0.002 + (m.palace - 50) * 0.0004 - (m.apr < 35 ? 0.05 : 0) - (m.minority ? 0.02 : 0));
     m.eco = clamp(m.eco + (Math.random() - 0.5) * 0.1 + (50 - m.eco) * 0.001);
+    m.emp = clamp(m.emp + (m.eco - 50) * 0.002 + (m.est - 50) * 0.0006 + (m.bud.inf - 50) * 0.0004 + (m.bud.agr - 50) * 0.0002 - 0.001);
+    m.apr = clamp(m.apr + (m.emp - 50) * 0.001);
+    m.debt = Math.max(20, Math.min(200, m.debt + (m.tes < 0 ? 0.03 : -0.002) + (prima(m) - 250) / 50000));
+    m.tes -= Math.max(0, prima(m) - 150) / 400;          // coste de la deuda: intereses por prima de riesgo
     m.palace = clamp(m.palace + (m.apr - 50) * 0.002 - 0.005);
     Object.keys(m.army).forEach(k => { m.army[k] = clamp(m.army[k] - 0.01); });
     Object.keys(m.coal).forEach(p => { m.coal[p] = clamp(m.coal[p] + (m.apr - 50) * 0.003 - 0.02); });
