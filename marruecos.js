@@ -215,8 +215,9 @@
   CFG.MA.gap = [3, 6];   // como en España: una decisión de gobierno cada pocos días
 
   // Consejo de Ministros de Marruecos: ministerios de soberanía (el Palacio prefiere técnicos) y ministerios de coalición
-  const PARTIES = ['RNI', 'PAM', 'Istiqlal', 'USFP', 'PJD', 'OTR'];
+  const PARTIES = ['RNI', 'PAM', 'Istiqlal', 'USFP', 'MP', 'PPS', 'UC', 'PJD'];
   const MIN = (id, t, ic, sov, stat, label, techs, defParty) => {
+    if (!techs.some(x => x.p === 'Técnico')) techs = techs.concat([{ n: 'Técnico independiente', p: 'Técnico', fx: { [stat]: 1, pal: 1 }, pro: ['+1 ' + label + ', +1 Palacio'], con: ['Poca representación de la coalición'] }]);
     const cands = techs.concat(PARTIES.map(p => ({ n: 'Portavoz sectorial', p, fx: Object.assign({ coh: 1, apr: -0.5 }, { [stat]: 0.5 }, sov ? { pal: -1 } : {}),
       pro: ['+1 Coalición (representación)', '+0,5 ' + label], con: ['−0,5 Aprobación por falta de perfil técnico'].concat(sov ? ['−1 Palacio: no es de su confianza'] : []) })));
     return { id, t, ic, sov, cands, def: defParty ? cands.findIndex(c => c.n === 'Portavoz sectorial' && c.p === defParty) : 0 };
@@ -234,11 +235,11 @@
     MIN('hab', 'Habices y Asuntos Islámicos', 'fa-mosque', true, 'est', 'Estabilidad', [
       { n: 'Ahmed Toufiq', p: 'Técnico', fx: { pal: 1.5, est: 1 }, pro: ['+1,5 Palacio, +1 Estabilidad'], con: ['Poco margen para reformas'] }]),
     MIN('jus', 'Ministerio de Justicia', 'fa-scale-balanced', false, 'est', 'Estabilidad', [
-      { n: 'Abdellatif Ouahbi', p: 'PAM', fx: { est: 1, coh: 1, apr: -0.5 }, pro: ['+1 Estabilidad y representación de la coalición'], con: ['−0,5 Aprobación por polémicas'] }], 'OTR'),
+      { n: 'Abdellatif Ouahbi', p: 'PAM', fx: { est: 1, coh: 1, apr: -0.5 }, pro: ['+1 Estabilidad y representación de la coalición'], con: ['−0,5 Aprobación por polémicas'] }]),
     MIN('edu', 'Educación Nacional y Deportes', 'fa-graduation-cap', false, 'apr', 'Aprobación', [
-      { n: 'Mohamed Saad Berrada', p: 'Técnico', fx: { apr: 1, eco: 0.5 }, pro: ['+1 Aprobación, +0,5 Economía'], con: ['Poca base en la coalición'] }], 'PJD'),
+      { n: 'Mohamed Saad Berrada', p: 'Técnico', fx: { apr: 1, eco: 0.5 }, pro: ['+1 Aprobación, +0,5 Economía'], con: ['Poca base en la coalición'] }]),
     MIN('san', 'Sanidad y Protección Social', 'fa-hospital', false, 'apr', 'Aprobación', [
-      { n: 'Amine Tahraoui', p: 'Técnico', fx: { apr: 1.5, est: 0.5 }, pro: ['+1,5 Aprobación, +0,5 Estabilidad'], con: ['Presupuesto limitado'] }], 'USFP')
+      { n: 'Amine Tahraoui', p: 'Técnico', fx: { apr: 1.5, est: 0.5 }, pro: ['+1,5 Aprobación, +0,5 Estabilidad'], con: ['Presupuesto limitado'] }])
   ];
   CFG.MA.parties = PARTIES;
 
@@ -265,7 +266,7 @@
   const DG = {};
   const bar = (v, c) => `<div class="h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800"><div class="h-full ${c || (v >= 60 ? 'bg-emerald-500' : v >= 35 ? 'bg-amber-500' : 'bg-red-500')}" style="width:${clamp(v)}%"></div></div>`;
 
-  function makeGame(cfg, ext) {
+  function makeGame(cfg, ext, opt) {
     const key = cfg.key, H = 'DG.' + key + '.a.', U = cfg.units, cp = cfg.coupled;
     const g = { cfg, key, tab: 'dec', sel: null, up: false, tmr: null, syn: null, send: () => {}, refresh: () => {}, light: () => {}, a: {} };
     const S = g.S = {
@@ -273,6 +274,7 @@
       bud: Object.fromEntries(cfg.bud.map(b => [b.id, 50])), cd: {}, units: Object.assign({}, cfg.u0), ready: 70, tr: {}, log: [], evt: null, nextEvt: cfg.gap ? cfg.gap[0] : 30, lastEvt: -1, nDec: 0, debt: 98000, rate: 2.5, min: Object.fromEntries((cfg.ministers || []).map(m => [m.id, m.def])), over: 0, peer: null,
       reg: Object.fromEntries(cfg.regions.map(r => [r.id, { est: 55 + Math.round(Math.random() * 15), eco: 40 + Math.round(Math.random() * 20), gar: 0, crisis: null }]))
     };
+    if (opt && opt.coal) { S.coal = opt.coal; S.m.coh = opt.coh; Object.assign(S.min, opt.mins); }
     // España comparte economía, estabilidad, aprobación, tesoro y capital con la partida principal
     const lk = k => cp && (k === 'eco' || k === 'est' || k === 'apr');
     const io = {
@@ -344,7 +346,7 @@
         if (S.day % 30 === 0) {
           const present = {};
           cfg.ministers.forEach(mi => { const c = mi.cands[S.min[mi.id]]; present[c.p] = 1; Object.keys(c.fx).forEach(k => A.add(k, c.fx[k] * 0.3)); });
-          cfg.parties.forEach(pt => { m.coh = clamp(m.coh + (present[pt] ? 0.4 : -0.4)); });
+          (S.coal || cfg.parties).forEach(pt => { m.coh = clamp(m.coh + (present[pt] ? 0.4 : -0.4)); });
           io.add('eco', (3 - S.rate) * 0.1); io.add('apr', (3 - S.rate) * 0.05);
         }
       }
@@ -454,7 +456,7 @@
     const tMin = () => {
       const cards = cfg.ministers.map(mi => {
         const sel = S.min[mi.id], c = mi.cands[sel];
-        const opts = mi.cands.map((x, i) => `<option value="${i}" ${i === sel ? 'selected' : ''}>${x.n} (${x.p})</option>`).join('');
+        const opts = mi.cands.map((x, i) => (i === sel || x.p === 'Técnico' || (S.coal || cfg.parties).includes(x.p) ? `<option value="${i}" ${i === sel ? 'selected' : ''}>${x.n} (${x.p})</option>` : '')).join('');
         return `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2"><div class="text-[12px] text-amber-400 font-bold"><i class="fa-solid ${mi.ic} mr-1"></i>${mi.t} ${mi.sov ? '<span class="text-[9px] text-sky-300 font-normal">· soberanía</span>' : ''}</div>
           <select class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-[12px]" onchange="${H}min('${mi.id}',this.value)">${opts}</select>
           <div class="bg-slate-900 border border-slate-800 rounded p-2 text-[11px] space-y-1"><div class="flex justify-between"><b class="text-amber-300">${c.n}</b><span class="text-[9px] bg-slate-800 px-1.5 rounded">${c.p}</span></div>${c.pro.map(t => `<div class="text-emerald-400">✓ ${t}</div>`).join('')}${c.con.map(t => `<div class="text-red-400">✗ ${t}</div>`).join('')}</div>
@@ -492,13 +494,29 @@
       const pend = S.evt != null && g.tab !== 'dec' ? `<div class="hoi-box p-2 rounded border border-red-500/50 text-[11px] font-hoi-tech flex justify-between items-center"><span class="text-red-300">⚠ Tienes una decisión de gobierno pendiente.</span><button onclick="${H}tab('dec')" class="hoi-button px-2 py-1 rounded">Ir a Decisiones</button></div>` : '';
       return `<div class="max-w-6xl mx-auto space-y-3">${g.head()}${pend}<div class="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3"><div>${g.tabs()}</div><div class="space-y-3">${T[g.tab]()}</div></div></div>`;
     };
-    log(cfg.start);
+    log((opt && opt.msg) || cfg.start);
     return g;
   }
 
   // =====================================================================
   //  DUEL: une los dos juegos (en línea o en el mismo dispositivo)
   // =====================================================================
+
+  // Cámara de Representantes (395 escaños, resultados de 2021): la mayoría absoluta está en 198
+  const SEATS = [['RNI', 102, '#1d6fd1'], ['PAM', 87, '#8a5a2b'], ['Istiqlal', 81, '#c0392b'], ['USFP', 34, '#e84a5f'], ['MP', 28, '#2e9e5b'], ['PPS', 22, '#d4a017'], ['UC', 18, '#7f8c8d'], ['PJD', 13, '#16a085'], ['Otros', 10, '#475569']];
+  const SEAT = Object.fromEntries(SEATS.map(x => [x[0], x[1]]));
+  function mkCoal(names) {
+    const seats = SEAT.RNI + names.reduce((t, n) => t + (SEAT[n] || 0), 0), maj = seats >= 198;
+    const coh = clamp(maj ? 55 + (seats - 198) / 197 * 25 : 25 + seats / 198 * 25), pref = { jus: 'PAM', edu: 'PJD', san: 'USFP' }, mins = {};
+    CFG.MA.ministers.forEach(mi => {
+      let idx = mi.def;
+      if (pref[mi.id]) { const want = names.includes(pref[mi.id]) ? pref[mi.id] : names[0], i = want ? mi.cands.findIndex(c => c.p === want) : -1; idx = i >= 0 ? i : mi.cands.findIndex(c => c.p === 'Técnico'); }
+      mins[mi.id] = idx;
+    });
+    return { coal: ['RNI'].concat(names), seats, coh, mins,
+      msg: maj ? 'Aziz Akhannouch (RNI) forma un Gobierno de coalición con ' + names.join(', ') + ' (' + seats + '/395).' : 'Aziz Akhannouch (RNI) forma Gobierno en minoría (' + seats + '/395): la coalición arranca débil.' };
+  }
+
   const sendOut = o => { try { if (window.MP && MP.sendX) MP.sendX(o); } catch (e) { /* sin enlace */ } };
   const DUEL = { mode: null, turn: 'es', q: { es: [], ma: [] } };
   const redraw = () => { if (window.gameState && gameState.activeTab === 'mp') { try { render(); } catch (e) { /* aún no */ } } };
@@ -513,7 +531,7 @@
   DUEL.startOnline = () => { DUEL.reset(); DUEL.mode = 'online'; mkES(); };
   DUEL.startLocal = () => {
     DUEL.reset(); DUEL.mode = 'local'; DUEL.turn = 'es';
-    const e = mkES(), m = DG.ma = makeGame(CFG.MA, true); m.refresh = redraw; m.light = redraw;
+    const e = mkES(), m = DG.ma = makeGame(CFG.MA, true, mkCoal(['PAM', 'Istiqlal'])); m.refresh = redraw; m.light = redraw;
     e.up = m.up = true; e.send = o => deliver('ma', o); m.send = o => deliver('es', o);
   };
   DUEL.ensure = () => { if (!DUEL.mode && window.gameState && gameState.mp) { if (gameState.mp.mode === 'local') DUEL.startLocal(); else DUEL.startOnline(); } };
@@ -542,17 +560,35 @@
     const r = $('moro-root'), g = DG.ma; if (!r || !g) return;
     r.innerHTML = `<div class="flex justify-between items-center mb-2 font-hoi-tech text-xs text-slate-300"><span>Sala <b class="text-amber-300">${MORO.code || ''}</b> · ${g.up ? '<span class="text-emerald-400">conectado con España</span>' : '<span class="text-red-400">CONEXIÓN PERDIDA</span>'}</span><button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded">Salir</button></div>${g.render()}<div id="moro-toast" style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#7f1d1d;color:#fff;padding:8px 14px;border-radius:8px;font-size:12px;opacity:0;transition:opacity .3s;z-index:100060"></div>`;
   }
+  MORO.coal = { PAM: 1, Istiqlal: 1 };
+  function msetup() {
+    const r = $('moro-root'); if (!r) return;
+    const names = Object.keys(MORO.coal).filter(k => MORO.coal[k]), c = mkCoal(names), maj = c.seats >= 198;
+    const bar = SEATS.map(([n, v, col]) => `<div title="${n}: ${v}" style="width:${v / 395 * 100}%;background:${col};opacity:${n === 'RNI' || MORO.coal[n] ? 1 : 0.35}" class="h-8 flex items-center justify-center text-[10px] font-bold overflow-hidden">${v >= 18 ? n : ''}</div>`).join('');
+    const rows = SEATS.filter(x => x[0] !== 'Otros').map(([n, v, col]) => `<label class="flex items-center justify-between bg-slate-950 border ${MORO.coal[n] || n === 'RNI' ? 'border-amber-500/60' : 'border-slate-800'} rounded p-2 text-[12px] ${n === 'RNI' ? '' : 'cursor-pointer'}"><span class="flex items-center gap-2"><input type="checkbox" ${n === 'RNI' ? 'checked disabled' : MORO.coal[n] ? 'checked' : ''} onchange="MORO.tog('${n}')"><i style="background:${col}" class="inline-block w-3 h-3 rounded-full"></i><b>${n}</b>${n === 'RNI' ? '<span class="text-[10px] text-amber-400">partido del Jefe del Gobierno</span>' : ''}</span><span class="font-mono">${v} escaños</span></label>`).join('');
+    r.innerHTML = `<div class="flex justify-between items-center mb-2 font-hoi-tech text-xs text-slate-300"><span>Sala <b class="text-amber-300">${MORO.code || ''}</b> · ${MORO.ok ? '<span class="text-emerald-400">conectado con España</span>' : '<span class="text-red-400">CONEXIÓN PERDIDA</span>'}</span><button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded">Salir</button></div>
+      <div class="max-w-3xl mx-auto hoi-box p-5 rounded-xl space-y-4 font-hoi-tech"><h2 class="font-hoi-header text-2xl text-amber-400">🇲🇦 REPARTO DE ESCAÑOS · CÁMARA DE REPRESENTANTES</h2>
+        <p class="text-[11px] text-slate-400 font-sans">Tras las elecciones, el Rey encarga formar Gobierno al jefe del partido más votado. Elige con qué partidos gobiernas: hacen falta 198 de 395 escaños para tener mayoría. Un Gobierno en minoría arranca con una coalición muy débil.</p>
+        <div class="flex rounded overflow-hidden border border-slate-700">${bar}</div>
+        <div class="space-y-1.5">${rows}</div>
+        <div class="flex justify-between items-center flex-wrap gap-2 bg-slate-950 border ${maj ? 'border-emerald-500/50' : 'border-red-500/50'} rounded p-3 text-[12px]"><span>Tu coalición: <b class="font-mono">${c.seats}</b> / 395 escaños · mayoría en 198</span><b class="${maj ? 'text-emerald-400' : 'text-red-400'}">${maj ? 'GOBIERNO CON MAYORÍA' : 'GOBIERNO EN MINORÍA'}</b></div>
+        <button onclick="MORO.begin()" class="hoi-button-gold px-5 py-2.5 rounded-lg text-sm"><i class="fa-solid fa-landmark mr-2"></i>Formar Gobierno y empezar</button></div>`;
+  }
+  MORO.tog = p => { if (p === 'RNI') return; MORO.coal[p] = !MORO.coal[p]; msetup(); };
+  MORO.begin = () => {
+    if (DG.ma) return;
+    const g = DG.ma = makeGame(CFG.MA, false, mkCoal(Object.keys(MORO.coal).filter(k => MORO.coal[k])));
+    g.send = sendOut; g.refresh = mrender; g.up = !!MORO.ok; MORO.stage = 'play'; g.clock();
+  };
   MORO.show = function (guest) {
-    MORO.code = guest && guest.code;
+    MORO.code = guest && guest.code; MORO.ok = !!(guest && guest.ok);
     let el = $('moro-root');
-    if (!el) {
-      el = document.createElement('div'); el.id = 'moro-root'; el.className = 'fixed inset-0 overflow-y-auto p-3'; el.style.cssText = 'z-index:100000;background:#0b0f12;'; document.body.appendChild(el);
-      const g = DG.ma = makeGame(CFG.MA, false); g.send = sendOut; g.refresh = mrender; g.clock();
-    }
-    if (DG.ma) { DG.ma.up = !!(guest && guest.ok); mrender(); }
+    if (!el) { el = document.createElement('div'); el.id = 'moro-root'; el.className = 'fixed inset-0 overflow-y-auto p-3'; el.style.cssText = 'z-index:100000;background:#0b0f12;'; document.body.appendChild(el); MORO.stage = 'setup'; }
+    if (MORO.stage === 'setup') msetup(); else if (DG.ma) { DG.ma.up = MORO.ok; mrender(); }
   };
   MORO.hide = function () {
     if (DG.ma && DUEL.mode !== 'local') { DG.ma.stop(); delete DG.ma; }
+    MORO.stage = null; MORO.coal = { PAM: 1, Istiqlal: 1 };
     const el = $('moro-root'); if (el) el.remove(); const a = $('x-alert'); if (a) a.remove();
   };
   MORO.onMsg = d => { if (d && DG.ma && DUEL.mode !== 'local') DG.ma.C.onMsg(d); };
