@@ -372,6 +372,129 @@
   // Envoltorio de la interfaz: el jugador 2 reenvía la orden al anfitrión; el anfitrión solo
   // puede actuar si es el turno de Marruecos (modo mismo dispositivo).
   const repaint = () => { if (MP.isGuest()) MP.repaint(); else redraw(); };
+  // =====================================================================
+  //  ELECCIONES, CAMPAÑA, MOCIÓN DE CENSURA Y REBELIONES (igual que España)
+  // =====================================================================
+  const CAMP_DAYS = 90;
+  const CACTS = [
+    { id: 'mitin', t: 'Mitin multitudinario', ic: 'fa-people-group', cost: 60, cd: 5, mom: 1.2, apr: 0.5, d: 'Plaza llena y titulares favorables.' },
+    { id: 'spot', t: 'Campaña de spots en TV y redes', ic: 'fa-tv', cost: 150, cd: 10, mom: 2.5, d: 'Inversión publicitaria masiva.' },
+    { id: 'gira', t: 'Gira por las regiones', ic: 'fa-bus', cost: 90, cd: 7, mom: 1.5, d: 'Más cercanía con el electorado.' },
+    { id: 'entrevista', t: 'Entrevista en horario de máxima audiencia', ic: 'fa-microphone', cost: 0, cd: 12, mom: 0.8, apr: 1, d: 'Gratis, pero con impacto modesto.' },
+    { id: 'ataque', t: 'Ataque a la oposición', ic: 'fa-fire', cost: 40, cd: 8, mom: 2, apr: -2, risk: 0.3, d: 'Efectivo pero arriesgado: 30% de que se vuelva en tu contra.' },
+    { id: 'promesa', t: 'Promesa electoral estrella', ic: 'fa-handshake', cost: 0, cd: 25, mom: 3, pledge: true, d: 'Sube mucho, pero se paga: 300 M€ por promesa al cierre (máx. 3).' }
+  ];
+  const CQ = [
+    { t: 'Polémica por el precio del pan', d: 'La oposición te acusa de abandonar a las clases populares.', o: [['Anunciar subsidios (−200 M€)', -200, 3, 1], ['Culpar a la inflación mundial', 0, -2, -2]] },
+    { t: 'Escándalo en un ministerio', d: 'Un diario revela contratos dudosos en un departamento.', o: [['Cesar al ministro y abrir investigación', 0, 1, 2], ['Negarlo todo', 0, -3, -4]] },
+    { t: 'Huelga de docentes', d: 'Los sindicatos paralizan las escuelas en plena campaña.', o: [['Aceptar subida salarial (−250 M€)', -250, 2.5, 2], ['Mantener la línea dura', 0, -1, -3]] },
+    { t: 'Entrevista de la oposición', d: 'Tu rival arrasa en la televisión nacional.', o: [['Contraprogramar con un gran acto (−100 M€)', -100, 2, 0], ['Ignorarlo', 0, -2, 0]] },
+    { t: 'Apoyo de un líder religioso', d: 'Un influyente personaje te ofrece su respaldo público.', o: [['Aceptar el apoyo', 0, 3, 1], ['Rechazarlo por prudencia', 0, -0.5, 1]] },
+    { t: 'Encuesta filtrada', d: 'Un sondeo interno te da por perdedor.', o: [['Desmentirlo con datos', 0, 1, 0], ['Pedir el voto útil', 0, 2, -1]] }
+  ];
+  const pauseGame = () => { try { if (typeof setGameSpeed === 'function') setGameSpeed(0); } catch (e) { /* ya en pausa */ } };
+  const clg = (c, t) => { c.log.unshift(t); c.log.length = Math.min(c.log.length, 8); };
+  function calc(m, noise) {
+    const gov = m.coalIds || [], lead = m.leader, c = m.camp || { mom: 0 };
+    const perf = (m.apr - 50) * 0.003 + (m.eco - 50) * 0.0015 + ((m.emp == null ? 50 : m.emp) - 50) * 0.001 + c.mom * 0.0025;
+    const raw = MPARTIES.map(p => { const base = (m.seats[p.id] || 0) / TOTAL, k = p.id === lead ? 1 : gov.includes(p.id) ? 0.5 : -0.35; return Math.max(0.004, base + perf * k * (base > 0.03 ? 1 : 0.3) + (noise ? (Math.random() - 0.5) * 0.03 : 0)); });
+    const sum = raw.reduce((a, b) => a + b, 0); return MPARTIES.map((p, i) => [p.id, raw[i] / sum]);
+  }
+  function seatsFrom(sh) {
+    const fl = sh.map(([id, s]) => [id, Math.floor(s * TOTAL), s * TOTAL - Math.floor(s * TOTAL)]);
+    const left = TOTAL - fl.reduce((t, x) => t + x[1], 0); fl.slice().sort((a, b) => b[2] - a[2]).slice(0, left).forEach(x => { x[1]++; });
+    const out = {}; fl.forEach(x => { out[x[0]] = x[1]; }); return out;
+  }
+  function startElection(m, why) {
+    m.phase = 'camp'; m.motion = null; m.rebel = null; m.dec = null; m.evt = null;
+    m.camp = { day: 0, mom: 0, cd: {}, pledges: 0, spent: 0, polls: [], log: [why], debate: false, debateOpen: false, q: null };
+    lg(m, why); toast('Marruecos: elecciones generales. Comienza la campaña de 90 días.'); pauseGame();
+  }
+  function poll(m) {
+    const sh = calc(m, true).sort((a, b) => b[1] - a[1]), c = m.camp;
+    c.polls.unshift({ d: c.day, a: sh[0][0], av: sh[0][1] * 100, b: sh[1][0], bv: sh[1][1] * 100 }); c.polls.length = Math.min(c.polls.length, 4);
+    clg(c, 'Barómetro: ' + sh[0][0] + ' ' + (sh[0][1] * 100).toFixed(1) + '% · ' + sh[1][0] + ' ' + (sh[1][1] * 100).toFixed(1) + '%.');
+  }
+  function campTick(m) {
+    const c = m.camp; c.day++;
+    Object.keys(c.cd).forEach(k => { if (c.cd[k] > 0) c.cd[k]--; });
+    c.mom = clamp(c.mom * 0.96 + (m.apr - 50) * 0.003, -40, 40);
+    if (c.day % 15 === 0) poll(m);
+    if (c.day === 80 && !c.debate) { c.debateOpen = true; clg(c, 'Debate cara a cara: decide tu estrategia.'); pauseGame(); return; }
+    if ([10, 22, 34, 46, 58, 70].indexOf(c.day) >= 0) { c.q = Math.floor(Math.random() * CQ.length); pauseGame(); return; }
+    if (c.day >= CAMP_DAYS) endCamp(m);
+  }
+  function endCamp(m) {
+    const c = m.camp; if (c.pledges) m.tes -= 300 * c.pledges;
+    m.res = { old: Object.assign({}, m.seats), nw: seatsFrom(calc(m, true)) }; m.phase = 'night';
+    lg(m, 'Jornada electoral: las urnas han hablado.'); toast('Marruecos: noche electoral.'); pauseGame();
+  }
+  function fallGov(m, why) {
+    const s = Object.assign({}, m.seats), lead = MPARTIES.filter(p => p.id !== m.leader).sort((a, b) => (s[b.id] || 0) - (s[a.id] || 0))[0].id;
+    m.setup = { phase: 'coal', seats: s, leader: lead, coal: [lead], done: false };
+    m.apr = clamp(m.apr - 5); m.dec = null; m.evt = null; m.rebel = null; m.motion = null; lg(m, why); pauseGame();
+  }
+  const rebelSeats = m => Object.keys(m.coal || {}).filter(p => m.coal[p] < 35).reduce((t, p) => t + (m.seats[p] || 0), 0);
+  function voteMotion(m) {
+    const yes = (TOTAL - coalSeats(m)) + rebelSeats(m); m.motion = null;
+    if (yes >= MAJ) { toast('Marruecos: la moción de censura prospera.'); fallGov(m, 'La moción de censura TRIUNFA (' + yes + ' votos de ' + MAJ + '). El Gobierno cae y se abre una nueva ronda de consultas.'); }
+    else { addSt(m, 'palace', 8); addSt(m, 'apr', 4); lg(m, 'La moción de censura FRACASA (' + yes + '/' + MAJ + '): el Gobierno sale reforzado.'); }
+  }
+  Object.assign(R, {
+    speed: n => { n = +n; if (n >= 0 && n <= 3) { try { setGameSpeed(n); } catch (e) { /* sin reloj */ } const m = M(); if (m) m.spd = n; } },
+    cact: id => {
+      const m = M(), c = m && m.camp, x = CACTS.find(a => a.id === id);
+      if (!m || m.phase !== 'camp' || !c || !x || c.debateOpen || c.q != null || (c.cd[id] || 0) > 0) return;
+      if (x.pledge && c.pledges >= 3) return; if (x.cost && m.tes < x.cost) return toast('Fondos insuficientes.');
+      m.tes -= x.cost; c.spent += x.cost; c.cd[id] = x.cd; if (x.pledge) c.pledges++;
+      let r = x.mom;
+      if (x.risk && Math.random() < x.risk) { r = -3; addSt(m, 'apr', -2); clg(c, 'Tu ataque se vuelve en tu contra.'); } else { if (x.apr) addSt(m, 'apr', x.apr); clg(c, x.t + '.'); }
+      c.mom = clamp(c.mom + r, -40, 40); redraw();
+    },
+    cq: i => {
+      const m = M(), c = m && m.camp, q = c && c.q != null ? CQ[c.q] : null, o = q && q.o[i]; if (!o) return;
+      m.tes += o[1]; c.mom = clamp(c.mom + o[2], -40, 40); addSt(m, 'apr', o[3]); clg(c, q.t + ' → ' + o[0].replace(/ \(.*\)$/, '') + '.'); c.q = null;
+      if (!gameState.gameSpeed) R.speed(1); redraw();
+    },
+    cdeb: i => {
+      const m = M(), c = m && m.camp; if (!c || !c.debateOpen) return;
+      const S = [{ b: 0.45, w: 7, l: -6 }, { b: 0.55, w: 5, l: -3 }, { b: 0.5, w: 6, l: -4 }][i]; if (!S) return;
+      const p = clamp(S.b + (m.apr - 50) / 250 + (m.palace - 50) / 500, 0.15, 0.85), win = Math.random() < p;
+      c.mom = clamp(c.mom + (win ? S.w : S.l), -40, 40); addSt(m, 'apr', win ? 2 : -2);
+      clg(c, win ? 'Ganas el debate: los sondeos instantáneos te dan ventaja.' : 'Pierdes el debate: tu rival sale reforzado.'); c.debate = true; c.debateOpen = false;
+      if (!gameState.gameSpeed) R.speed(1); redraw();
+    },
+    nightGo: () => {
+      const m = M(), r = m && m.res; if (!r || m.phase !== 'night') return;
+      m.seats = Object.assign({}, r.nw);
+      const lead = MPARTIES.slice().sort((a, b) => (m.seats[b.id] || 0) - (m.seats[a.id] || 0))[0].id;
+      m.setup = { phase: 'coal', seats: Object.assign({}, m.seats), leader: lead, coal: [lead], done: false };
+      m.min = {}; m.coal = {}; m.coalIds = [lead]; m.leader = lead; m.phase = 'gov'; m.afterElec = true; m.camp = null; m.res = null; m.dec = null;
+      lg(m, 'Se constituye la nueva Cámara: toca formar Gobierno.'); redraw();
+    },
+    mot: i => {
+      const m = M(); if (!m || !m.motion) return;
+      if (i === 0) {
+        if (!need(m, 3, 500)) return; m.tes -= 500; m.cap -= 3;
+        Object.keys(m.coal).forEach(p => { if (m.coal[p] < 35) m.coal[p] = clamp(m.coal[p] + 25); }); lg(m, 'Compras apoyos: los socios díscolos vuelven al redil.');
+      } else if (i === 1) {
+        if (m.palace >= 55) startElection(m, 'El Rey disuelve la Cámara de Representantes a petición del Jefe de Gobierno: elecciones anticipadas.');
+        else { addSt(m, 'palace', -10); addSt(m, 'apr', -3); lg(m, 'El Rey se niega a disolver la Cámara: pierdes su confianza.'); }
+      } else voteMotion(m);
+      redraw();
+    },
+    reb: i => {
+      const m = M(), rb = m && m.rebel; if (!rb || !m.reg[rb.i]) return; const g = m.reg[rb.i], nm = REG[rb.i][1];
+      if (i === 0) { if (!need(m, 3, 0)) return; m.cap -= 3; g.est = clamp(g.est + 25); g.crisis = 0; addSt(m, 'apr', -8); addSt(m, 'mil', -5); lg(m, 'El ejército sofoca la rebelión en ' + nm + '.'); }
+      else if (i === 1) { if (!need(m, 0, 400)) return; m.tes -= 400; g.est = clamp(g.est + 20); g.crisis = 0; addSt(m, 'palace', -5); lg(m, 'Negocias con los rebeldes de ' + nm + ' y les concedes autonomía.'); }
+      else { addSt(m, 'eco', -4); addSt(m, 'est', -6); g.est = clamp(g.est - 10); lg(m, 'Ignoras la rebelión en ' + nm + ': el país se resiente.'); }
+      m.rebel = null; redraw();
+    }
+  });
+  // al formar Gobierno tras unas elecciones empieza una nueva legislatura
+  const _gs = R.govStart;
+  R.govStart = () => { const m = M(), was = m && m.setup && !m.setup.done; _gs(); if (m && was && m.setup.done) { if (m.afterElec) { m.afterElec = false; m.leg = Math.min(3, (m.leg || 1) + 1); m.termStart = m.day; } m.motion = null; } };
+
   const A = {};
   Object.keys(R).forEach(f => {
     A[f] = (...a) => {
@@ -384,6 +507,7 @@
       R[f](...a);
     };
   });
+  A.speed = n => (MP.isGuest() ? MP.sendMA('speed', [n]) : R.speed(n));
   A.tab = t => { UI.tab = t; repaint(); };
   A.reg = i => { UI.sel = i; repaint(); };
   A.seatLive = (id, v) => { const el = document.getElementById('mseat-' + id); if (el) el.textContent = v + ' ESCAÑOS'; };
@@ -482,11 +606,42 @@
       <div class="flex items-center gap-2 mb-2"><div class="w-9 h-9 border-2 border-amber-500 rounded flex items-center justify-center text-lg">🇲🇦</div><div><div class="font-hoi-header text-amber-400 text-base leading-none">MAROC STRATEGY</div><div class="text-[9px] text-slate-500 tracking-widest">STRATEGY SIMULATOR</div></div></div>
       <div class="text-center text-[11px] text-amber-300 border border-slate-800 bg-slate-900/80 rounded py-1.5"><i class="fa-solid fa-landmark mr-1"></i>LEGISLATURA ${m.leg} / 3</div>
       <div class="border border-slate-800 bg-slate-900/80 rounded p-2"><div class="flex justify-between text-[10px] text-sky-300"><span><i class="fa-solid fa-star mr-1"></i>CAPITAL POLÍTICO</span><b>${Math.floor(m.cap)}/100</b></div><div class="h-1 bg-slate-800 mt-1"><div class="h-full bg-sky-500" style="width:${clamp(m.cap)}%"></div></div></div>
-      ${gp('GOBIERNO')}${it('main', 'fa-landmark', 'Decisiones', m.dec != null)}${it('dec', 'fa-scroll', 'Dahires (Decretos)')}${it('cab', 'fa-users', 'Ministros')}${it('press', 'fa-bullhorn', 'Prensa', m.evt != null)}
+      ${gp('GOBIERNO')}${it('main', 'fa-landmark', m.phase === 'camp' ? 'Campaña' : 'Decisiones', m.dec != null || m.motion || m.rebel || m.phase === 'night')}${it('dec', 'fa-scroll', 'Dahires (Decretos)')}${it('cab', 'fa-users', 'Ministros')}${it('press', 'fa-bullhorn', 'Prensa', m.evt != null)}
       ${gp('ECONOMÍA')}${it('eco', 'fa-coins', 'Presupuesto')}
       ${gp('POLÍTICA')}${it('gov', 'fa-scale-balanced', 'Parlamento y coalición')}
       ${gp('EXTERIOR')}${it('dip', 'fa-earth-africa', 'Diplomacia')}${it('mil', 'fa-shield', 'Fuerzas armadas')}
       ${gp('ANÁLISIS')}${it('stats', 'fa-chart-pie', 'Estadísticas')}</div>`;
+  }
+  function motionHtml(m) {
+    if (!m.motion) return '';
+    const can = MP.canAct(), opp = TOTAL - coalSeats(m), reb = rebelSeats(m), left = Math.max(0, m.motion.due - m.day);
+    const b = (i, t, d) => `<button ${can ? '' : 'disabled'} onclick="MA.mot(${i})" class="hoi-button w-full p-3 rounded text-xs text-left ${can ? '' : 'opacity-50'}"><b>${t}</b><div class="text-[10px] text-slate-400 mt-1">${d}</div></button>`;
+    return `<div class="hoi-box p-5 rounded-xl border-red-500/70 space-y-2 font-hoi-tech"><span class="text-[10px] text-red-400 tracking-widest">⚠ MOCIÓN DE CENSURA</span><h3 class="font-hoi-header text-xl text-red-300 uppercase">La oposición quiere derribar al Gobierno</h3>
+      <div class="text-xs text-slate-300 font-sans bg-slate-950 border border-slate-800 rounded p-3">Votos en contra: <b>${opp}</b> de la oposición + <b>${reb}</b> de socios díscolos = <b class="${opp + reb >= MAJ ? 'text-red-400' : 'text-emerald-400'}">${opp + reb}</b> (se necesitan ${MAJ}). Votación en <b>${left}</b> días.</div>
+      ${b(0, 'Comprar apoyos (500 M€ · 3 cap.)', 'Los socios con lealtad baja suben +25.')}${b(1, 'Pedir al Rey la disolución de la Cámara', 'Si Palacio confía en ti (≥55), se convocan elecciones anticipadas.')}${b(2, 'Afrontar el voto ahora', 'Se vota ya con los números actuales.')}</div>`;
+  }
+  function rebelHtml(m) {
+    if (!m.rebel) return '';
+    const can = MP.canAct(), r = REG[m.rebel.i], left = Math.max(0, m.rebel.due - m.day);
+    const b = (i, t, d) => `<button ${can ? '' : 'disabled'} onclick="MA.reb(${i})" class="hoi-button w-full p-3 rounded text-xs text-left ${can ? '' : 'opacity-50'}"><b>${t}</b><div class="text-[10px] text-slate-400 mt-1">${d}</div></button>`;
+    return `<div class="hoi-box p-5 rounded-xl border-red-500/70 space-y-2 font-hoi-tech"><span class="text-[10px] text-red-400 tracking-widest">⚠ REBELIÓN REGIONAL</span><h3 class="font-hoi-header text-xl text-red-300 uppercase">${r[1]} se alza</h3>
+      <div class="text-xs text-slate-300 font-sans bg-slate-950 border border-slate-800 rounded p-3">Los disturbios han derivado en rebelión abierta. Si no actúas en <b>${left}</b> días, el país lo pagará.</div>
+      ${b(0, 'Enviar al ejército (3 cap.)', 'Estabilidad regional +25 · aprobación −8 · poder militar −5.')}${b(1, 'Negociar autonomía (400 M€)', 'Estabilidad regional +20 · Palacio −5.')}${b(2, 'Ignorar', 'Economía −4 · estabilidad −6.')}</div>`;
+  }
+  const momTxt = v => (v >= 15 ? 'Ola a favor' : v >= 5 ? 'Ventaja' : v > -5 ? 'Igualado' : v > -15 ? 'En contra' : 'Desplome') + ' (' + (v > 0 ? '+' : '') + v.toFixed(1) + ')';
+  function campHtml(m) {
+    const c = m.camp, can = MP.canAct(), sh = calc(m, false).sort((a, b) => b[1] - a[1]).slice(0, 4);
+    const head = `<div class="hoi-box p-4 rounded-xl space-y-2 font-hoi-tech"><div class="flex justify-between flex-wrap gap-1"><span class="font-hoi-header text-xl text-amber-400"><i class="fa-solid fa-bullhorn mr-2"></i>CAMPAÑA ELECTORAL</span><span class="text-xs text-slate-300">Día <b class="text-amber-300">${c.day}</b> / ${CAMP_DAYS}</span></div><div class="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800"><div class="h-full bg-amber-500" style="width:${Math.round(c.day / CAMP_DAYS * 100)}%"></div></div></div>`;
+    if (c.debateOpen) return head + `<div class="hoi-box p-5 rounded-xl border-amber-500/60 space-y-2 font-hoi-tech"><h3 class="font-hoi-header text-xl text-amber-400"><i class="fa-solid fa-tv mr-2"></i>DEBATE CARA A CARA</h3><p class="text-xs text-slate-300 font-sans">Millones de espectadores. ¿Qué estrategia eliges?</p>${['Agresivo: ir a la yugular', 'Presidencial: balance de gestión', 'Cercano: hablar de lo cotidiano'].map((t, i) => `<button ${can ? '' : 'disabled'} onclick="MA.cdeb(${i})" class="hoi-button w-full p-3 rounded text-xs text-left ${can ? '' : 'opacity-50'}">${t}</button>`).join('')}</div>`;
+    if (c.q != null) { const q = CQ[c.q]; return head + `<div class="hoi-box p-5 rounded-xl border-sky-500/60 space-y-2 font-hoi-tech"><span class="text-[10px] text-sky-300 tracking-widest">ÚLTIMA HORA DE CAMPAÑA</span><h3 class="font-hoi-header text-xl text-slate-100 uppercase">${q.t}</h3><p class="text-xs text-slate-300 font-sans">${q.d}</p>${q.o.map((o, i) => `<button ${can ? '' : 'disabled'} onclick="MA.cq(${i})" class="hoi-button w-full p-3 rounded text-xs text-left ${can ? '' : 'opacity-50'}">${o[0]}</button>`).join('')}</div>`; }
+    const acts = CACTS.map(x => { const w = c.cd[x.id] || 0, off = !can || w > 0 || (x.cost && m.tes < x.cost) || (x.pledge && c.pledges >= 3); return `<button ${off ? 'disabled' : ''} onclick="MA.cact('${x.id}')" class="hoi-button p-2 rounded text-[11px] text-left ${off ? 'opacity-50' : ''}"><div><i class="fa-solid ${x.ic} mr-1 text-amber-400"></i><b>${x.t}</b> <span class="text-slate-400">· ${x.cost ? x.cost + ' M€' : 'gratis'}${w ? ' · espera ' + w + ' d' : ''}</span></div><div class="text-slate-400 font-sans">${x.d}</div></button>`; }).join('');
+    return head + `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">${box('ESTADO DE LA CAMPAÑA', `<div class="flex justify-between text-xs"><span>Impulso electoral</span><b class="text-amber-300">${momTxt(c.mom)}</b></div><div class="flex justify-between text-xs"><span>Tesorería</span><b>${Math.round(m.tes)} M€</b></div><div class="flex justify-between text-xs"><span>Gastado en campaña</span><b>${c.spent} M€</b></div><div class="flex justify-between text-xs"><span>Promesas</span><b>${c.pledges}</b></div><div class="flex justify-between text-xs"><span>Debate</span><b>${c.debate ? 'Celebrado' : 'Día 80'}</b></div>`)}
+      ${box('INTENCIÓN DE VOTO (estimación)', sh.map(([id, v]) => `<div class="flex justify-between text-[11px] text-slate-300"><span><span class="inline-block w-2 h-2 rounded-full mr-1" style="background:${PBY(id).color}"></span>${id}${id === m.leader ? ' (Gobierno)' : ''}</span><b>${(v * 100).toFixed(1)}%</b></div>`).join(''))}</div>
+      ${box('ACCIONES DE CAMPAÑA', `<div class="grid grid-cols-1 md:grid-cols-2 gap-2">${acts}</div>`)}${box('DIARIO DE CAMPAÑA', c.log.map(l => `<div class="text-[11px] text-slate-400">${l}</div>`).join(''))}`;
+  }
+  function nightHtml(m) {
+    const r = m.res, can = MP.canAct(), rows = MPARTIES.slice().sort((a, b) => (r.nw[b.id] || 0) - (r.nw[a.id] || 0)).map(p => { const d = (r.nw[p.id] || 0) - (r.old[p.id] || 0); return `<div class="flex justify-between text-[11px] text-slate-300"><span><span class="inline-block w-2 h-2 rounded-full mr-1" style="background:${p.color}"></span>${p.id}</span><span><b>${r.nw[p.id] || 0}</b> <span class="${d > 0 ? 'text-emerald-400' : d < 0 ? 'text-red-400' : 'text-slate-500'}">(${d > 0 ? '+' : ''}${d})</span></span></div>`; }).join('');
+    return box('NOCHE ELECTORAL · CÁMARA DE REPRESENTANTES', `<div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-center"><svg viewBox="0 0 500 250" class="w-full max-w-sm mx-auto">${hemi(r.nw)}</svg><div class="space-y-1">${rows}</div></div><button ${can ? '' : 'disabled'} onclick="MA.nightGo()" class="hoi-button-gold w-full py-2.5 text-xs rounded uppercase font-bold ${can ? '' : 'opacity-50'}">Constituir la Cámara y formar Gobierno</button>`);
   }
   function situation(m) {
     const loy = Object.keys(m.coal || {}).map(p => m.coal[p]), mn = loy.length ? Math.round(Math.min.apply(null, loy)) : 100;
@@ -542,12 +697,15 @@
         <div class="hoi-box p-4 rounded-xl space-y-2 font-hoi-tech"><div class="flex justify-between items-center text-xs flex-wrap gap-1"><span class="text-amber-400"><i class="fa-solid fa-map-location-dot mr-1"></i>Mapa Provincial de Marruecos</span><span class="text-[10px] text-slate-300">${i == null ? 'PULSA UNA REGIÓN' : REG[i][1].toUpperCase() + ': ' + Math.round(m.reg[i].est) + '% ESTABILIDAD'}</span></div>
           <div class="bg-slate-950 rounded border border-slate-800"><svg viewBox="0 0 340 330" class="w-full" style="max-height:400px">${map}</svg></div>
           <div class="flex justify-between text-[10px] bg-slate-900/90 border border-slate-800 rounded px-3 py-2"><span class="text-slate-300">ESTADO TERRITORIAL:</span><b class="${alerts ? 'text-red-400' : 'text-emerald-400'}">${alerts} REGIONES EN ALERTA</b></div>${sel}</div>
-        <div class="space-y-3">${e ? `<div class="hoi-box p-4 rounded-xl border-sky-500/60 space-y-2 font-hoi-tech"><span class="text-[10px] text-sky-300 tracking-widest">ÚLTIMA HORA</span><b class="block text-sky-300 text-sm">${e.title}</b><p class="text-[11px] text-slate-400 font-sans">${e.desc}</p>${e.opts.map((o, k) => `<button onclick="MA.evt(${k})" class="hoi-button w-full p-2 rounded text-[11px] text-left">${o.t}</button>`).join('')}</div>` : ''}${decisionHtml(m)}</div></div>`;
+        <div class="space-y-3">${e ? `<div class="hoi-box p-4 rounded-xl border-sky-500/60 space-y-2 font-hoi-tech"><span class="text-[10px] text-sky-300 tracking-widest">ÚLTIMA HORA</span><b class="block text-sky-300 text-sm">${e.title}</b><p class="text-[11px] text-slate-400 font-sans">${e.desc}</p>${e.opts.map((o, k) => `<button onclick="MA.evt(${k})" class="hoi-button w-full p-2 rounded text-[11px] text-left">${o.t}</button>`).join('')}</div>` : ''}${motionHtml(m)}${rebelHtml(m)}${decisionHtml(m)}</div></div>`;
     }
 
+    if (m.phase === 'camp' && m.camp && UI.tab !== 'dip') body = campHtml(m);
+    else if (m.phase === 'night' && m.res && UI.tab !== 'dip') body = nightHtml(m);
     const spectator = !ctx.guest && !MP.canAct()
       ? `<div class="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded p-2 font-hoi-tech">${gameState.mp && gameState.mp.mode === 'online' ? 'Modo espectador: Marruecos lo gobierna el jugador 2.' : 'Ahora manda España. Pasa el mando desde la pestaña Multijugador para gestionar Marruecos.'}</div>` : '';
-    const strip = `<div class="flex flex-wrap items-center justify-between gap-2 hoi-box rounded-xl px-3 py-2 font-hoi-tech"><div class="flex gap-2 text-[11px]"><span class="border border-amber-500/60 text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded"><i class="fa-regular fa-calendar mr-1"></i>${mdate(m).toUpperCase()}</span><span class="border border-slate-700 text-slate-300 px-3 py-1.5 rounded">DÍAS EN EL PODER: <b>${m.day}</b></span></div><span class="text-[10px] text-slate-500"><i class="fa-regular fa-clock mr-1"></i>Reloj sincronizado con la partida de España</span></div>
+    const strip = `<div class="flex flex-wrap items-center justify-between gap-2 hoi-box rounded-xl px-3 py-2 font-hoi-tech"><div class="flex gap-2 text-[11px]"><span class="border border-amber-500/60 text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded"><i class="fa-regular fa-calendar mr-1"></i>${mdate(m).toUpperCase()}</span><span class="border border-slate-700 text-slate-300 px-3 py-1.5 rounded">DÍAS EN EL PODER: <b>${m.day}</b></span></div><div class="flex items-center gap-1">${[0, 1, 2, 3].map(n => { const on = (ctx.guest ? m.spd : gameState.gameSpeed) === n; return `<button onclick="MA.speed(${n})" class="${on ? 'hoi-button-gold' : 'hoi-button'} px-2.5 py-1 rounded text-xs">${['⏸', '▶', '▶▶', '▶▶▶'][n]}</button>`; }).join('')}</div></div>
+      ${m.motion || m.rebel || m.phase === 'camp' || m.phase === 'night' ? `<div onclick="MA.tab('main')" class="cursor-pointer hoi-box rounded-xl px-3 py-2 font-hoi-tech text-[11px] ${m.motion || m.rebel ? 'border-red-500/70 text-red-300' : 'border-amber-500/60 text-amber-300'}">${m.motion ? '⚠ MOCIÓN DE CENSURA en curso · ' : ''}${m.rebel ? '⚠ REBELIÓN REGIONAL · ' : ''}${m.phase === 'camp' ? '🗳 CAMPAÑA ELECTORAL en marcha · ' : ''}${m.phase === 'night' ? '🗳 NOCHE ELECTORAL · ' : ''}pulsa para gestionarlo</div>` : ''}
       <div class="flex items-center gap-3 hoi-box rounded-xl px-3 py-2 font-hoi-tech text-[11px]"><span class="bg-red-600 text-white px-2 py-0.5 rounded font-bold"><i class="fa-solid fa-tower-broadcast mr-1"></i>TELETIPO MAP</span><span class="text-slate-300 truncate">${m.log[0] || 'Esperando teletipo de noticias…'}</span></div>`;
     return `${hud(m, mil)}
       <div class="p-3 grid grid-cols-1 md:grid-cols-[215px_1fr] gap-3">
@@ -567,10 +725,14 @@
   }
   function moroccoTick() {
     const m = M();
-    if (!m || gameState.step !== 4) return;
-    if (pending(m)) return;                        // el Gobierno marroquí aún no se ha formado
+    if (!m || (gameState.step !== 4 && gameState.step !== 5)) return;
+    if (pending(m) || m.phase === 'night') return;   // formando Gobierno o noche electoral
+    if (m.phase === 'camp' && m.camp && (m.camp.debateOpen || m.camp.q != null)) return;
     const cfg = diff();
-    m.day = gameState.daysInOffice || m.day + 1;   // mismo calendario que España
+    m.day = (m.day || 1) + 1;                       // calendario propio (el de España se reinicia cada legislatura)
+    if (m.termStart == null) m.termStart = m.day;
+    m.spd = gameState.gameSpeed;
+    if (m.phase === 'camp') { ex(m); m.date = gameState.currentDate ? +gameState.currentDate : m.date; return campTick(m); }
     ex(m); m.date = gameState.currentDate ? +gameState.currentDate : m.date;
     { const w = Math.floor(m.day / 7); if (m.wk.w !== w) { m.wk.w = w; m.wk.n = 0; } }
     m.cap = Math.min(100, m.cap + 0.3);
@@ -595,6 +757,18 @@
     if (m.evt == null && m.day >= m.next) { m.evt = Math.floor(Math.random() * EVS.length); m.next = m.day + Math.round((40 + Math.floor(Math.random() * 40)) / Math.max(1, cfg.mult || 1)); lg(m, 'Suceso: ' + EVS[m.evt].title + '.'); }
     Object.keys(m.coal).filter(p => m.coal[p] < 20).forEach(p => breakCoalition(m, p));
     if (m.palace < 10) { m.palace = 30; m.apr = clamp(m.apr - 6); m.est = clamp(m.est - 5); lg(m, 'CRISIS CON EL PALACIO: el Rey reprende públicamente al Gobierno.'); toast('Marruecos: crisis con el Palacio.'); }
+    // fin de legislatura
+    if (m.day - m.termStart >= 1460) return startElection(m, 'Fin de la legislatura: el Rey convoca elecciones generales.');
+    // moción de censura (Cámara de Representantes: mayoría absoluta de 198)
+    if (!m.motion && m.day - m.termStart > 60 && m.day >= (m.nextMot || 0)) {
+      m.nextMot = m.day + 15;
+      const opp = TOTAL - coalSeats(m), reb = rebelSeats(m);
+      if (opp + reb >= MAJ - 15 && (m.apr < 40 || reb > 0) && Math.random() < 0.5) { m.motion = { due: m.day + 10 }; lg(m, 'La oposición registra una MOCIÓN DE CENSURA contra el Gobierno.'); toast('Marruecos: moción de censura registrada.'); pauseGame(); }
+    }
+    if (m.motion && m.day >= m.motion.due) voteMotion(m);
+    // rebelión regional
+    if (!m.rebel) { const i = m.reg.findIndex(r => r.crisis && r.est < 12); if (i >= 0 && Math.random() < 0.03) { m.rebel = { i, due: m.day + 12 }; lg(m, 'REBELIÓN en ' + REG[i][1] + ': la región se alza contra el Gobierno.'); toast('Marruecos: rebelión regional.'); pauseGame(); } }
+    else if (m.day >= m.rebel.due) R.reb(2);
   }
 
   // ---------------- ENGANCHES CON index.html ----------------
@@ -603,7 +777,7 @@
   document.head.appendChild(css);
 
   function syncTab() {   // pestaña «Marruecos» en el menú lateral (solo si hay partida multijugador con Marruecos)
-    const on = !!M() && gameState.step === 4;
+    const on = !!M() && (gameState.step === 4 || gameState.step === 5);
     let b = document.getElementById('tab-btn-morocco');
     if (on && !b) {
       const mp = document.getElementById('tab-btn-mp'), goals = document.getElementById('tab-btn-goals');
@@ -631,6 +805,7 @@
   };
 
   const _r = render;
+  const _r0 = _r;
   // Mismo dispositivo: al llegar a la partida, Marruecos forma su Gobierno en su pestaña antes de empezar
   const forceSetup = () => {
     const m = M();
@@ -639,6 +814,7 @@
   };
   render = function () {
     forceSetup();
+    { const mm = M(); if (mm) mm.spd = gameState.gameSpeed; }
     if (gameState.activeTab === 'morocco' && !M()) gameState.activeTab = 'main';
     let r = _r.apply(this, arguments);
     if (forceSetup()) r = _r.apply(this, arguments);   // la partida local se crea dentro del primer render: se repinta ya en la pestaña de Marruecos
