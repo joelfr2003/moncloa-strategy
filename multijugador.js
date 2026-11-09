@@ -8,7 +8,7 @@
   // ---------------- RELÉ ONLINE OPCIONAL (Supabase Realtime, plan gratuito) ----------------
   // Déjalo vacío para usar conexión directa PeerJS. Para más fiabilidad pega aquí los dos datos
   // de tu proyecto de Supabase (Settings → API): «Project URL» y la clave «anon public». Son públicos.
-  const RELAY = { url: '', key: '' };
+  const RELAY = { url: 'https://yvqhhgtwuzytpbttqxem.supabase.co/rest/v1/', key: 'sb_publishable_VpXQABhAAWy5slgKgxk5pw_1tSvVHrl' };
   const useRelay = () => !!(RELAY.url && RELAY.key);
 
   const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
