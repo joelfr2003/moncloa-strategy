@@ -120,11 +120,27 @@
   function applyFx(s, o) { Object.keys(o || {}).forEach(k => st(s, k, o[k])); }
 
   // ---------------- LÓGICA ----------------
-  function start(partner) {
+   function start(partner) {
     const c = COUNTRIES[partner]; if (!c) return;
     gameState.mp = { on: true, partner, turn: 'ES', P: Object.assign({}, c.start, { bud: Object.fromEntries(c.budget.map(b => [b.id, 50])) }), pacts: { trade: false, border: false, defense: false },
       inbox: [], log: [], cd: {}, evt: null, next: (gameState.daysInOffice || 0) + 30 };
-    if (partner === 'MA' && window.initMorocco) gameState.mp.P = window.initMorocco(gameState.mp.gn || '');   // Marruecos completo (mapa, coalición, FAR)
+    if (partner === 'MA' && window.initMorocco) {
+      gameState.mp.P = window.initMorocco(gameState.mp.gn || '');
+      // 👇 si initMorocco no registró el adaptador (por la razón que sea), lo forzamos aquí
+      if (window.MP && typeof MP.adapter === 'function' && !MP.adapter() && typeof MP.setAdapter === 'function') {
+        const m = gameState.morocco;
+        MP.setAdapter({
+          me: 'MA', name: 'Marruecos', flag: '🇲🇦',
+          tes: () => m.tes, pay: v => { m.tes -= v; }, gain: v => { m.tes += v; },
+          cap: () => m.cap, spendCap: v => { m.cap -= v; },
+          mil: () => Math.round((m.army.tierra + m.army.mar + m.army.aire) / 3),
+          st: (k, v) => { if (k === 'mil') Object.keys(m.army).forEach(b => { m.army[b] = clamp(m.army[b] + v); }); else if (m[k] != null) m[k] = clamp(m[k] + v); },
+          pause: () => { if (typeof setGameSpeed === 'function') setGameSpeed(0); },
+          toast: t => { m.log.unshift('Día ' + m.day + ' · ' + t); if (gameState.activeTab === 'morocco') render(); },
+          redraw: () => { if (gameState.activeTab === 'morocco') render(); }
+        });
+      }
+    }
     log('Modo multijugador: España y ' + c.name + ' empiezan a gobernar en paralelo.');
   }
   function stop() { closeNet(); gameState.mp = null; render(); }
