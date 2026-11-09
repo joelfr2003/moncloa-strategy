@@ -199,6 +199,19 @@
     }
   };
 
+  // Las mismas crisis que en el juego español (SHOCK_POOL), adaptadas a Marruecos y a su escala de gasto
+  CFG.MA.events = CFG.MA.events.concat(mkEv([
+    ['Incendios en el Rif y el Medio Atlas', 'Varias provincias arden a la vez y piden ayuda urgente al Estado.', [{ t: 'Desplegar Protección Civil y las FAR (−120 M€)', tes: -120, fx: { est: 3, apr: 2 } }, { t: 'Dejar que actúen las provincias por su cuenta', fx: { est: -4, apr: -5 } }]],
+    ['Huelga general', 'Las centrales sindicales convocan un paro nacional contra tu política laboral.', [{ t: 'Abrir el diálogo social (−10 M€)', tes: -10, fx: { apr: 2, eco: -2 } }, { t: 'Mantener la postura', fx: { est: -5, apr: -6, eco: -3 } }]],
+    ['Escándalo de corrupción', 'Un informe del Tribunal de Cuentas señala a un alto cargo de tu entorno.', [{ t: 'Cesar al implicado', fx: { apr: -4 } }, { t: 'Negar y cerrar filas', fx: { apr: -9, est: -3, coh: -6 } }]],
+    ['Inflación y presión sobre el dírham', 'Los precios se disparan y los inversores desconfían de la economía marroquí.', [{ t: 'Anunciar un plan de ajuste', fx: { eco: 3, apr: -5 } }, { t: 'Aguantar el pulso', fx: { eco: -6, apr: -2 } }]],
+    ['Presión migratoria', 'Miles de personas se concentran en el norte y los servicios se saturan.', [{ t: 'Plan de acogida y refuerzo fronterizo (−270 M€)', tes: -270, fx: { est: 3, apr: -1 }, give: { est: 2 } }, { t: 'Relajar los controles sin más inversión', fx: { apr: 3, est: 1 }, give: { est: -4, apr: -2 } }]],
+    ['Ciberataque a ministerios', 'Atacantes desconocidos paralizan sistemas críticos del Estado.', [{ t: 'Contratar respuesta de emergencia (−40 M€)', tes: -40, fx: { est: 2, mil: 1 } }, { t: 'Resolverlo con medios propios', fx: { eco: -5, est: -3 } }]],
+    ['Crisis del butano y la energía', 'El gas y la luz se disparan y las familias no llegan a fin de mes.', [{ t: 'Subsidiar la factura energética (−900 M€)', tes: -900, fx: { eco: 2, apr: 3 } }, { t: 'Dejar actuar al mercado', fx: { eco: -6, apr: -3 } }]],
+    ['Malestar en los cuarteles', 'Mandos de las FAR critican en privado tu gestión y hay descontento en la tropa.', [{ t: 'Ascensos y mejoras salariales (−210 M€)', tes: -210, fx: { mil: 6, apr: -1 } }, { t: 'Ignorar el malestar', fx: { mil: -8, est: -2, pal: -3 } }]]
+  ]));
+  CFG.MA.gap = [10, 22];   // las decisiones llegan con la misma frecuencia que las crisis del caos español
+
   // =====================================================================
   //  MOTOR ÚNICO: el mismo juego para España y Marruecos
   //  ext = true → el reloj lo marca el juego principal; false → reloj propio (invitado online)
@@ -211,7 +224,7 @@
     const g = { cfg, key, tab: 'map', sel: null, up: false, tmr: null, syn: null, send: () => {}, refresh: () => {}, light: () => {}, a: {} };
     const S = g.S = {
       day: 1, date: new Date(2023, 0, 1), speed: 1, tes: 9000, cap: 30, m: { eco: 52, est: 60, apr: 55, coh: 60, pal: 65 },
-      bud: Object.fromEntries(cfg.bud.map(b => [b.id, 50])), cd: {}, units: Object.assign({}, cfg.u0), ready: 70, tr: {}, log: [], evt: null, nextEvt: 30, over: 0, peer: null,
+      bud: Object.fromEntries(cfg.bud.map(b => [b.id, 50])), cd: {}, units: Object.assign({}, cfg.u0), ready: 70, tr: {}, log: [], evt: null, nextEvt: cfg.gap ? cfg.gap[0] : 30, lastEvt: -1, over: 0, peer: null,
       reg: Object.fromEntries(cfg.regions.map(r => [r.id, { est: 55 + Math.round(Math.random() * 15), eco: 40 + Math.round(Math.random() * 20), gar: 0, crisis: null }]))
     };
     // España comparte economía, estabilidad, aprobación, tesoro y capital con la partida principal
@@ -245,7 +258,7 @@
     const C = g.C = core(A, o => g.send(o));
     const baseMsg = C.onMsg;
     C.onMsg = d => {
-      if (d.k === 'fx' && d.fx) { Object.keys(d.fx).forEach(k => A.add(k, +d.fx[k] || 0)); log(cfg.other + ': ' + (d.why || 'acuerdo') + ' te beneficia.'); g.refresh(); } else baseMsg(d);
+      if (d.k === 'fx' && d.fx) { Object.keys(d.fx).forEach(k => A.add(k, +d.fx[k] || 0)); log(cfg.other + ': ' + (d.why || 'acuerdo') + ' te afecta.'); g.refresh(); } else baseMsg(d);
     };
 
     g.clock = () => {
@@ -278,7 +291,7 @@
         const r = cfg.regions[Math.floor(Math.random() * cfg.regions.length)], q = S.reg[r.id];
         if (!q.crisis) { q.crisis = cfg.crises[Math.floor(Math.random() * cfg.crises.length)]; log('Crisis en ' + r.n + ': ' + q.crisis + '.'); }
       }
-      if (S.evt == null && S.day >= S.nextEvt) { S.evt = Math.floor(Math.random() * cfg.events.length); S.nextEvt = S.day + 45 + Math.floor(Math.random() * 40); log('Suceso: ' + cfg.events[S.evt].t + '.'); toast('Nuevo suceso en ' + cfg.name + ': ' + cfg.events[S.evt].t); g.refresh(); }
+      if (S.evt == null && S.day >= S.nextEvt) { let pick; do { pick = Math.floor(Math.random() * cfg.events.length); } while (pick === S.lastEvt && cfg.events.length > 1); S.evt = S.lastEvt = pick; S.nextEvt = S.day + (cfg.gap ? cfg.gap[0] + Math.floor(Math.random() * (cfg.gap[1] - cfg.gap[0])) : 45 + Math.floor(Math.random() * 40)); log('Suceso: ' + cfg.events[S.evt].t + '.'); toast('Nuevo suceso en ' + cfg.name + ': ' + cfg.events[S.evt].t); g.refresh(); }
       if (m.coh <= 0 || m.pal <= 0 || (!cp && (m.est <= 0 || m.apr <= 0))) { fall(); return; }
       if (S.day % 5 === 0) g.light();
       if (S.day % 30 === 0) g.refresh();
@@ -323,7 +336,7 @@
     a.evt = i => {
       const e = cfg.events[S.evt], o = e && e.o[i]; if (!o) return;
       if (o.tes) io.pay(o.tes, e.t); Object.keys(o.fx || {}).forEach(k => A.add(k, o.fx[k])); if (o.reg) regAll(o.reg);
-      if (o.ask) C.request(o.ask); log(e.t + ' → ' + o.t.replace(/ \(.*\)$/, '') + '.'); S.evt = null; g.refresh();
+      if (o.give) g.send({ k: 'fx', fx: o.give, why: e.t }); if (o.ask) C.request(o.ask); log(e.t + ' → ' + o.t.replace(/ \(.*\)$/, '') + '.'); S.evt = null; g.refresh();
     };
     a.money = v => C.money(v); a.req = v => C.request(v); a.tr = id => C.treaty(id); a.atk = k => C.launch(k);
 
@@ -344,7 +357,7 @@
     };
     g.tabs = () => `<div class="flex gap-2 flex-wrap">${[['map', 'fa-map'], ['gov', 'fa-landmark'], ['army', 'fa-shield'], ['dip', 'fa-flag'], ['news', 'fa-newspaper']].map(([k, i]) => `<button onclick="${H}tab('${k}')" class="${g.tab === k ? 'hoi-button-gold' : 'hoi-button'} px-3 py-1.5 rounded text-xs"><i class="fa-solid ${i} mr-1"></i>${cfg.tabs[k]}</button>`).join('')}</div>`;
     g.evtCard = () => {
-      if (S.evt == null) return ''; const e = cfg.events[S.evt];
+      if (S.evt == null) return `<div class="hoi-box p-3 rounded font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">DECISIÓN DE GOBIERNO</div><div class="text-[11px] text-slate-500">Próxima decisión en ${Math.max(1, S.nextEvt - S.day)} días.</div></div>`; const e = cfg.events[S.evt];
       return `<div class="hoi-box p-4 rounded space-y-2 border border-sky-500/50 font-hoi-tech"><b class="text-lg text-sky-300">${e.t}</b><p class="text-[11px] text-slate-300 font-sans">${e.d}</p>${e.o.map((o, i) => `<button onclick="${H}evt(${i})" class="hoi-button w-full p-2 rounded text-[11px] text-left">${o.t}</button>`).join('')}</div>`;
     };
     const tMap = () => {
