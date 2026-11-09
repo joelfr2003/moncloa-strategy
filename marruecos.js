@@ -85,6 +85,28 @@
     };
     wrap(m);
     gameState.morocco = m;
+
+    // 👇 AÑADE ESTAS LÍNEAS AQUÍ
+    if (window.MP && typeof MP.setAdapter === 'function') {
+      MP.setAdapter({
+        me: 'MA', name: 'Marruecos', flag: '🇲🇦',
+        tes: () => m.tes,
+        pay: v => { m.tes -= v; },
+        gain: v => { m.tes += v; },
+        cap: () => m.cap,
+        spendCap: v => { m.cap -= v; },
+        mil: () => Math.round((m.army.tierra + m.army.mar + m.army.aire) / 3),
+        st: (k, v) => {
+          if (k === 'mil') Object.keys(m.army).forEach(b => { m.army[b] = clamp(m.army[b] + v); });
+          else if (m[k] != null) m[k] = clamp(m[k] + v);
+        },
+        pause: () => { if (typeof setGameSpeed === 'function') setGameSpeed(0); },
+        toast: t => { lg(m, t); if (gameState.activeTab === 'morocco') render(); },
+        redraw: () => { if (gameState.activeTab === 'morocco') render(); }
+      });
+    }
+    // 👆 FIN DE LO QUE HAY QUE AÑADIR
+
     return m;
   }
   const lg = (m, t) => { m.log.unshift('Día ' + m.day + ' · ' + t); m.log.length = Math.min(m.log.length, 12); };
