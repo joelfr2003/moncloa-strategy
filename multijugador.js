@@ -123,7 +123,7 @@
    function start(partner) {
     const c = COUNTRIES[partner]; if (!c) return;
     gameState.mp = { on: true, partner, turn: 'ES', P: Object.assign({}, c.start, { bud: Object.fromEntries(c.budget.map(b => [b.id, 50])) }), pacts: { trade: false, border: false, defense: false },
-      inbox: [], log: [], cd: {}, evt: null, next: (gameState.daysInOffice || 0) + 30 };
+      inbox: [], log: [], cd: {}, evt: null, next: (gameState.daysInOffice || 0) + 30, synced: false, started: false };
     if (partner === 'MA' && window.initMorocco) {
       gameState.mp.P = window.initMorocco(gameState.mp.gn || '');
       // 👇 si initMorocco no registró el adaptador (por la razón que sea), lo forzamos aquí
@@ -294,7 +294,7 @@
   }
   const gsend = o => { if (link && link.open) link.send(o); };
   function snap() {
-    const m = S(), me = { eco: 0, est: 0, apr: 0, mil: 0, tes: 0, cap: 0 }, wait = gameState.step !== 4 && !(gameState.step === 5 && window.CAMP && CAMP.live());
+    const m = S(), me = { eco: 0, est: 0, apr: 0, mil: 0, tes: 0, cap: 0 }, wait = (gameState.step !== 4 && !(gameState.step === 5 && window.CAMP && CAMP.live())) || m.started === false;
     if (!wait) { STATS.forEach(([k]) => { me[k] = stat('ES', k); }); me.tes = treas('ES'); me.cap = cap('ES'); }
     const cd = {}; Object.keys(m.cd).forEach(k => { if (k[0] === 'P') cd[k] = m.cd[k]; });
     return { wait, camp: (window.CAMP && CAMP.live()) ? CAMP.info() : null, diff: (gameState.campaign && gameState.campaign.diff) || gameState.difficulty || 'normal', day: gameState.daysInOffice || 0, pause: wait || !gameState.gameSpeed || !!gameState.currentCampaignQuestion, ES: me, rel: wait ? 45 : intlInit().rel[C().intl],
@@ -427,7 +427,9 @@
 
   const _t = gameTick;
   gameTick = function () {
-    const b = gameState.daysInOffice; _t.apply(this, arguments);
+    const b = gameState.daysInOffice;
+    if (gameState.mp && gameState.mp.started === false && gameState.step === 4) { gameState.mp.started = true; setTimeout(push, 0); }
+    _t.apply(this, arguments);
     if (gameState.daysInOffice !== b) { try { daily(); push(); } catch (e) { console.error(e); } }
   };
 
@@ -544,7 +546,16 @@
   });
   const _rs = renderScenarioSelect;
   renderScenarioSelect = function (app) {
-    if (!L.on) return _rs(app);
+    if (!L.on) {
+      _rs(app);
+      const mpChosen = (gameState.mp && gameState.mp.mode === 'online') || window.__mpStart;
+      if (mpChosen) {   // la dificultad ya se eligió al crear la partida: se quita y se renumera
+        const secs = Array.from(app.querySelectorAll('section'));
+        secs.filter(x => /DIFICULTAD/i.test(x.textContent)).forEach(x => x.remove());
+        Array.from(app.querySelectorAll('section')).forEach((x, i) => { const n = x.querySelector('span.font-hoi-header'); if (n) n.textContent = String(i + 1); });
+      }
+      return;
+    }
     app.innerHTML = `<div class="lb-root"><div class="lb-photo"></div>${bgSvg()}<div class="lb-shade"></div><div class="lb-wrap">
       <div><div class="lb-title">MONCLOA<br>STRATEGY</div></div><div class="lb-sub">Simulador político y estratégico · Siglo XXI</div>
       <div class="lb-card">${lobbyCard()}</div><div class="lb-foot">MONCLOA STRATEGY © 2026 · @joelfr302003</div></div></div>`;
@@ -559,6 +570,12 @@
     lastStep = gameState.step;
     document.body.classList.toggle('mp-lobby', gameState.step === 1 && L.on);
     if (gameState.step === 4 && window.__mpStart && !gameState.mp) { const k = window.__mpStart, net = window.__mpNet; window.__mpStart = null; start(k); if (net) host(k); }
+    if (gameState.step === 4 && gameState.mp && gameState.mp.synced === false) {
+      const m = gameState.mp, d = gameState.daysInOffice || 1;
+      m.synced = true; m.next = d + 30;
+      if (m.P && m.P.army) { m.P.day = d; m.P.next = d + 25; }
+      if (m.mode === 'online') setTimeout(() => goalsToast('Pulsa ▶ para empezar: la partida arrancará a la vez para ' + nm('ES') + ' y ' + nm('P') + '.', '#d9a726'), 300);
+    }
     const r = _r.apply(this, arguments);
     const b = document.getElementById('tab-btn-mp');
     if (b) {
