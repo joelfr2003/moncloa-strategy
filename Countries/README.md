@@ -1,15 +1,22 @@
 # Carpeta Countries/
 
-El motor (`index.html`) carga aquí todos los países al arrancar.
+Cada país es **un fichero completo** (el formato de `plantilla-pais.js`: `SCENARIOS`,
+`DYNAMIC_EVENTS`, `PRESS_NEWS_BANK`, … 17 constantes globales). Como todos declaran las
+mismas constantes, en cada partida se carga **solo uno**, antes del motor.
 
-1. Cada país es un `.js` de esta carpeta.
-2. Lista los ficheros en `index.json` (`node Countries/generate-index.js` lo regenera).
-3. Fase de carga:
-   - por defecto el fichero se ejecuta **antes** del motor (define escenarios);
-   - `{ "file": "x.js", "phase": "after" }` o el nombre `x.after.js` lo ejecuta **después** del motor
-     (y antes de `marruecos.js`).
-4. Para escenarios nuevos usa `registerScenario({...})` (ver `_plantilla.js`).
-   `espana.js` puede seguir definiendo `SCENARIOS` como hasta ahora (debe ir el primero).
-5. `"enabled": false` en una entrada del manifiesto la desactiva sin borrarla.
+- `index.json` lista los países: `{ "default": "espana", "countries": [{ "id", "name", "flag", "file" }] }`
+  (`node Countries/generate-index.js` lo regenera y conserva lo que ya hayas editado).
+- Qué país se carga: `?pais=marruecos` en la URL > el último elegido > `default` > el primero.
+- El selector «ELIGE EL PAÍS» de la pantalla de inicio guarda la elección y recarga la página.
+- `"enabled": false` en una entrada la oculta sin borrarla.
 
-Si falta `Countries/`, el motor usa `pais-espana.js` y `pais-marruecos.js` de la raíz.
+## Contenido propio vs. contenido del motor
+El motor trae de serie el **mazo de decisiones** (`DECISION_BANK`) y el **mapa provincial** de
+España. Para cualquier otro país:
+
+| Qué | Cómo lo toma |
+|---|---|
+| Decisiones | `COUNTRY_DECISIONS` si el fichero lo define (array, u objeto por id de escenario); si no, `DYNAMIC_EVENTS` |
+| Mapa | `COUNTRY_MAP = { title, paths:[{id,name,d,desc,spectrumPref}] }` si lo define; si no, un aviso «mapa no disponible» |
+
+Si falta `Countries/`, el motor usa `pais-espana.js` de la raíz.

@@ -1,6 +1,17 @@
 {
+  "default": "espana",
   "countries": [
-    "espana.js",
-    { "file": "marruecos.js", "phase": "after" }
+    {
+      "id": "espana",
+      "name": "España",
+      "flag": "ES",
+      "file": "espana.js"
+    },
+    {
+      "id": "marruecos",
+      "name": "Marruecos",
+      "flag": "MA",
+      "file": "marruecos.js"
+    }
   ]
 }
