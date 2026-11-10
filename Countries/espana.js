@@ -10,16 +10,16 @@ ACTUAL: {
     title: 'ESPAÑA ACTUAL (2023)',
     desc: 'Un Congreso hiperfragmentado de 350 escaños. Deberás equilibrar tensiones territoriales, reformas sociales y demandas presupuestarias.',
     parties: [
-      { id: 'PODEMOS', name: 'Podemos', leader: 'Irene Montero', seats: 10, baseSeats: 10, minSeats: 2, maxSeats: 18, basePct: 4.5, color: '#a855f7', isRegional: false, ideology: 'Extrema Izquierda', spectrumOrder: 1, redLines: ['VOX', 'PP'] },
+      { id: 'PODEMOS', name: 'Podemos', leader: 'Irene Montero', seats: 10, baseSeats: 10, minSeats: 2, maxSeats: 350, basePct: 4.5, color: '#a855f7', isRegional: false, ideology: 'Extrema Izquierda', spectrumOrder: 1, redLines: ['VOX', 'PP'] },
       { id: 'SUMAR', name: 'Frente Amplio', leader: 'Yolanda Díaz', seats: 30, baseSeats: 30, minSeats: 12, maxSeats: 45, basePct: 10.5, color: '#ec4899', isRegional: false, ideology: 'Izquierda', spectrumOrder: 2, redLines: ['VOX'] },
-      { id: 'BNG', name: 'BNG', leader: 'Ana Pontón', seats: 3, baseSeats: 3, minSeats: 1, maxSeats: 4, basePct: 0.9, color: '#38bdf8', isRegional: true, ideology: 'Izquierda Galega', spectrumOrder: 2, redLines: ['VOX', 'PP'] },
-      { id: 'BILDU', name: 'EH Bildu', leader: 'Arnaldo Otegi', seats: 7, baseSeats: 7, minSeats: 4, maxSeats: 8, basePct: 1.6, color: '#84cc16', isRegional: true, ideology: 'Izquierda Soberanista', spectrumOrder: 2, redLines: ['VOX', 'PP'] },
-      { id: 'ERC', name: 'ERC', leader: 'Gabriel Rufián', seats: 9, baseSeats: 9, minSeats: 4, maxSeats: 14, basePct: 2.5, color: '#f97316', isRegional: true, ideology: 'Centroizquierda Catalana', spectrumOrder: 3, redLines: ['VOX', 'PP'] },
-      { id: 'PSOE', name: 'PSOE', leader: 'Pedro Sánchez', seats: 105, baseSeats: 105, minSeats: 80, maxSeats: 160, basePct: 31.0, color: '#ef4444', isRegional: false, ideology: 'Centroizquierda', spectrumOrder: 3, redLines: ['VOX'] },
-      { id: 'PNV', name: 'EAJ-PNV', leader: 'Aitor Esteban', seats: 5, baseSeats: 5, minSeats: 3, maxSeats: 7, basePct: 1.3, color: '#10b981', isRegional: true, ideology: 'Centroderecha Vasco', spectrumOrder: 5, redLines: ['VOX'] },
-      { id: 'JUNTS', name: 'Junts per Catalunya', leader: 'Míriam Nogueras', seats: 9, baseSeats: 9, minSeats: 4, maxSeats: 10, basePct: 2.0, color: '#06b6d4', isRegional: true, ideology: 'Centroderecha Soberanista', spectrumOrder: 5, redLines: ['VOX'] },
-      { id: 'PP', name: 'PP', leader: 'Alberto Núñez Feijóo', seats: 137, baseSeats: 137, minSeats: 85, maxSeats: 170, basePct: 33.0, color: '#3b82f6', isRegional: false, ideology: 'Derecha', spectrumOrder: 6, redLines: ['BILDU', 'PODEMOS'] },
-      { id: 'VOX', name: 'VOX', leader: 'Santiago Abascal', seats: 35, baseSeats: 35, minSeats: 18, maxSeats: 60, basePct: 12.5, color: '#22c55e', isRegional: false, ideology: 'Extrema Derecha', spectrumOrder: 7, redLines: ['SUMAR', 'PODEMOS', 'BILDU', 'ERC', 'BNG', 'JUNTS'] }
+      { id: 'BNG', name: 'BNG', leader: 'Ana Pontón', seats: 3, baseSeats: 3, minSeats: 1, maxSeats: 350, basePct: 0.9, color: '#38bdf8', isRegional: true, ideology: 'Izquierda Galega', spectrumOrder: 2, redLines: ['VOX', 'PP'] },
+      { id: 'BILDU', name: 'EH Bildu', leader: 'Arnaldo Otegi', seats: 7, baseSeats: 7, minSeats: 4, maxSeats: 350, basePct: 1.6, color: '#84cc16', isRegional: true, ideology: 'Izquierda Soberanista', spectrumOrder: 2, redLines: ['VOX', 'PP'] },
+      { id: 'ERC', name: 'ERC', leader: 'Gabriel Rufián', seats: 9, baseSeats: 9, minSeats: 4, maxSeats: 350, basePct: 2.5, color: '#f97316', isRegional: true, ideology: 'Centroizquierda Catalana', spectrumOrder: 3, redLines: ['VOX', 'PP'] },
+      { id: 'PSOE', name: 'PSOE', leader: 'Pedro Sánchez', seats: 105, baseSeats: 105, minSeats: 80, maxSeats: 350, basePct: 31.0, color: '#ef4444', isRegional: false, ideology: 'Centroizquierda', spectrumOrder: 3, redLines: ['VOX'] },
+      { id: 'PNV', name: 'EAJ-PNV', leader: 'Aitor Esteban', seats: 5, baseSeats: 5, minSeats: 3, maxSeats: 350, basePct: 1.3, color: '#10b981', isRegional: true, ideology: 'Centroderecha Vasco', spectrumOrder: 5, redLines: ['VOX'] },
+      { id: 'JUNTS', name: 'Junts per Catalunya', leader: 'Míriam Nogueras', seats: 9, baseSeats: 9, minSeats: 4, maxSeats: 350, basePct: 2.0, color: '#06b6d4', isRegional: true, ideology: 'Centroderecha Soberanista', spectrumOrder: 5, redLines: ['VOX'] },
+      { id: 'PP', name: 'PP', leader: 'Alberto Núñez Feijóo', seats: 137, baseSeats: 137, minSeats: 85, maxSeats: 350, basePct: 33.0, color: '#3b82f6', isRegional: false, ideology: 'Derecha', spectrumOrder: 6, redLines: ['BILDU', 'PODEMOS'] },
+      { id: 'VOX', name: 'VOX', leader: 'Santiago Abascal', seats: 35, baseSeats: 35, minSeats: 18, maxSeats: 350, basePct: 12.5, color: '#22c55e', isRegional: false, ideology: 'Extrema Derecha', spectrumOrder: 7, redLines: ['SUMAR', 'PODEMOS', 'BILDU', 'ERC', 'BNG', 'JUNTS'] }
     ]
   },
     };
