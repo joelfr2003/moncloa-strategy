@@ -842,6 +842,16 @@
     return _gt.apply(this, arguments);
   };
 
+  // Partida online: España no puede entrar en la legislatura hasta que Marruecos haya dado el visto bueno a su reparto de escaños
+  if (typeof startGovernance === 'function') {
+    const _sg = startGovernance;
+    startGovernance = function () {
+      const m = M(), s = gameState.mp;
+      if (m && s && s.mode === 'online' && s.started === false && pending(m)) { toast('Marruecos aún no ha confirmado su reparto de escaños y su Gobierno. Espera a que termine.'); return; }
+      return _sg.apply(this, arguments);
+    };
+  }
+
   const _r = render;
   const _r0 = _r;
   // Mismo dispositivo: al llegar a la partida, Marruecos forma su Gobierno en su pestaña antes de empezar
