@@ -1,0 +1,6 @@
+{
+  "countries": [
+    "espana.js",
+    { "file": "marruecos.js", "phase": "after" }
+  ]
+}
