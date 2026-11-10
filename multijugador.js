@@ -1,225 +1,180 @@
 // =====================================================================
-//  MODO MULTIJUGADOR (local, por turnos en el mismo dispositivo)
-//  Un jugador gobierna España y otro, un país socio. Se influyen y se ayudan.
-//  PARA AÑADIR MÁS PAÍSES: añade una entrada a COUNTRIES (más abajo).
+//  MODO MULTIJUGADOR (online)
+//  Cada jugador corre su PROPIA partida completa con su país (?pais=espana, ?pais=marruecos…).
+//  Por la red solo viajan mensajes de diplomacia: propuestas, aceptaciones/rechazos, ayudas,
+//  acciones hostiles y el valor de la relación bilateral. Nunca se envían estadísticas,
+//  escaños, tesorería ni coaliciones del otro jugador.
 // =====================================================================
 (function () {
   'use strict';
   // ---------------- RELÉ ONLINE OPCIONAL (Supabase Realtime, plan gratuito) ----------------
-  // Déjalo vacío para usar conexión directa PeerJS. Para más fiabilidad pega aquí los dos datos
-  // de tu proyecto de Supabase (Settings → API): «Project URL» y la clave «anon public». Son públicos.
+  // Déjalo vacío para usar conexión directa PeerJS.
   const RELAY = { url: 'https://yvqhhgtwuzytpbttqxem.supabase.co/rest/v1/', key: 'sb_publishable_VpXQABhAAWy5slgKgxk5pw_1tSvVHrl' };
   const useRelay = () => !!(RELAY.url && RELAY.key);
 
   const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  // ---------------- REGISTRO DE PAÍSES ----------------
-  // intl: clave del país en INTL (relación bilateral con España). income: ingresos base en M€/día.
-  // events[].opts[]: tes (±M€), P (efectos en el país), ES (efectos en España), rel (relación), ask (pide ayuda a España)
-  const COUNTRIES = {
-    MA: {
-      name: 'Marruecos', flag: '🇲🇦', intl: 'ma', income: 10,
-      // Presupuesto: cada partida cuesta (nivel/50 × cost) M€/día y aplica (nivel−50) × fx a las estadísticas cada día
-      budget: [
-        { id: 'edu', t: 'Educación', ic: 'fa-graduation-cap', cost: 1.5, d: 'Mejora la aprobación y, a largo plazo, la economía.', fx: { apr: 0.0003, eco: 0.0002 } },
-        { id: 'san', t: 'Sanidad', ic: 'fa-heart-pulse', cost: 1.5, d: 'Sube la aprobación y algo la estabilidad.', fx: { apr: 0.0004, est: 0.0001 } },
-        { id: 'def', t: 'Defensa y FAR', ic: 'fa-shield', cost: 1.5, d: 'Refuerza el poder militar.', fx: { mil: 0.0006 } },
-        { id: 'inf', t: 'Infraestructuras', ic: 'fa-road', cost: 1.5, d: 'Puertos, carreteras y energía: impulsa la economía.', fx: { eco: 0.0005 } },
-        { id: 'seg', t: 'Seguridad e Interior', ic: 'fa-user-shield', cost: 1.5, d: 'Más estabilidad interna.', fx: { est: 0.0005 } },
-        { id: 'agr', t: 'Agricultura y agua', ic: 'fa-wheat-awn', cost: 1.5, d: 'Campo y recursos hídricos: ayuda a economía, aprobación y estabilidad.', fx: { eco: 0.0002, apr: 0.0002, est: 0.0002 } }
-      ],
-      // Decretos: coste en M€ y capital político; cd = días de espera; P/ES = efectos; rel = relación bilateral
-      policies: [
-        { id: 'green', t: 'Plan Generación Verde', cost: 600, cap: 5, cd: 60, P: { eco: 3, apr: 2 }, d: 'Renovables e industria verde.' },
-        { id: 'edu', t: 'Reforma educativa', cost: 400, cap: 4, cd: 60, P: { apr: 3, eco: 1 }, d: 'Nuevo modelo escolar y universitario.' },
-        { id: 'agua', t: 'Desaladoras y trasvases', cost: 500, cap: 4, cd: 60, P: { eco: 2, est: 2 }, d: 'Seguridad hídrica frente a la sequía.' },
-        { id: 'tgv', t: 'Alta velocidad Tánger–Marrakech', cost: 900, cap: 6, cd: 90, P: { eco: 4, apr: 2 }, d: 'Gran obra ferroviaria.' },
-        { id: 'mundial', t: 'Preparar el Mundial 2030 con España', cost: 800, cap: 6, cd: 90, P: { apr: 4, eco: 3 }, ES: { eco: 1 }, rel: 4, d: 'Sede compartida: beneficia a ambos.' },
-        { id: 'pan', t: 'Subsidio al pan y al butano', cost: 300, cap: 3, cd: 45, P: { apr: 4, est: 2 }, d: 'Alivio de precios para las familias.' },
-        { id: 'far', t: 'Modernización de las FAR', cost: 500, cap: 5, cd: 60, P: { mil: 5, apr: -1 }, d: 'Compra de equipamiento militar.' },
-        { id: 'gas', t: 'Gasoducto con España', cost: 700, cap: 6, cd: 90, P: { eco: 3 }, ES: { eco: 2 }, rel: 5, d: 'Energía compartida: beneficia a ambos.' }
-      ],
-      start: { eco: 52, est: 60, apr: 55, mil: 58, tes: 9000, cap: 30 },
-      events: [
-        { title: 'Sequía y malas cosechas', desc: 'Seis años de sequía hunden el campo y el precio del pan se dispara.', opts: [
-          { t: 'Importar cereal y subsidiar el pan (−400 M€)', tes: -400, P: { apr: 4, eco: -1 } },
-          { t: 'Racionar el agua y dejar que ajuste el mercado', P: { apr: -6, est: -3, eco: 1 } }] },
-        { title: 'Protestas juveniles', desc: 'Miles de jóvenes salen a la calle exigiendo sanidad, educación y empleo.', opts: [
-          { t: 'Abrir diálogo y reformas sociales (−300 M€)', tes: -300, P: { apr: 6, est: 4 } },
-          { t: 'Mano dura y detenciones', P: { est: -2, apr: -7, mil: 2 } }] },
-        { title: 'Boom de los fosfatos', desc: 'El precio mundial de los fosfatos y fertilizantes se dispara.', opts: [
-          { t: 'Contrato preferente con España (+500 M€)', tes: 500, P: { eco: 2 }, ES: { eco: 2 }, rel: 5 },
-          { t: 'Vender al mejor postor (+800 M€)', tes: 800, P: { eco: 3 }, rel: -4 }] },
-        { title: 'Presión migratoria en Ceuta y Melilla', desc: 'Cientos de personas se concentran junto a la valla.', opts: [
-          { t: 'Reforzar la contención en la frontera (−200 M€)', tes: -200, ES: { est: 2 }, rel: 4 },
-          { t: 'Relajar los controles para presionar a Madrid', P: { apr: 3 }, ES: { est: -5, apr: -3 }, rel: -10 }] },
-        { title: 'Terremoto en el Atlas', desc: 'Un seísmo devasta varias provincias de montaña.', opts: [
-          { t: 'Pedir ayuda urgente a España', P: { apr: 3 }, ask: true, rel: 2 },
-          { t: 'Gestionarlo en solitario (−700 M€)', tes: -700, P: { apr: -2, est: -2 } }] }
-      ]
-    }
-  };
+  // ---------------- PAÍSES ----------------
+  // Para añadir un país: su fichero en Countries/ y, si quieres, su bandera y clave INTL aquí.
+  const FLAGS = { espana: '🇪🇸', marruecos: '🇲🇦' };
+  const INTL_KEY = { espana: 'es', marruecos: 'ma' };   // clave de la relación bilateral en gameState.intl.rel (si existe)
+  const myC = () => window.CURRENT_COUNTRY || { id: 'espana', name: 'España' };
+  const flagOf = id => FLAGS[id] || '🏳️';
+  const nameOf = id => { const c = (window.COUNTRIES || []).filter(x => x.id === id)[0]; return c ? c.name : id; };
 
-  // ---------------- ACCIONES ENTRE PAÍSES ----------------
-  // k:'prop' = el otro jugador debe aceptar; k:'now' = efecto inmediato (hostil). a = quien actúa, b = el otro.
+  // ---------------- ACCIONES DIPLOMÁTICAS ----------------
+  // A = quien actúa/propone, B = el otro. Cada lado aplica SOLO sus propios efectos en su partida.
+  // k:'prop' = el otro debe aceptar · k:'now' = efecto inmediato (hostil) · pact = pacto estable
   const ACTIONS = [
-    { id: 'aid', t: 'Paquete de ayuda', ic: 'fa-hand-holding-dollar', k: 'prop', cap: 5, d: 'Transfiere 500 M€ al otro país: mejora su economía y la relación.',
-      run(a, b, it) {
-        const p = it && it.asks ? b : a, r = oth(p);
-        if (treas(p) < 500) { toast(nm(p) + ' no tiene fondos suficientes.'); return false; }
-        cash(p, -500, 'Ayuda a ' + nm(r)); cash(r, 500, 'Ayuda recibida de ' + nm(p));
-        st(r, 'eco', 3); st(r, 'apr', 2); st(p, 'apr', -1); rel(7);
-        return nm(p) + ' envía 500 M€ de ayuda a ' + nm(r) + '.';
-      } },
-    { id: 'trade', t: 'Acuerdo comercial', ic: 'fa-ship', k: 'prop', pact: true, cap: 5, d: 'Pacto estable: ambos ganan economía e ingresos cada mes.',
-      run() { S().pacts.trade = true; st('ES', 'eco', 1); st('P', 'eco', 1); rel(5); return 'España y ' + C().name + ' firman un acuerdo comercial.'; } },
-    { id: 'border', t: 'Pacto fronterizo y migratorio', ic: 'fa-shield-halved', k: 'prop', pact: true, cap: 5, d: 'Cooperación en las fronteras: ambos ganan estabilidad.',
-      run() { S().pacts.border = true; st('ES', 'est', 2); st('P', 'est', 2); rel(5); return 'Se activa el pacto de cooperación fronteriza.'; } },
-    { id: 'defense', t: 'Alianza de defensa', ic: 'fa-jet-fighter', k: 'prop', pact: true, cap: 7, d: 'Maniobras e inteligencia conjuntas: ambos ganan poder militar.',
-      run() { S().pacts.defense = true; st('ES', 'mil', 2); st('P', 'mil', 2); rel(4); return 'Alianza de defensa firmada entre ambos países.'; } },
-    { id: 'press', t: 'Presión diplomática', ic: 'fa-bullhorn', k: 'now', cap: 4, d: 'Presionas al otro gobierno: baja su aprobación y estabilidad; la relación se resiente.',
-      run(a, b) { st(b, 'apr', -3); st(b, 'est', -3); st(a, 'apr', 2); rel(-9); return nm(a) + ' presiona diplomáticamente a ' + nm(b) + '.'; } },
-    { id: 'embargo', t: 'Cierre de frontera y aranceles', ic: 'fa-ban', k: 'now', cap: 6, d: 'Golpe económico al otro (y algo a ti). Rompe los pactos comercial y fronterizo.',
-      run(a, b) { st(b, 'eco', -5); st(a, 'eco', -2); S().pacts.trade = false; S().pacts.border = false; rel(-14); return nm(a) + ' cierra la frontera y sube aranceles a ' + nm(b) + '.'; } },
-    { id: 'campjoint', t: 'Cumbre bilateral en plena campaña', ic: 'fa-handshake', k: 'prop', camp: true, cap: 4, d: 'Foto de Estado durante la campaña: España gana impulso electoral y ambos mejoran relación y economía.',
-      run() { campMom(2.5); st('P', 'eco', 1); st('P', 'apr', 1); rel(6); return 'Cumbre bilateral España–' + C().name + ' en plena campaña electoral.'; } },
-    { id: 'campmig', t: 'Presión migratoria electoral', ic: 'fa-triangle-exclamation', k: 'now', camp: true, who: 'P', cap: 5, d: 'Aprietas a España en plena campaña: pierde impulso electoral. Sube tu aprobación, pero la relación se hunde.',
-      run(a) { campMom(-3); st(a, 'apr', 2); rel(-10); return nm(a) + ' presiona a España en plena campaña con la cuestión migratoria.'; } }
+    { id: 'aid', t: 'Ofrecer ayuda económica', ic: 'fa-hand-holding-dollar', k: 'prop', cap: 5, escrow: 500, A: { cash: -500, apr: -1 }, B: { cash: 500, eco: 3, apr: 2 }, rel: 7,
+      d: 'Envías 500 M€ al otro país (se descuentan al proponer; se devuelven si lo rechaza). Mejora su economía y la relación.' },
+    { id: 'aidreq', t: 'Solicitar ayuda económica', ic: 'fa-hand-holding-heart', k: 'prop', cap: 3, A: { cash: 500, eco: 3, apr: 2 }, B: { cash: -500, apr: -1 }, rel: 6,
+      d: 'Pides 500 M€ al otro país. Solo se transfiere si acepta y tiene fondos.' },
+    { id: 'trade', t: 'Acuerdo comercial', ic: 'fa-ship', k: 'prop', pact: true, cap: 5, A: { eco: 1 }, B: { eco: 1 }, rel: 5,
+      d: 'Pacto estable: ambos ganan economía e ingresos cada mes.' },
+    { id: 'border', t: 'Pacto fronterizo y migratorio', ic: 'fa-shield-halved', k: 'prop', pact: true, cap: 5, A: { est: 2 }, B: { est: 2 }, rel: 5,
+      d: 'Cooperación en las fronteras: ambos ganan estabilidad.' },
+    { id: 'defense', t: 'Alianza de defensa', ic: 'fa-jet-fighter', k: 'prop', pact: true, cap: 7, A: { mil: 2 }, B: { mil: 2 }, rel: 4,
+      d: 'Maniobras e inteligencia conjuntas: ambos ganan poder militar.' },
+    { id: 'press', t: 'Presión diplomática', ic: 'fa-bullhorn', k: 'now', cap: 4, A: { apr: 2 }, B: { apr: -3, est: -3 }, rel: -9,
+      d: 'Presionas al otro gobierno: baja su aprobación y estabilidad; la relación se resiente.' },
+    { id: 'embargo', t: 'Cierre de frontera y aranceles', ic: 'fa-ban', k: 'now', cap: 6, A: { eco: -2 }, B: { eco: -5 }, rel: -14, breaks: ['trade', 'border'],
+      d: 'Golpe económico al otro (y algo a ti). Rompe los pactos comercial y fronterizo.' }
   ];
-  const STATS = [['eco', 'Economía'], ['est', 'Estabilidad'], ['apr', 'Aprobación'], ['mil', 'Militar']];
+  const ACT = id => ACTIONS.filter(x => x.id === id)[0];
+  const PACT_FX = { trade: ['eco', 0.02], border: ['est', 0.025], defense: ['mil', 0.025] };
+  const STAT = { eco: 1, est: 1, apr: 1, mil: 1, emp: 1, con: 1 };
 
-  // ---------------- UTILIDADES ----------------
-  let peer = null, link = null, guest = null, tab = 'res', USER = '';
+  // ---------------- ESTADO ----------------
+  let peer = null, link = null, USER = '';
   try { USER = localStorage.getItem('moncloa_user') || ''; } catch (e) { /* sin almacenamiento */ }
-  const G = () => guest && guest.s;
-  // La campaña electoral de España dura 90 días y el socio sigue gobernando mientras tanto
-  const campOn = () => (G() ? !!G().camp : !!(window.CAMP && CAMP.live()));
-  const campMom = v => { if (window.CAMP) CAMP.addMom(v); };
-  const visible = (x, me) => (!x.camp || campOn()) && (!x.who || x.who === me);
-  const S = () => (G() ? G().m : gameState.mp);
-  const C = () => COUNTRIES[S().partner];
-  const oth = s => (s === 'ES' ? 'P' : 'ES');
-  const nm = s => (s === 'ES' ? 'España' : C().name);
-  const flag = s => (s === 'ES' ? '🇪🇸' : C().flag);
-  const fmt = n => Math.round(n).toLocaleString('es-ES');
-  const toast = t => { try { goalsToast(t, '#ef4444'); } catch (e) { console.log(t); } };
-  const stat = (s, k) => (s === 'ES' ? (G() ? G().ES[k] : (gameState.metrics || {})[k]) : S().P[k]);
-  function st(s, k, v) {
-    if (s === 'ES') { try { focusAccum(focusInit(), k, v); } catch (e) { focusMetricAdd(k, v); } }
-    else S().P[k] = clamp((S().P[k] || 0) + v);
+  const blank = () => ({ on: true, role: null, code: '', other: null, linked: false, rel: 50, pacts: { trade: false, border: false, defense: false }, inbox: [], log: [], cd: {} });
+  const S = () => gameState.mp;
+  function ensure() {
+    if (!gameState.mp) gameState.mp = blank();
+    return gameState.mp;
   }
-  const treas = s => (s === 'ES' ? (G() ? G().ES.tes : Number(gameState.treasury) || 0) : S().P.tes);
-  function cash(s, v, why) { if (s === 'ES') registerFinancialTransaction(why || 'Cooperación con ' + C().name, v); else S().P.tes += v; }
-  function cap(s) { if (G() && s === 'ES') return G().ES.cap; if (s === 'ES') { goalsInit(); return gameState.goals.capital; } return S().P.cap; }
-  function spendCap(s, v) { if (s === 'ES') gameState.goals.capital -= v; else S().P.cap -= v; }
-  function rel(v) { const I = intlInit(), k = C().intl; I.rel[k] = clamp((I.rel[k] == null ? 50 : I.rel[k]) + v); }
+  const oname = () => { const m = S(); return m && m.other ? m.other.name : 'el otro país'; };
+  const oflag = () => { const m = S(); return m && m.other ? flagOf(m.other.id) : '🏳️'; };
+  const toast = (t, c) => { try { goalsToast(t, c || '#ef4444'); } catch (e) { console.log(t); } };
+  const fmt = n => Math.round(n).toLocaleString('es-ES');
+
+  // ---------------- EFECTOS EN MI PROPIA PARTIDA ----------------
+  const treas = () => Number(gameState.treasury) || 0;
+  const cap = () => { goalsInit(); return gameState.goals.capital; };
+  const spendCap = v => { goalsInit(); gameState.goals.capital -= v; };
+  function cash(v, why) { try { registerFinancialTransaction(why || 'Cooperación con ' + oname(), v); } catch (e) { gameState.treasury = treas() + v; } }
+  function fx(o, why) {
+    Object.keys(o || {}).forEach(k => {
+      if (k === 'cash') cash(o.cash, why);
+      else if (STAT[k]) { try { focusAccum(focusInit(), k, o[k]); } catch (e) { focusMetricAdd(k, o[k]); } }
+    });
+  }
+  function setRel(v) {
+    const m = S(); if (!m) return; m.rel = clamp(Number(v) || 0);
+    try { const k = m.other && INTL_KEY[m.other.id], I = intlInit(); if (k && I.rel && I.rel[k] != null) I.rel[k] = m.rel; } catch (e) { /* sin INTL */ }
+  }
   function log(t) {
-    const m = S(); m.log.unshift({ d: gameState.daysInOffice || 0, t }); m.log.length = Math.min(m.log.length, 12);
+    const m = S(); if (!m) return;
+    m.log.unshift({ d: gameState.daysInOffice || 0, t }); m.log.length = Math.min(m.log.length, 12);
     try { addNewsToTicker(t, 'Cooperación'); } catch (e) { /* sin ticker */ }
   }
-  function applyFx(s, o) { Object.keys(o || {}).forEach(k => st(s, k, o[k])); }
 
-  // ---------------- LÓGICA ----------------
-   function start(partner) {
-    const c = COUNTRIES[partner]; if (!c) return;
-    gameState.mp = { on: true, partner, turn: 'ES', P: Object.assign({}, c.start, { bud: Object.fromEntries(c.budget.map(b => [b.id, 50])) }), pacts: { trade: false, border: false, defense: false },
-      inbox: [], log: [], cd: {}, evt: null, next: (gameState.daysInOffice || 0) + 30, synced: false, started: false };
-    if (partner === 'MA' && window.initMorocco) {
-      gameState.mp.P = window.initMorocco(gameState.mp.gn || '');
-      // 👇 si initMorocco no registró el adaptador (por la razón que sea), lo forzamos aquí
-      if (window.MP && typeof MP.adapter === 'function' && !MP.adapter() && typeof MP.setAdapter === 'function') {
-        const m = gameState.morocco;
-        MP.setAdapter({
-          me: 'MA', name: 'Marruecos', flag: '🇲🇦',
-          tes: () => m.tes, pay: v => { m.tes -= v; }, gain: v => { m.tes += v; },
-          cap: () => m.cap, spendCap: v => { m.cap -= v; },
-          mil: () => Math.round((m.army.tierra + m.army.mar + m.army.aire) / 3),
-          st: (k, v) => { if (k === 'mil') Object.keys(m.army).forEach(b => { m.army[b] = clamp(m.army[b] + v); }); else if (m[k] != null) m[k] = clamp(m[k] + v); },
-          pause: () => { if (typeof setGameSpeed === 'function') setGameSpeed(0); },
-          toast: t => { m.log.unshift('Día ' + m.day + ' · ' + t); if (gameState.activeTab === 'morocco') render(); },
-          redraw: () => { if (gameState.activeTab === 'morocco') render(); }
-        });
-      }
-    }
-    log('Modo multijugador: España y ' + c.name + ' empiezan a gobernar en paralelo.');
-  }
-  // Si la partida con Marruecos se creó con el estado genérico (sin ejército/escaños), se rehace con el completo
-  function ensureMA() {
-    const m = gameState.mp;
-    if (m && m.partner === 'MA' && m.P && !m.P.army && window.initMorocco) { m.P = window.initMorocco(m.gn || ''); m.synced = false; }
-  }
-  function stop() { closeNet(); gameState.mp = null; render(); }
-  function swap() {
-    const m = S(); m.turn = oth(m.turn);
-    try { setGameSpeed(0); } catch (e) { /* ya en pausa */ }
-    goalsToast('Mando para ' + nm(m.turn) + '. Partida en pausa.', '#d9a726'); render();
-  }
+  // ---------------- MENSAJES (lo único que viaja por la red) ----------------
+  const tx = o => { const m = S(); if (link && link.open) link.send(Object.assign({ rel: m ? Math.round(m.rel * 100) / 100 : undefined, p: m ? m.pacts : undefined }, o)); };
+  const adopt = d => {   // confirma la relación y los pactos con los valores del emisor
+    const m = S(); if (!m || !d) return;
+    if (typeof d.rel === 'number' && isFinite(d.rel)) setRel(d.rel);
+    if (d.p && typeof d.p === 'object') Object.keys(m.pacts).forEach(k => { if (typeof d.p[k] === 'boolean') m.pacts[k] = d.p[k]; });
+  };
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+  // ---------------- LÓGICA DIPLOMÁTICA ----------------
   function act(id) {
-    const m = S(), a = m.turn, b = oth(a), x = ACTIONS.find(z => z.id === id);
-    if (!x || !visible(x, a) || (x.pact && m.pacts[id]) || (m.cd[a + id] || 0) > 0) return;
-    if (cap(a) < x.cap) return toast('Capital político insuficiente.');
+    const m = S(), x = ACT(id);
+    if (!m || !x) return;
+    if (!m.linked) return toast('No hay conexión con el otro jugador.');
+    if ((x.pact && m.pacts[id]) || (m.cd[id] || 0) > 0) return;
+    if (cap() < x.cap) return toast('Capital político insuficiente.');
     if (x.k === 'prop') {
-      if (m.inbox.some(i => i.from === a && i.id === id)) return toast('Ya hay una propuesta pendiente.');
-      spendCap(a, x.cap); m.inbox.push({ from: a, id }); log(nm(a) + ' propone a ' + nm(b) + ': ' + x.t + '.');
+      if (m.inbox.some(i => i.mine && i.id === id)) return toast('Ya hay una propuesta pendiente.');
+      if (x.escrow && treas() < x.escrow) return toast('Fondos insuficientes.');
+      spendCap(x.cap);
+      if (x.escrow) cash(-x.escrow, 'Ayuda a ' + oname());
+      const u = uid(); m.inbox.push({ uid: u, id, mine: true });
+      tx({ t: 'prop', uid: u, id });
+      log('Propones a ' + oname() + ': ' + x.t + '.');
     } else {
-      spendCap(a, x.cap); m.cd[a + id] = 20; const r = x.run(a, b); if (r) log(r);
+      spendCap(x.cap); m.cd[id] = 20;
+      fx(x.A); (x.breaks || []).forEach(k => { m.pacts[k] = false; }); setRel(m.rel + x.rel);
+      tx({ t: 'now', id });
+      log('Acción contra ' + oname() + ': ' + x.t + '.');
     }
     render();
   }
-  function answer(i, ok) {
-    const m = S(), it = m.inbox[i]; if (!it || it.from === m.turn) return;
-    const x = ACTIONS.find(z => z.id === it.id); m.inbox.splice(i, 1);
-    if (ok) { const r = x.run(it.from, m.turn, it); log(r || 'La propuesta «' + x.t + '» no se pudo ejecutar.'); }
-    else { rel(-2); log(nm(m.turn) + ' rechaza la propuesta «' + x.t + '».'); }
+  function answer(u, ok) {
+    const m = S(), it = m && m.inbox.filter(i => i.uid === u && !i.mine)[0], x = it && ACT(it.id);
+    if (!it || !x) return;
+    if (ok) {
+      if (x.B.cash < 0 && treas() < -x.B.cash) return toast('Fondos insuficientes para aceptar.');
+      fx(x.B, (x.B.cash < 0 ? 'Ayuda a ' : 'Ayuda recibida de ') + oname());
+      if (x.pact) m.pacts[x.id] = true; else m.cd[x.id] = 20;
+      setRel(m.rel + x.rel);
+      log('Aceptas «' + x.t + '» de ' + oname() + '.');
+    } else { setRel(m.rel - 2); log('Rechazas «' + x.t + '» de ' + oname() + '.'); }
+    m.inbox = m.inbox.filter(i => i.uid !== u);
+    tx({ t: 'res', uid: u, id: x.id, ok: !!ok });
     render();
   }
-  function setBud(id, v) { const m = S(); v = Math.round(Number(v)); if (m && C().budget.some(b => b.id === id) && v >= 0 && v <= 100) m.P.bud[id] = v; }
-  function pol(id) {
-    const m = S(), x = C().policies.find(z => z.id === id), k = 'Ppol' + id;
-    if (!x || (m.cd[k] || 0) > 0) return;
-    if (cap('P') < x.cap) return toast('Capital político insuficiente.');
-    if (m.P.tes < x.cost) return toast('Fondos insuficientes.');
-    spendCap('P', x.cap); m.P.tes -= x.cost; m.cd[k] = x.cd; applyFx('P', x.P); applyFx('ES', x.ES); if (x.rel) rel(x.rel);
-    log(C().name + ' aprueba: ' + x.t + '.'); render();
+  function onData(d) {
+    const m = S(); if (!m || !d || typeof d.t !== 'string') return;
+    if (d.t === 'hello') {
+      m.other = { id: String(d.c || '').slice(0, 24), name: String(d.n || d.c || 'Otro país').slice(0, 30), user: String(d.u || '').slice(0, 16) };
+      if (m.role === 'host') {   // el anfitrión arbitra el valor inicial de la relación (el de su propia partida, si existe)
+        try { const k = INTL_KEY[m.other.id], I = intlInit(); if (k && I.rel && I.rel[k] != null) m.rel = clamp(I.rel[k]); } catch (e) { /* sin INTL */ }
+        tx({ t: 'sync', auth: true });
+      }
+      if (m.other.id === myC().id) toast('Los dos jugadores tenéis el mismo país: uno debe cambiarlo.', '#d9a726');
+      else toast(esc(m.other.user || m.other.name) + ' (' + esc(m.other.name) + ') se ha conectado.', '#10b981');
+      render(); return;
+    }
+    if (d.t === 'sync') { if (d.auth && m.role === 'guest') adopt(d); render(); return; }
+    const x = ACT(d.id);
+    if (d.t === 'prop' && x && x.k === 'prop' && typeof d.uid === 'string') {
+      if (m.inbox.some(i => i.uid === d.uid)) return;
+      m.inbox.push({ uid: d.uid, id: x.id, mine: false });
+      log(oname() + ' te propone: ' + x.t + '.'); toast(oflag() + ' ' + esc(oname()) + ' te propone: ' + esc(x.t), '#d9a726');
+    } else if (d.t === 'res' && x) {
+      const it = m.inbox.filter(i => i.uid === d.uid && i.mine)[0]; if (!it) return;
+      m.inbox = m.inbox.filter(i => i.uid !== d.uid);
+      if (d.ok) {
+        const a = Object.assign({}, x.A); if (x.escrow) delete a.cash;   // la ayuda ya se pagó al proponer
+        fx(a, 'Ayuda de ' + oname()); if (!x.pact) m.cd[x.id] = 20;
+        log(oname() + ' acepta «' + x.t + '».'); toast(oflag() + ' ' + esc(oname()) + ' acepta: ' + esc(x.t), '#10b981');
+      } else {
+        if (x.escrow) cash(x.escrow, 'Ayuda devuelta por ' + oname());
+        log(oname() + ' rechaza «' + x.t + '».'); toast(oflag() + ' ' + esc(oname()) + ' rechaza: ' + esc(x.t));
+      }
+      adopt(d);
+    } else if (d.t === 'now' && x && x.k === 'now') {
+      fx(x.B); (x.breaks || []).forEach(k => { m.pacts[k] = false; }); adopt(d);
+      log(oname() + ' aplica contra ti: ' + x.t + '.'); toast(oflag() + ' ' + esc(oname()) + ': ' + esc(x.t));
+    }
+    render();
   }
-  function resolveEvt(i) {
-    const m = S(), e = C().events[m.evt], o = e && e.opts[i]; if (!o) return;
-    if (o.tes) cash('P', o.tes);
-    applyFx('P', o.P); applyFx('ES', o.ES); if (o.rel) rel(o.rel);
-    if (o.ask) m.inbox.push({ from: 'P', id: 'aid', asks: true });
-    log(C().name + ': ' + e.title + ' → ' + o.t.replace(/ \(.*\)$/, '') + '.'); m.evt = null; render();
-  }
-
+  // Cada día: efectos propios de los pactos. La deriva de la relación solo la calcula el anfitrión y la confirma al otro.
   function daily() {
-    const m = S(); if (!m || !m.on) return;
-    const P = m.P, c = C(), d = gameState.daysInOffice || 0;
-    const mor = !!(window.MA && P.army && window.moroccoTick);
-    {
-    P.cap = Math.min(60, P.cap + 0.3);
-    if (!P.bud) P.bud = Object.fromEntries(c.budget.map(b => [b.id, 50]));
-    c.budget.forEach(b => { const l = P.bud[b.id]; P.tes -= l / 50 * b.cost; Object.keys(b.fx).forEach(k => { P[k] = clamp(P[k] + (l - 50) * b.fx[k]); }); });
-    P.tes += c.income * (0.6 + P.eco / 100) - 1;
-    if (P.tes < 0) { P.eco = clamp(P.eco - 0.08); P.apr = clamp(P.apr - 0.06); }
-    P.apr = clamp(P.apr + (P.eco - 50) * 0.002 + (P.est - 50) * 0.002 - 0.01);
-    P.est = clamp(P.est + (P.apr - 50) * 0.002 - (P.apr < 35 ? 0.05 : 0));
-    P.eco = clamp(P.eco + (Math.random() - 0.5) * 0.1 + (50 - P.eco) * 0.001);
-    }
+    const m = S(); if (!m) return;
+    const d = gameState.daysInOffice || 0, pk = Object.keys(m.pacts).filter(k => m.pacts[k]);
     Object.keys(m.cd).forEach(k => { if (m.cd[k] > 0) m.cd[k]--; });
-    if (mor) window.moroccoTick();   // Marruecos: coalición, cohesión y ejército (módulo al final de este fichero)
-    const pk = Object.keys(m.pacts).filter(k => m.pacts[k]);
-    if (pk.length) {
-      const e = { trade: ['eco', 0.02], border: ['est', 0.025], defense: ['mil', 0.025] };
-      rel(0.05 * pk.length);
-      pk.forEach(k => { st('ES', e[k][0], e[k][1]); st('P', e[k][0], e[k][1]); });
-      if (m.pacts.trade && d % 30 === 0) { cash('ES', 150, 'Pacto comercial con ' + c.name); cash('P', 150); }
-    }
-    if (m.evt == null && d >= m.next && c.events.length) {
-      m.evt = Math.floor(Math.random() * c.events.length); m.next = d + 45 + Math.floor(Math.random() * 40);
-      log('Suceso en ' + c.name + ': ' + c.events[m.evt].title + '.');
-    }
+    pk.forEach(k => fx({ [PACT_FX[k][0]]: PACT_FX[k][1] }));
+    if (m.pacts.trade && d % 30 === 0) cash(150, 'Pacto comercial con ' + oname());
+    if (m.role === 'host' && m.linked && pk.length) { setRel(m.rel + 0.05 * pk.length); if (d % 10 === 0) tx({ t: 'sync', auth: true }); }
   }
 
-  // ---------------- ONLINE (PeerJS: WebRTC directo entre navegadores) ----------------
+
+  // ---------------- ONLINE (PeerJS directo o relé Supabase) ----------------
   function loadPeer(cb) {
     if (window.Peer) return cb();
     const el = document.createElement('script'); el.src = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
@@ -253,172 +208,84 @@
     });
     return L;
   }
-  function wireHost(c) {
+
+  // ---------------- CONEXIÓN ----------------
+  function wire(c) {
     link = c;
-    c.on('open', () => { log(nm('P') + ': jugador conectado.'); if (window.ESX) ESX.linked(true); push(); render(); });
-    c.on('data', onCmd);
-    c.on('close', () => { link = null; log(nm('P') + ': jugador desconectado.'); if (window.ESX) ESX.linked(false); render(); });
+    const hello = () => { const m = ensure(); m.linked = true; tx({ t: 'hello', c: myC().id, n: myC().name, u: USER }); render(); };
+    c.on('open', hello);
+    c.on('data', onData);
+    c.on('close', () => { const m = S(); if (m) { m.linked = false; log('Conexión con ' + oname() + ' perdida.'); } link = null; render(); });
   }
-  function closeNet() { try { if (link) link.close(); if (peer) peer.destroy(); } catch (e) { /* ya cerrado */ } link = peer = null; guest = null; paintGuest(); }
-  function host(partner) {
+  function closeNet() { try { if (link) link.close(); if (peer) peer.destroy(); } catch (e) { /* ya cerrado */ } link = peer = null; const m = S(); if (m) { m.linked = false; m.role = null; m.code = ''; } }
+  function host() {
+    if (!userOk()) return need();
     (useRelay() ? loadSb : loadPeer)(() => {
-      if (peer) { try { peer.destroy(); } catch (e) { /* nada */ } }
-      if (!S()) start(partner);
-      const m = S(); m.mode = 'online'; m.turn = 'ES'; m.code = Math.random().toString(36).slice(2, 7).toUpperCase();
-      if (useRelay()) { const L = relayLink(m.code, 'host'); peer = { destroy: () => L.close() }; wireHost(L); render(); return; }
+      closeNet(); const m = ensure(); m.role = 'host'; m.other = null; m.code = Math.random().toString(36).slice(2, 7).toUpperCase();
+      if (useRelay()) { const L = relayLink(m.code, 'host'); peer = { destroy: () => L.close() }; wire(L); render(); return; }
       peer = new Peer('moncloa-' + m.code);
       peer.on('open', () => render());
       peer.on('error', e => { toast('Error de conexión: ' + e.type); peer = null; render(); });
-      peer.on('connection', c => {
-        if (link && link.open) { c.close(); return; }
-        wireHost(c);
-      });
+      peer.on('connection', c => { if (link && link.open) { c.close(); return; } wire(c); });
       render();
     });
   }
   function join(code) {
     code = (code || '').trim().toUpperCase(); if (!code) return;
+    if (!userOk()) return need();
     (useRelay() ? loadSb : loadPeer)(() => {
-      closeNet();
-      if (useRelay()) {
-        const L = relayLink(code, 'guest'); link = L; peer = { destroy: () => L.close() };
-        L.on('open', () => { guest = { code, s: null, ok: true }; gsend({ t: 'hello', n: USER }); paintGuest(); });
-        L.on('data', d => { if (d && d.t === 'x' && window.MORO) MORO.onMsg(d); if (guest && d && d.t === 's') { guest.s = d.s; paintGuest(); } });
-        L.on('close', () => { if (guest) { guest.ok = false; paintGuest(); } });
-        return;
-      }
+      closeNet(); const m = ensure(); m.role = 'guest'; m.code = code; m.other = null;
+      if (useRelay()) { const L = relayLink(code, 'guest'); peer = { destroy: () => L.close() }; wire(L); render(); return; }
       peer = new Peer();
-      peer.on('error', e => { toast('No se pudo conectar: ' + e.type); closeNet(); });
-      peer.on('open', () => {
-        const c = peer.connect('moncloa-' + code, { reliable: true }); link = c;
-        c.on('open', () => { guest = { code, s: null, ok: true }; gsend({ t: 'hello', n: USER }); paintGuest(); });
-        c.on('data', d => { if (d && d.t === 'x' && window.MORO) MORO.onMsg(d); if (guest && d && d.t === 's') { guest.s = d.s; paintGuest(); } });
-        c.on('close', () => { if (guest) { guest.ok = false; paintGuest(); } });
-      });
+      peer.on('error', e => { toast('No se pudo conectar: ' + e.type); closeNet(); render(); });
+      peer.on('open', () => { wire(peer.connect('moncloa-' + code, { reliable: true })); });
+      render();
     });
   }
-  const gsend = o => { if (link && link.open) link.send(o); };
-  function snap() {
-    ensureMA();
-    const m = S(), me = { eco: 0, est: 0, apr: 0, mil: 0, tes: 0, cap: 0 }, wait = (gameState.step !== 4 && !(gameState.step === 5 && window.CAMP && CAMP.live())) || m.started === false;
-    if (!wait) { STATS.forEach(([k]) => { me[k] = stat('ES', k); }); me.tes = treas('ES'); me.cap = cap('ES'); }
-    const cd = {}; Object.keys(m.cd).forEach(k => { if (k[0] === 'P') cd[k] = m.cd[k]; });
-    return { wait, pre: gameState.step >= 2, camp: (window.CAMP && CAMP.live()) ? CAMP.info() : null, diff: (gameState.campaign && gameState.campaign.diff) || gameState.difficulty || 'normal', day: gameState.daysInOffice || 0, pause: wait || !gameState.gameSpeed || !!gameState.currentCampaignQuestion, ES: me, rel: wait ? 45 : intlInit().rel[C().intl],
-      m: { partner: m.partner, turn: 'P', P: m.P, pacts: m.pacts, inbox: m.inbox, log: m.log, cd, evt: m.evt, mode: 'online', code: m.code, hn: USER, gn: m.gn } };
-  }
-  let lastPush = 0;
-  function push() { if (!guest && link && link.open && S()) { lastPush = Date.now(); link.send({ t: 's', s: snap() }); } }
-  function onCmd(d) {   // órdenes del jugador 2 (se ejecutan en la partida del anfitrión)
-    if (d && d.t === 'x') { if (window.ESX) ESX.onMsg(d); return; }
-    const m = S(); if (!m || !d) return;
-    if (d.t === 'hello') { m.gn = String(d.n || '').slice(0, 16); render(); return; }
-    const prev = m.turn; m.turn = 'P';
-    try {
-      if (d.t === 'act' && ACTIONS.some(x => x.id === d.id)) act(d.id);
-      else if (d.t === 'ans' && Number.isInteger(d.i)) answer(d.i, !!d.ok);
-      else if (d.t === 'evt' && Number.isInteger(d.i)) resolveEvt(d.i);
-      else if (d.t === 'bud') setBud(d.id, d.v);
-      else if (d.t === 'pol') pol(d.id);
-      else if (d.t === 'ma' && window.MA) window.MA.exec(d.f, d.a);
-    } finally { m.turn = prev; }
-    push();
-  }
-  function paintGuest() {
-    let el = document.getElementById('mp-guest');
-    if (!guest) { if (el) el.remove(); if (window.MORO) MORO.hide(); return; }
-    if (window.MORO) { if (el) el.remove(); MORO.show(guest); return; }
-    if (!el) { el = document.createElement('div'); el.id = 'mp-guest'; el.className = 'fixed inset-0 overflow-y-auto p-4'; el.style.zIndex = 100000; el.style.background = '#0b0f12'; document.body.appendChild(el); }
-    const s = guest.s;
-    const morG = !!(s && s.m && s.m.P && s.m.P.army && window.renderMoroccoTab);
-    el.innerHTML = `<div class="flex justify-between items-center mb-3 font-hoi-tech text-xs text-slate-300"><span>Sala <b class="text-amber-300">${guest.code}</b>${s && s.diff && typeof DIFFICULTY !== 'undefined' && DIFFICULTY[s.diff] ? ' · ' + DIFFICULTY[s.diff].name : ''}${s && s.m.hn ? ' · anfitrión: ' + s.m.hn : ''}${s ? ' · Día ' + s.day + (s.pause ? ' · <span class="text-amber-400">PARTIDA EN PAUSA</span>' : '') + (s.camp ? ' · <span class="text-sky-300">🗳️ Campaña en España: día ' + s.camp.d + '/' + s.camp.n + '</span>' : '') : ''}${guest.ok ? '' : ' · <span class="text-red-400">CONEXIÓN PERDIDA</span>'}</span><button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded">Salir de la sala</button></div><div class="${morG ? 'max-w-5xl' : 'max-w-3xl'} mx-auto space-y-3">${s && s.wait && !(morG && s.pre && s.m.P.setup && !s.m.P.setup.done) ? '<div class="hoi-box p-8 rounded-xl text-center font-hoi-tech text-slate-300"><div class="text-3xl mb-2">' + flag('P') + '</div>' + (morG && s.pre ? 'Has dado el visto bueno a tu Gobierno. Esperando a que el anfitrión empiece la partida…' : 'Estás dentro de la sala. Esperando a que el anfitrión empiece la partida…') + '</div>' : morG ? window.renderMoroccoTab(s.m.P, { guest: true, rest: renderMulti() }) : renderMulti()}</div>`;
-  }
 
-  // ---------------- INTERFAZ ----------------
-  function card(s) {
-    const m = S(), me = m.turn === s;
-    const rows = STATS.map(([k, l]) => {
-      const v = Math.round(stat(s, k) || 0);
-      return `<div><div class="flex justify-between text-[10px] text-slate-400"><span>${l}</span><span class="font-mono">${v}</span></div><div class="h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800"><div class="h-full ${v >= 60 ? 'bg-emerald-500' : v >= 35 ? 'bg-amber-500' : 'bg-red-500'}" style="width:${v}%"></div></div></div>`;
-    }).join('');
-    return `<div class="bg-slate-950 border ${me ? 'border-amber-500' : 'border-slate-800'} rounded-lg p-3 space-y-2">
-      <div class="flex justify-between items-center"><b class="text-sm text-slate-100">${flag(s)} ${nm(s)}</b>${me ? '<span class="text-[10px] text-amber-400">▶ TURNO</span>' : ''}</div>${rows}
-      <div class="flex justify-between text-[11px] text-slate-300"><span>Tesoro</span><span class="font-mono">${fmt(treas(s))} M€</span></div>
-      <div class="flex justify-between text-[11px] text-slate-300"><span>Capital político</span><span class="font-mono">${Math.floor(cap(s))}</span></div></div>`;
-  }
-
-  function budgetHtml() {
-    const m = S(), c = C(), P = m.P;
-    const inc = c.income * (0.6 + P.eco / 100) - 1, out = c.budget.reduce((t, b) => t + (P.bud[b.id] / 50) * b.cost, 0), bal = inc - out;
-    const rows = c.budget.map(b => { const v = P.bud[b.id]; return `<div class="space-y-1"><div class="flex justify-between text-[11px]"><span><i class="fa-solid ${b.ic} mr-1 text-amber-400"></i>${b.t}</span><span class="font-mono">${v}% · ${(v / 50 * b.cost).toFixed(1)} M€/día</span></div><input type="range" min="0" max="100" value="${v}" class="w-full" onchange="MP.bud('${b.id}',this.value)"><div class="text-[10px] text-slate-500 font-sans">${b.d}</div></div>`; }).join('');
-    return `<div class="hoi-box p-4 rounded-xl space-y-3 font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">PRESUPUESTO DE ${nm('P').toUpperCase()}</div>
-      <div class="flex justify-between text-xs"><span>Ingresos ${inc.toFixed(1)} M€/día</span><span>Gastos ${out.toFixed(1)} M€/día</span><b class="${bal >= 0 ? 'text-emerald-400' : 'text-red-400'}">Balance ${bal >= 0 ? '+' : ''}${bal.toFixed(1)}</b></div>${rows}</div>`;
-  }
-  function policiesHtml() {
-    const m = S(), c = C();
-    const btns = c.policies.map(x => { const cd = m.cd['Ppol' + x.id] || 0, off = cd > 0 || cap('P') < x.cap || m.P.tes < x.cost;
-      return `<button ${off ? 'disabled' : ''} onclick="MP.pol('${x.id}')" class="hoi-button p-2 rounded text-[11px] text-left ${off ? 'opacity-50' : ''}"><div><b>${x.t}</b> <span class="text-slate-400">· ${x.cost} M€ · ${x.cap} cap.</span></div><div class="text-slate-400 font-sans">${x.d}</div><div class="text-[10px] text-slate-500">${cd ? 'Disponible en ' + cd + ' días' : Object.keys(x.P).map(k => k + ' ' + (x.P[k] > 0 ? '+' : '') + x.P[k]).join(' · ') + (x.ES ? ' · efecto en España' : '')}</div></button>`; }).join('');
-    return `<div class="hoi-box p-4 rounded-xl space-y-2 font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">DECRETOS DE ${nm('P').toUpperCase()}</div><div class="grid grid-cols-1 md:grid-cols-2 gap-2">${btns}</div></div>`;
+  // ---------------- PESTAÑA «MULTIJUGADOR» DENTRO DE LA PARTIDA ----------------
+  function connPanel() {
+    const m = S() || {};
+    if (m.linked) return '';
+    if (m.role === 'host') return `<div class="hoi-box p-4 rounded-xl space-y-2 font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">SALA CREADA · ESPERANDO AL OTRO JUGADOR</div>
+      <div class="text-3xl tracking-[.35em] text-amber-300 font-bold">${esc(m.code)}</div>
+      <button onclick="MP.copy('${esc(location.origin + location.pathname)}#sala=${esc(m.code)}')" class="hoi-button px-3 py-1.5 rounded text-xs"><i class="fa-solid fa-link mr-1"></i>Copiar enlace de invitación</button>
+      <button onclick="MP.leave()" class="hoi-button px-3 py-1.5 rounded text-xs ml-2">Cancelar</button></div>`;
+    if (m.role === 'guest') return `<div class="hoi-box p-4 rounded-xl font-hoi-tech text-xs text-slate-300">Conectando con la sala <b class="text-amber-300">${esc(m.code)}</b>… <button onclick="MP.leave()" class="hoi-button px-3 py-1.5 rounded text-xs ml-2">Cancelar</button></div>`;
+    return `<div class="hoi-box p-4 rounded-xl space-y-3 font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">CONEXIÓN</div>
+      <div class="flex gap-2 flex-wrap items-center"><button onclick="MP.host()" class="hoi-button-gold px-4 py-2 rounded text-sm"><i class="fa-solid fa-globe mr-1"></i>Crear sala</button>
+      <input id="mp-code2" maxlength="5" placeholder="CÓDIGO" class="lb-input" style="width:130px;text-transform:uppercase;letter-spacing:.2em">
+      <button onclick="MP.enter(document.getElementById('mp-code2').value)" class="hoi-button px-4 py-2 rounded text-sm">Unirse</button></div></div>`;
   }
   function renderMulti() {
-    const head = `<div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-amber-400"><i class="fa-solid fa-people-arrows mr-2"></i>MODO MULTIJUGADOR</h3>`;
-    if (guest && !guest.s) return '<div class="hoi-box p-5 rounded-xl font-hoi-tech text-slate-300">Conectado a la sala. Esperando datos del anfitrión…</div>';
-    if (!S()) {
-      const opts = Object.keys(COUNTRIES).map(k => `<button onclick="MP.start('${k}');render()" class="hoi-button px-4 py-2 rounded text-sm">${COUNTRIES[k].flag} Mismo dispositivo con ${COUNTRIES[k].name}</button> <button onclick="MP.host('${k}')" class="hoi-button-gold px-4 py-2 rounded text-sm">${COUNTRIES[k].flag} Crear sala online con ${COUNTRIES[k].name}</button>`).join(' ') + `<div class="flex gap-2 items-center mt-3"><input id="mp-code" maxlength="5" placeholder="CÓDIGO" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 w-28 uppercase text-sm"><button onclick="MP.join(document.getElementById('mp-code').value)" class="hoi-button px-3 py-2 rounded text-sm">Unirme a una sala</button></div>`;
-      return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech">${head}<p class="text-xs text-slate-400 font-sans">Dos jugadores en el mismo dispositivo: uno gobierna España y otro un país socio. Os pasáis el mando, os proponéis pactos, os enviáis ayuda… o os hacéis la guerra económica. Todo repercute en las relaciones bilaterales de la partida.</p></div>${opts}</div>`;
-    }
-    const m = S(), me = m.turn, ot = oth(me), c = C(), mor = !!(window.MA && m.P && m.P.army);
-    const online = m.mode === 'online', isG = !!guest;
-    const ctl = isG ? '' : online
-      ? `<div class="text-xs text-slate-300 flex items-center gap-3 flex-wrap">Sala <b class="text-amber-300 text-lg tracking-widest">${m.code}</b> ${link && link.open ? '<span class="text-emerald-400">● ' + nm('P') + ' conectado</span>' : '<span class="text-amber-400">○ esperando al jugador…</span>'}${peer ? '' : ' <button onclick="MP.host(\'' + m.partner + '\')" class="hoi-button px-3 py-1 rounded">Reabrir sala</button>'}<button onclick="if(confirm('¿Desactivar el modo multijugador?'))MP.stop()" class="hoi-button px-3 py-1 rounded text-slate-400">Desactivar</button></div>`
-      : `<button onclick="MP.swap()" class="hoi-button-gold px-4 py-2 rounded text-sm"><i class="fa-solid fa-repeat mr-1"></i>Pasar el mando a ${flag(ot)} ${nm(ot)}</button><button onclick="if(confirm('¿Desactivar el modo multijugador?'))MP.stop()" class="hoi-button px-3 py-2 rounded text-xs text-slate-400">Desactivar</button>`;
-    const sub = isG ? 'Eres el gobierno de <b class="text-amber-300">' + flag('P') + ' ' + nm('P') + '</b>. Tus decisiones se aplican en la partida del anfitrión.' : online ? 'Controlas <b class="text-amber-300">' + flag('ES') + ' España</b>. ' + nm('P') + ' la lleva otro jugador desde su dispositivo.' : 'Controla ahora: <b class="text-amber-300">' + flag(me) + ' ' + nm(me) + '</b>. Al pasar el mando la partida se pausa.';
-    const r = Math.round(G() ? G().rel : (intlInit().rel[c.intl] || 0));
-    const tabs = me === 'P' ? '<div class="flex gap-2 flex-wrap">' + [['res', 'Resumen y diplomacia'], ['bud', 'Presupuesto'], ['pol', 'Decretos']].map(([k, l]) => `<button onclick="MP.tab('${k}')" class="${tab === k ? 'hoi-button-gold' : 'hoi-button'} px-3 py-1.5 rounded text-xs">${l}</button>`).join('') + '</div>' : '';
-    const top = `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech">${head}<p class="text-xs text-slate-400 font-sans">${sub}</p></div>`;
-    if (me === 'P' && tab === 'bud') return top + tabs + budgetHtml();
-    if (me === 'P' && tab === 'pol') return top + tabs + policiesHtml();
-    const inbox = m.inbox.map((it, i) => ({ it, i })).filter(o => o.it.from !== me).map(({ it, i }) => {
-      const x = ACTIONS.find(z => z.id === it.id);
-      return `<div class="bg-slate-900 border border-amber-500/40 rounded p-2 text-[11px] space-y-1"><div><b>${flag(it.from)} ${nm(it.from)}</b> ${it.asks ? 'solicita' : 'propone'}: <b class="text-amber-300">${x.t}</b></div><div class="flex gap-2"><button onclick="MP.answer(${i},true)" class="hoi-button px-2 py-1 rounded text-emerald-300">Aceptar</button><button onclick="MP.answer(${i},false)" class="hoi-button px-2 py-1 rounded text-red-300">Rechazar</button></div></div>`;
-    }).join('');
-    const evt = me === 'P' && m.evt != null ? (e => `<div class="bg-slate-900 border border-sky-500/40 rounded p-3 space-y-2"><b class="text-sm text-sky-300">${e.title}</b><p class="text-[11px] text-slate-400 font-sans">${e.desc}</p>${e.opts.map((o, i) => `<button onclick="MP.evt(${i})" class="hoi-button w-full p-2 rounded text-[11px] text-left">${o.t}</button>`).join('')}</div>`)(c.events[m.evt]) : '';
-    const acts = ACTIONS.filter(x => visible(x, me)).map(x => {
-      const on = x.pact && m.pacts[x.id], cd = m.cd[me + x.id] || 0, pend = m.inbox.some(i => i.from === me && i.id === x.id);
-      const off = on || cd > 0 || pend || cap(me) < x.cap;
-      return `<button ${off ? 'disabled' : ''} onclick="MP.act('${x.id}')" class="hoi-button p-2 rounded text-[11px] text-left ${off ? 'opacity-50' : ''} ${x.k === 'now' ? 'border-red-500/40' : ''}"><div><i class="fa-solid ${x.ic} mr-1 ${x.k === 'now' ? 'text-red-400' : 'text-emerald-400'}"></i><b>${x.t}</b> <span class="text-slate-400">· ${x.cap} cap.</span></div><div class="text-slate-400 font-sans">${x.d}</div><div class="text-[10px] ${on ? 'text-emerald-300' : 'text-slate-500'}">${on ? '✔ Pacto activo' : pend ? 'Propuesta pendiente…' : cd ? 'Disponible en ' + cd + ' días' : x.k === 'prop' ? 'Requiere aceptación de ' + nm(ot) : 'Efecto inmediato'}</div></button>`;
-    }).join('');
-    const lg = m.log.map(l => `<div class="text-[11px] text-slate-400"><span class="text-slate-600 font-mono">día ${l.d}</span> · ${l.t}</div>`).join('') || '<div class="text-[11px] text-slate-600">Sin movimientos todavía.</div>';
-    return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech">${head}<p class="text-xs text-slate-400 font-sans">${sub}</p></div>${tabs}
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">${card('ES')}${card('P')}</div>
-      ${mor && !isG && window.renderMoroccoPanel ? window.renderMoroccoPanel(m.P) : ''}
-      <div><div class="flex justify-between text-[11px] text-slate-300"><span>Relación ${nm('ES')} – ${nm('P')}</span><span class="font-mono">${r}/100</span></div><div class="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800"><div class="h-full ${r >= 70 ? 'bg-emerald-500' : r <= 30 ? 'bg-red-500' : 'bg-amber-500'}" style="width:${r}%"></div></div></div>
-      <div class="flex gap-2 flex-wrap">${ctl}</div>
-      ${inbox ? `<div class="space-y-2"><div class="text-[11px] text-amber-400 tracking-wider">PROPUESTAS RECIBIDAS</div>${inbox}</div>` : ''}${evt}
-      <div class="hoi-box p-4 rounded-xl space-y-2"><div class="text-[11px] text-amber-400 tracking-wider">ACCIONES DE ${nm(me).toUpperCase()}</div><div class="grid grid-cols-1 md:grid-cols-2 gap-2">${acts}</div></div>
-      <div class="hoi-box p-4 rounded-xl space-y-1"><div class="text-[11px] text-amber-400 tracking-wider">REGISTRO</div>${lg}</div>`;
+    const head = `<div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-amber-400"><i class="fa-solid fa-people-arrows mr-2"></i>MULTIJUGADOR</h3></div>`;
+    const m = S(), me = myC();
+    const sub = `<p class="text-xs text-slate-400 font-sans">Gobiernas ${flagOf(me.id)} <b class="text-amber-300">${esc(me.name)}</b> con tu propia partida completa. Solo se comparte la diplomacia: propuestas, pactos, ayudas y la relación; el otro jugador nunca ve tus estadísticas.</p>`;
+    if (!m || !m.linked) return `<div class="hoi-box p-5 rounded-xl space-y-3 font-hoi-tech">${head}${sub}</div>${connPanel()}${m && m.log.length ? logHtml(m) : ''}`;
+    const r = Math.round(m.rel), same = m.other && m.other.id === me.id;
+    const inbox = m.inbox.filter(i => !i.mine).map(it => { const x = ACT(it.id); if (!x) return '';
+      return `<div class="bg-slate-900 border border-amber-500/40 rounded p-2 text-[11px] space-y-1"><div><b>${oflag()} ${esc(oname())}</b> te propone: <b class="text-amber-300">${x.t}</b></div><div class="text-slate-400">${x.d}</div>
+      <div class="flex gap-2"><button onclick="MP.answer('${it.uid}',true)" class="hoi-button-gold px-3 py-1 rounded">Aceptar</button><button onclick="MP.answer('${it.uid}',false)" class="hoi-button px-3 py-1 rounded">Rechazar</button></div></div>`; }).join('');
+    const acts = ACTIONS.map(x => {
+      const on = x.pact && m.pacts[x.id], cd = m.cd[x.id] || 0, pend = m.inbox.some(i => i.mine && i.id === x.id), off = on || cd > 0 || pend || cap() < x.cap;
+      return `<button ${off ? 'disabled' : ''} onclick="MP.act('${x.id}')" class="hoi-button p-2 rounded text-[11px] text-left ${off ? 'opacity-50' : ''} ${x.k === 'now' ? 'border-red-500/40' : ''}"><div><i class="fa-solid ${x.ic} mr-1"></i><b>${x.t}</b> <span class="text-slate-500">· ${x.cap} cap.</span></div><div class="text-slate-400 mt-0.5">${x.d}</div><div class="text-[10px] mt-1 ${on ? 'text-emerald-400' : 'text-slate-500'}">${on ? '✔ ACTIVO' : pend ? 'Propuesta pendiente' : cd > 0 ? 'Disponible en ' + cd + ' días' : x.k === 'prop' ? 'Requiere aceptación' : 'Efecto inmediato'}</div></button>`; }).join('');
+    const pk = [['trade', 'Comercio'], ['border', 'Frontera'], ['defense', 'Defensa']].map(([k, l]) => `<span class="text-[10px] px-2 py-0.5 rounded border ${m.pacts[k] ? 'border-emerald-500 text-emerald-400' : 'border-slate-700 text-slate-500'}">${l}</span>`).join(' ');
+    return `<div class="hoi-box p-5 rounded-xl space-y-3 font-hoi-tech">${head}${sub}</div>
+      ${same ? '<div class="hoi-box p-3 rounded-xl text-xs text-amber-300 font-hoi-tech">⚠ Los dos jugadores gobernáis el mismo país. Uno debe cambiar de país desde el menú principal.</div>' : ''}
+      <div class="bg-slate-950 border border-amber-500/40 rounded-lg p-3 space-y-2 font-hoi-tech">
+        <div class="flex justify-between items-center"><b class="text-sm text-slate-100">${oflag()} ${esc(oname())}</b><span class="text-[10px] text-emerald-400">● ${esc(m.other.user || 'conectado')}</span></div>
+        <div class="flex justify-between text-[11px] text-slate-300"><span>Relación ${esc(me.name)} – ${esc(oname())}</span><span class="font-mono">${r}/100</span></div>
+        <div class="h-1.5 bg-slate-900 rounded overflow-hidden"><div class="h-full ${r >= 60 ? 'bg-emerald-500' : r >= 35 ? 'bg-amber-500' : 'bg-red-500'}" style="width:${r}%"></div></div>
+        <div class="flex gap-1 flex-wrap">${pk}</div>
+        <div class="flex justify-between text-[11px] text-slate-400"><span>Tu capital político: <b class="text-slate-200">${Math.floor(cap())}</b></span><span>Tu tesorería: <b class="text-slate-200">${fmt(treas())} M€</b></span></div>
+        <button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded text-[10px]">Desconectar</button></div>
+      ${inbox ? `<div class="space-y-2"><div class="text-[11px] text-amber-400 tracking-wider">PROPUESTAS RECIBIDAS</div>${inbox}</div>` : ''}
+      <div class="hoi-box p-4 rounded-xl space-y-2"><div class="text-[11px] text-amber-400 tracking-wider font-hoi-tech">DIPLOMACIA CON ${esc(oname()).toUpperCase()}</div><div class="grid grid-cols-1 md:grid-cols-2 gap-2">${acts}</div></div>
+      ${logHtml(m)}`;
   }
+  const logHtml = m => `<div class="hoi-box p-4 rounded-xl space-y-1"><div class="text-[11px] text-amber-400 tracking-wider font-hoi-tech">REGISTRO</div>${m.log.map(l => `<div class="text-[11px] text-slate-400"><span class="text-slate-600 font-mono">día ${l.d}</span> · ${esc(l.t)}</div>`).join('') || '<div class="text-[11px] text-slate-600">Sin movimientos.</div>'}</div>`;
 
   // ---------------- ENGANCHES CON EL JUEGO ----------------
-  window.MP = { start, stop, swap, host, join, leave: closeNet, COUNTRIES,
-    sendX: o => { if (link && link.open) link.send(Object.assign({ t: 'x' }, o)); },
-    act: id => (guest ? gsend({ t: 'act', id }) : act(id)),
-    answer: (i, ok) => (guest ? gsend({ t: 'ans', i, ok }) : answer(i, ok)),
-    evt: i => (guest ? gsend({ t: 'evt', i }) : resolveEvt(i)),
-    bud: (id, v) => (guest ? gsend({ t: 'bud', id, v: +v }) : (setBud(id, v), render())),
-    pol: id => (guest ? gsend({ t: 'pol', id }) : pol(id)),
-    tab: k => { tab = k; guest ? paintGuest() : render(); },
-    // --- usado por marruecos.js ---
-    renderMulti, repaint: () => paintGuest(), isGuest: () => !!guest, toast,
-    sendMA: (f, a) => gsend({ t: 'ma', f, a }),
-    canAct: () => !!guest || (!!S() && S().mode !== 'online' && S().turn === 'P'),
-    cross: (esFx, r, txt, ask) => {
-      try { applyFx('ES', esFx); if (r) rel(r); if (txt) log(txt); if (ask && S()) S().inbox.push({ from: 'P', id: 'aid', asks: true }); } catch (e) { console.error(e); }
-    },
-    // --- NUEVO: registro y consulta del adaptador de país ---
-    setAdapter: a => { window.MP_ADAPTER = a; },
-    adapter: () => window.MP_ADAPTER || null
-  };
-
   function addTab() {
     if (document.getElementById('tab-btn-mp')) return;
     const b = document.createElement('button'); b.id = 'tab-btn-mp'; b.className = 'nav-tab-btn'; b.setAttribute('onclick', "switchTab('mp')");
@@ -428,25 +295,14 @@
     else { const l = document.querySelector('.sidebar-nav-list'); if (l) l.appendChild(b); }
   }
   addTab();
-
   const _rtc = renderTabContent;
   renderTabContent = function () { return gameState.activeTab === 'mp' ? renderMulti() : _rtc(); };
-
   const _t = gameTick;
   gameTick = function () {
     const b = gameState.daysInOffice;
-    const pm = gameState.mp;
-    if (pm && pm.started === false && gameState.step === 4 && pm.P && pm.P.setup && !pm.P.setup.done) {   // Marruecos aún no ha formado Gobierno
-      try { setGameSpeed(0); } catch (e) { /* ya en pausa */ }
-      toast('Marruecos aún no ha terminado su reparto de escaños y su coalición. La partida no puede empezar.'); render(); return;
-    }
-    if (gameState.mp && gameState.mp.started === false && gameState.step === 4) { gameState.mp.started = true; setTimeout(push, 0); }
     _t.apply(this, arguments);
-    if (gameState.daysInOffice !== b) { try { daily(); push(); } catch (e) { console.error(e); } }
+    if (gameState.daysInOffice !== b && S()) { try { daily(); } catch (e) { console.error(e); } }
   };
-
-  const _s = selectScenario;
-  selectScenario = function (id) { if (!(gameState.mp && gameState.mp.mode === 'online')) gameState.mp = null; _s(id); };
 
   // ---------------- PANTALLA DE INICIO (LOBBY) ----------------
   const css = document.createElement('style');
@@ -494,90 +350,65 @@
       <rect y="860" width="1600" height="40" fill="#04080e"/></svg>`;
   }
 
-  const L = { on: true, view: 'home', country: 'ES', partner: Object.keys(COUNTRIES)[0], err: '', code: '', mode: 'online', difficulty: (typeof gameState !== 'undefined' && gameState.difficulty) || 'normal', legs: (typeof gameState !== 'undefined' && gameState.campaignLegs) || 3, scen: (typeof SCENARIOS !== 'undefined' && Object.keys(SCENARIOS)[0]) || 'ACTUAL' };
-  const CL = () => [{ id: 'ES', name: 'España', flag: '🇪🇸', tag: 'Gobierno · Anfitrión', sub: 'Presidente del Gobierno: coaliciones, economía, Defensa y diplomacia.' }]
-    .concat(Object.keys(COUNTRIES).map(k => ({ id: k, name: COUNTRIES[k].name, flag: COUNTRIES[k].flag, tag: 'Solo multijugador', sub: 'Gobierno de Rabat: presupuesto, decretos y relación con España.' })));
-  const userOk = () => USER.trim().length >= 2;
+  const L = { on: true, view: 'home', err: '', code: '' };
+  try { const c = sessionStorage.getItem('mp_code'); if (c) { L.code = c; sessionStorage.removeItem('mp_code'); } } catch (e) { /* nada */ }
+  function userOk() { return USER.trim().length >= 2; }
   function need() { if (userOk()) return true; L.err = 'Escribe un nombre de usuario (mínimo 2 caracteres).'; render(); const i = document.getElementById('lb-user'); if (i) i.focus(); return false; }
   const btn = (c, ic, t, f, dis) => `<button ${dis ? 'disabled' : `onclick="${f}"`} class="${c} px-5 py-2.5 rounded-lg text-sm ${dis ? 'opacity-50' : ''}"><i class="fa-solid ${ic} mr-2"></i>${t}</button>`;
-  const back = '<button onclick="MP.lobby(\'home\')" class="hoi-button px-3 py-1.5 rounded text-xs text-slate-300 self-start"><i class="fa-solid fa-chevron-left mr-1"></i>Volver</button>';
 
   function lobbyCard() {
-    const m = gameState.mp;
-    if (m && m.mode === 'online' && peer) {   // sala de espera del anfitrión
-      const ok = link && link.open, url = location.origin + location.pathname + '#sala=' + m.code;
-      return `<div class="text-center space-y-1"><div class="lb-label">Código de sala</div><div class="lb-cn" style="font-size:60px;letter-spacing:.35em;color:#f5cf68">${m.code}</div>
-        <button onclick="MP.copy('${url}')" class="hoi-button px-3 py-1.5 rounded text-xs"><i class="fa-solid fa-link mr-1"></i>Copiar enlace de invitación</button></div>
-        <div class="lb-countries"><div class="lb-country sel"><div class="lb-flag">🇪🇸</div><div class="lb-cn">España</div><div class="text-xs text-emerald-400">${USER} · anfitrión ✔</div></div>
-        <div class="lb-country ${ok ? 'sel' : ''}"><div class="lb-flag">${flag('P')}</div><div class="lb-cn">${nm('P')}</div><div class="text-xs ${ok ? 'text-emerald-400' : 'text-amber-400'}">${ok ? (m.gn || 'Jugador 2') + ' conectado ✔' : 'Esperando al jugador 2…'}</div></div></div>
-        <div class="flex gap-2 justify-center flex-wrap">${btn('hoi-button-gold', 'fa-play', 'Empezar partida', 'MP.begin()', !ok)}${btn('hoi-button', 'fa-xmark', 'Cancelar sala', 'MP.cancel()')}</div>`;
-    }
-    if (L.view === 'create') {
-      const opts = Object.keys(COUNTRIES).map(k => `<button onclick="MP.partner('${k}')" class="${L.partner === k ? 'hoi-button-gold' : 'hoi-button'} px-4 py-3 rounded-lg text-sm">${COUNTRIES[k].flag} ${COUNTRIES[k].name}</button>`).join(' ');
-      return `${back}<div class="lb-label">Tú gobiernas 🇪🇸 España · el jugador 2 gobierna</div><div class="flex gap-2 flex-wrap">${opts}</div>
-        <div class="flex gap-2 flex-wrap">${btn('hoi-button-gold', 'fa-globe', 'Crear sala online', 'MP.create()')}${btn('hoi-button', 'fa-desktop', 'Mismo dispositivo (por turnos)', 'MP.local()')}</div>
-        <p class="text-[11px] text-slate-500 font-sans">Online: recibirás un código para tu amigo. El anfitrión siempre lleva España porque su navegador ejecuta la simulación.</p>`;
-    }
-    if (L.view === 'difficulty') {   // dificultad común para los dos jugadores
-      const back2 = '<button onclick="MP.lobby(\'create\')" class="hoi-button px-3 py-1.5 rounded text-xs text-slate-300 self-start"><i class="fa-solid fa-chevron-left mr-1"></i>Volver</button>';
-      const diffs = Object.keys(DIFFICULTY).map(k => { const d = DIFFICULTY[k];
-        return `<button onclick="MP.selectDifficulty('${k}')" class="${L.difficulty === k ? 'hoi-button-gold' : 'hoi-button'} px-3 py-3 rounded-lg text-sm flex flex-col items-center gap-1 text-center"><i class="fa-solid ${d.icon} text-2xl"></i><b class="font-hoi-header">${d.name}</b><span class="text-[10px] text-slate-400 font-sans">${d.desc}</span><span class="text-[10px] text-amber-300">PUNTOS ×${d.score}</span></button>`; }).join('');
-      const legsB = (typeof CAMPAIGN_MODES !== 'undefined' ? CAMPAIGN_MODES : []).map(c => `<button onclick="MP.selectLegs(${c.legs})" class="${L.legs === c.legs ? 'hoi-button-gold' : 'hoi-button'} px-3 py-2 rounded-lg text-sm flex flex-col items-center gap-1 text-center"><i class="fa-solid ${c.icon} text-xl"></i><b class="font-hoi-header">${c.title}</b><span class="text-[10px] text-slate-400 font-sans">${c.legs} ${c.legs === 1 ? 'legislatura' : 'legislaturas'} · ${c.years}</span></button>`).join('');
-      const scenB = (typeof SCENARIOS !== 'undefined' ? Object.values(SCENARIOS) : []).map(sc => `<button onclick="MP.selectScen('${sc.id}')" class="${L.scen === sc.id ? 'hoi-button-gold' : 'hoi-button'} px-3 py-2 rounded-lg text-sm text-left flex flex-col gap-1"><b class="font-hoi-header">${sc.title}</b><span class="text-[10px] text-slate-400 font-sans">${sc.desc}</span></button>`).join('');
-      return `${back2}<div class="lb-label">Duración de la campaña</div><div class="grid grid-cols-3 gap-2">${legsB}</div><div class="lb-label">Teatro político (época de partida)</div><div class="grid grid-cols-1 md:grid-cols-2 gap-2">${scenB}</div><div class="lb-label">Dificultad de la partida (afecta a España y a ${COUNTRIES[L.partner].name})</div><div class="grid grid-cols-2 md:grid-cols-4 gap-2">${diffs}</div>
-        <div class="flex gap-2 flex-wrap">${btn('hoi-button-gold', L.mode === 'online' ? 'fa-globe' : 'fa-play', L.mode === 'online' ? 'Crear sala' : 'Iniciar partida', "MP.beginMultiplayer('" + L.partner + "','" + L.difficulty + "')")}</div>
-        <p class="text-[11px] text-slate-500 font-sans">Después formarás Gobierno. Ambos jugadores empiezan a gobernar el mismo día.</p>`;
+    const m = S(), me = myC();
+    if (m && m.role && peer) {   // sala de espera
+      const ok = m.linked, url = location.origin + location.pathname + '#sala=' + m.code;
+      return `<div class="text-center space-y-1"><div class="lb-label">${m.role === 'host' ? 'Código de sala' : 'Conectando a la sala'}</div><div class="lb-cn" style="font-size:60px;letter-spacing:.35em;color:#f5cf68">${esc(m.code)}</div>
+        ${m.role === 'host' ? `<button onclick="MP.copy('${esc(url)}')" class="hoi-button px-3 py-1.5 rounded text-xs"><i class="fa-solid fa-link mr-1"></i>Copiar enlace de invitación</button>` : ''}</div>
+        <div class="lb-countries"><div class="lb-country sel"><div class="lb-flag">${flagOf(me.id)}</div><div class="lb-cn">${esc(me.name)}</div><div class="text-xs text-emerald-400">${esc(USER)} · tú</div></div>
+        <div class="lb-country ${ok ? 'sel' : ''}"><div class="lb-flag">${ok ? oflag() : '⏳'}</div><div class="lb-cn">${ok ? esc(oname()) : 'Esperando…'}</div><div class="text-xs ${ok ? 'text-emerald-400' : 'text-slate-500'}">${ok ? esc(m.other && m.other.user || 'conectado') : 'sin conectar'}</div></div></div>
+        ${ok && m.other && m.other.id === me.id ? '<div class="lb-err">Los dos tenéis el mismo país. Uno debe cancelar y elegir otro.</div>' : ''}
+        <p class="text-[11px] text-slate-500 font-sans text-center">Cada jugador empieza su propia partida con su país; solo se comparte la diplomacia. No hace falta empezar a la vez.</p>
+        <div class="flex gap-2 justify-center flex-wrap">${btn('hoi-button-gold', 'fa-play', 'Empezar mi partida', 'MP.begin()', !ok)}${btn('hoi-button', 'fa-xmark', 'Cancelar', 'MP.cancel()')}</div>`;
     }
     let has = false; try { has = !!localStorage.getItem(SAVE_KEY); } catch (e) { /* sin guardado */ }
-    const cards = CL().map(c => `<div class="lb-country ${L.country === c.id ? 'sel' : ''}" onclick="MP.country('${c.id}')"><div class="lb-flag">${c.flag}</div><div class="lb-cn">${c.name}</div><span class="lb-tag">${c.tag}</span><p class="text-[11px] text-slate-400 font-sans mt-2">${c.sub}</p></div>`).join('');
-    const acts = L.country === 'ES'
-      ? btn('hoi-button-gold', 'fa-user', 'Un jugador', 'MP.single()') + btn('hoi-button', 'fa-people-arrows', 'Crear partida multijugador', "MP.lobby('create')")
-      : `<input id="mp-code" maxlength="5" value="${L.code}" placeholder="CÓDIGO DE SALA" class="lb-input" style="width:190px;text-transform:uppercase;letter-spacing:.2em">${btn('hoi-button-gold', 'fa-right-to-bracket', 'Entrar a la sala', "MP.enter(document.getElementById('mp-code').value)")}`;
-    return `<div><div class="lb-label mb-1">1 · Nombre de usuario</div><input id="lb-user" class="lb-input" maxlength="16" placeholder="Ej.: Presidente_Moncloa" value="${USER.replace(/"/g, '')}" oninput="MP.user(this.value)"><div class="lb-err mt-1">${L.err}</div></div>
+    const cards = (window.COUNTRIES || []).map(c => `<div class="lb-country ${me.id === c.id ? 'sel' : ''}" onclick="MP.country('${esc(c.id)}')"><div class="lb-flag">${flagOf(c.id)}</div><div class="lb-cn">${esc(c.name)}</div><div class="lb-tag">${me.id === c.id ? 'Tu país' : 'Cambiar a este país'}</div></div>`).join('');
+    return `<div><div class="lb-label mb-1">1 · Nombre de usuario</div><input id="lb-user" class="lb-input" maxlength="16" placeholder="Ej.: Presidente_Moncloa" value="${esc(USER)}" oninput="MP.user(this.value)"></div>
       <div><div class="lb-label mb-2">2 · Elige tu país</div><div class="lb-countries">${cards}</div></div>
-      <div><div class="lb-label mb-2">3 · ${L.country === 'ES' ? 'Elige cómo jugar' : 'Únete a la partida de un anfitrión'}</div><div class="flex gap-2 flex-wrap items-center">${acts}</div></div>
+      <div><div class="lb-label mb-2">3 · Cómo jugar</div><div class="flex gap-2 flex-wrap items-center">
+        ${btn('hoi-button-gold', 'fa-user', 'Un jugador', 'MP.single()')}${btn('hoi-button', 'fa-globe', 'Crear sala online', 'MP.host()')}
+        <input id="mp-code" maxlength="5" value="${esc(L.code)}" placeholder="CÓDIGO DE SALA" class="lb-input" style="width:190px;text-transform:uppercase;letter-spacing:.2em" oninput="MP.codeIn(this.value)">
+        ${btn('hoi-button', 'fa-right-to-bracket', 'Unirse', "MP.enter(document.getElementById('mp-code').value)")}</div></div>
+      <div class="lb-err">${esc(L.err)}</div>
       ${has ? '<div class="text-center">' + btn('hoi-button', 'fa-folder-open', 'Continuar partida guardada', 'MP.cont()') + '</div>' : ''}`;
   }
-  const lob = v => { L.view = v; L.err = ''; render(); };
-  Object.assign(window.MP, {
-    lobby: lob, partner: k => { L.partner = k; render(); }, country: k => { L.country = k; L.err = ''; render(); },
+
+  window.MP = {
+    host, act, answer,
+    join: c => join(c), enter: c => { L.code = (c || '').toUpperCase(); join(L.code); },
+    leave: () => { closeNet(); gameState.mp = null; render(); },
+    cancel: () => { closeNet(); gameState.mp = null; L.err = ''; render(); },
+    codeIn: v => { L.code = v.toUpperCase(); },
     user: v => { USER = v.slice(0, 16); L.err = ''; try { localStorage.setItem('moncloa_user', USER); } catch (e) { /* nada */ } },
-    single: () => { if (need()) { L.on = false; render(); } },
-    create: () => { if (need()) { L.mode = 'online'; lob('difficulty'); } },
-    local: () => { if (need()) { L.mode = 'local'; lob('difficulty'); } },
-    selectLegs: n => { L.legs = n; gameState.campaignLegs = n; render(); },
-    selectScen: id => { L.scen = id; render(); },
-    selectDifficulty: d => { if (DIFFICULTY[d]) { L.difficulty = d; gameState.difficulty = d; render(); } },
-    beginMultiplayer: (partner, d) => {
-      if (!need()) return;
-      L.partner = COUNTRIES[partner] ? partner : L.partner;
-      L.difficulty = DIFFICULTY[d] ? d : L.difficulty; gameState.difficulty = L.difficulty;
-      if (L.mode === 'local') { window.__mpStart = L.partner; L.on = false; gameState.campaignLegs = L.legs; selectScenario(L.scen); }   // salta la pantalla de campaña/teatro; la partida arranca al formar Gobierno
-      else host(L.partner);                                                                // sala de espera; «Empezar partida» continúa
+    country: id => {   // cambiar de país recarga la página (cada país carga su propio fichero); la conexión debe crearse después
+      if (id === myC().id) return;
+      try { if (L.code) sessionStorage.setItem('mp_code', L.code); } catch (e) { /* nada */ }
+      if (typeof window.switchCountry === 'function') window.switchCountry(id);
     },
-    enter: c => { if (need()) { L.code = (c || '').toUpperCase(); join(L.code); } },
-    begin: () => { L.on = false; gameState.campaignLegs = L.legs; selectScenario(L.scen); }, cancel: () => { L.view = 'create'; stop(); },
+    single: () => { if (need()) { closeNet(); gameState.mp = null; L.on = false; render(); } },
+    begin: () => { L.on = false; render(); },
     cont: () => { L.on = false; loadGame(); },
-    copy: u => { try { navigator.clipboard.writeText(u); goalsToast('Enlace copiado.', '#10b981'); } catch (e) { prompt('Copia el enlace:', u); } }
-  });
+    copy: u => { try { navigator.clipboard.writeText(u); goalsToast('Enlace copiado.', '#10b981'); } catch (e) { prompt('Copia el enlace:', u); } },
+    rel: () => (S() ? S().rel : null), pacts: () => (S() ? Object.assign({}, S().pacts) : {}), isLinked: () => !!(S() && S().linked),
+    tab: () => render(), toast
+  };
+
   const _rs = renderScenarioSelect;
   renderScenarioSelect = function (app) {
-    if (!L.on) {
-      _rs(app);
-      const mpChosen = (gameState.mp && gameState.mp.mode === 'online') || window.__mpStart;
-      if (mpChosen) {   // la dificultad ya se eligió al crear la partida: se quita y se renumera
-        const secs = Array.from(app.querySelectorAll('section'));
-        secs.filter(x => /DIFICULTAD/i.test(x.textContent)).forEach(x => x.remove());
-        Array.from(app.querySelectorAll('section')).forEach((x, i) => { const n = x.querySelector('span.font-hoi-header'); if (n) n.textContent = String(i + 1); });
-      }
-      return;
-    }
+    if (!L.on) { _rs(app); return; }
     app.innerHTML = `<div class="lb-root"><div class="lb-photo"></div>${bgSvg()}<div class="lb-shade"></div><div class="lb-wrap">
       <div><div class="lb-title">MONCLOA<br>STRATEGY</div></div><div class="lb-sub">Simulador político y estratégico · Siglo XXI</div>
       <div class="lb-card">${lobbyCard()}</div><div class="lb-foot">MONCLOA STRATEGY © 2026 · @joelfr302003</div></div></div>`;
   };
   const hm = location.hash.match(/sala=([A-Za-z0-9]{5})/);
-  if (hm) { L.country = 'MA'; L.code = hm[1].toUpperCase(); if (userOk()) setTimeout(() => join(L.code), 400); else L.err = 'Escribe tu nombre de usuario y pulsa «Entrar a la sala».'; }
+  if (hm) { L.code = hm[1].toUpperCase(); if (userOk()) setTimeout(() => join(L.code), 400); else L.err = 'Escribe tu nombre de usuario y pulsa «Unirse».'; }
   let lastStep = 1;
 
   const _r = render;
@@ -585,314 +416,14 @@
     if (gameState.step === 1 && lastStep > 1) { L.on = true; L.view = 'home'; if (gameState.mp) { closeNet(); gameState.mp = null; } }
     lastStep = gameState.step;
     document.body.classList.toggle('mp-lobby', gameState.step === 1 && L.on);
-    if (gameState.step === 4 && window.__mpStart && !gameState.mp) { const k = window.__mpStart, net = window.__mpNet; window.__mpStart = null; start(k); if (net) host(k); }
-    if (gameState.step === 4 && gameState.mp && gameState.mp.synced === false) {
-      const m = gameState.mp, d = gameState.daysInOffice || 1;
-      m.synced = true; m.next = d + 30;
-      if (m.P && m.P.army) { m.P.day = d; m.P.next = d + 25; }
-      if (m.mode === 'online') setTimeout(() => goalsToast('Pulsa ▶ para empezar: la partida arrancará a la vez para ' + nm('ES') + ' y ' + nm('P') + '.', '#d9a726'), 300);
-    }
-    try { ensureMA(); } catch (e) { console.error(e); }
+    const mm = S(); if (mm && mm.linked && !(link && link.open)) mm.linked = false;   // partida cargada: sin conexión viva
     const r = _r.apply(this, arguments);
-    try {
-      const mm = gameState.mp, st = mm && mm.partner === 'MA' && mm.mode === 'online' && mm.started === false && mm.P && mm.P.setup, show = st && gameState.step >= 2 && gameState.step <= 4;
-      let bx = document.getElementById('ma-setup-badge');
-      if (show) {
-        if (!bx) { bx = document.createElement('div'); bx.id = 'ma-setup-badge'; bx.style.cssText = 'position:fixed;right:12px;bottom:56px;z-index:9999;max-width:260px'; bx.className = 'hoi-box rounded-lg px-3 py-2 font-hoi-tech text-[11px]'; document.body.appendChild(bx); }
-        bx.innerHTML = st.done ? '🇲🇦 <b class="text-emerald-400">Marruecos listo.</b> Cuando termines tu reparto, empieza la partida.' : '🇲🇦 Marruecos está ' + (st.phase === 'coal' ? 'negociando su pactómetro' : 'ajustando sus escaños') + '. No podrás empezar hasta que termine.';
-      } else if (bx) bx.remove();
-    } catch (e) { console.error(e); }
     const b = document.getElementById('tab-btn-mp');
     if (b) {
       b.style.display = gameState.step === 4 ? '' : 'none';
-      const n = gameState.mp ? gameState.mp.inbox.length + (gameState.mp.evt != null ? 1 : 0) : 0;
+      const n = mm ? mm.inbox.filter(i => !i.mine).length : 0;
       b.querySelector('span').textContent = 'Multijugador' + (n ? ' (' + n + ')' : '');
     }
-    if (Date.now() - lastPush > 400) push();
     return r;
-  };
-})();
-
-
-// =====================================================================
-//  MÓDULO DE MARRUECOS PARA EL MULTIJUGADOR
-//  Reparto de escaños (395), pactómetro de coalición, gobierno de coalición
-//  y ejército. Los partidos y escaños salen de Countries/marruecos.js
-//  (getCountryData('marruecos')); si no se puede leer, se usa una copia interna.
-//  Todo el estado vive en gameState.mp.P (se sincroniza al invitado en cada snapshot).
-// =====================================================================
-(function () {
-  'use strict';
-  const TOTAL = 395, MAJ = 198;
-  const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
-  const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-
-  // Copia de seguridad: resultado de 2021 (id, nombre, líder, color, escaños, orden, ideología, líneas rojas)
-  const FALLBACK = [
-    ['FGD', 'Federación de la Izquierda Democrática', 'Candidatura de la FGD', '#be185d', 1, 1, 'Izquierda', ['RNI', 'PAM', 'UC', 'PI', 'MP']],
-    ['PPS', 'Partido del Progreso y el Socialismo', 'Nabil Benabdallah', '#f97316', 22, 2, 'Izquierda', []],
-    ['USFP', 'Unión Socialista de Fuerzas Populares', 'Driss Lachguar', '#f43f5e', 34, 3, 'Socialdemocracia', []],
-    ['PJD', 'Partido Justicia y Desarrollo', 'Abdelilah Benkirane', '#38bdf8', 13, 4, 'Islamismo conservador', ['PAM']],
-    ['MP', 'Movimiento Popular', 'Dirección del MP', '#a16207', 28, 4, 'Centro rural', []],
-    ['UC', 'Unión Constitucional', 'Mohamed Sajid', '#eab308', 18, 5, 'Liberal', []],
-    ['PAM', 'Autenticidad y Modernidad', 'Abdellatif Ouahbi', '#16a34a', 87, 5, 'Centro modernista', ['PJD']],
-    ['RNI', 'Agrupación Nacional de Independientes', 'Aziz Akhannouch', '#2563eb', 102, 6, 'Liberal / centroderecha', []],
-    ['PI', 'Istiqlal', 'Nizar Baraka', '#dc2626', 81, 6, 'Nacionalista conservador', []],
-    ['MDS', 'Movimiento Demócrata y Social', 'Dirección del MDS', '#94a3b8', 3, 4, 'Centro', []],
-    ['OTR', 'Independientes y otros', 'Independiente', '#64748b', 6, 4, 'Varios', []]
-  ].map(a => ({ id: a[0], name: a[1], leader: a[2], color: a[3], seats: a[4], base: a[4], ord: a[5], ide: a[6], red: a[7] }));
-
-  function loadParties() {
-    try {
-      const d = window.getCountryData && window.getCountryData('marruecos');
-      const sc = d && d.SCENARIOS && (d.SCENARIOS.ACTUAL || Object.values(d.SCENARIOS)[0]);
-      if (sc && Array.isArray(sc.parties) && sc.parties.length) {
-        return {
-          treasury: sc.treasury,
-          parties: sc.parties.map(p => ({ id: p.id, name: p.name, leader: p.leader || '', color: p.color || '#64748b', seats: +p.seats || 0, base: p.baseSeats != null ? +p.baseSeats : (+p.seats || 0), ord: p.spectrumOrder || 4, ide: p.ideology || '', red: p.redLines || [] }))
-        };
-      }
-    } catch (e) { console.warn('[Marruecos] No se pudo leer Countries/marruecos.js; se usa la copia interna.', e); }
-    return { treasury: 9000, parties: FALLBACK.map(p => Object.assign({}, p)) };
-  }
-
-  // ---------------- UTILIDADES ----------------
-  const mp = () => (typeof gameState !== 'undefined' && gameState.mp) || null;
-  const party = (P, id) => P.parties.find(p => p.id === id);
-  const seatsOf = (P, ids) => P.parties.filter(p => ids.includes(p.id)).reduce((t, p) => t + p.seats, 0);
-  const total = P => P.parties.reduce((t, p) => t + p.seats, 0);
-  const pending = P => !!(P.setup && !P.setup.done);
-  const toast = t => { try { window.MP.toast(t); } catch (e) { console.log(t); } };
-  function conflicts(P, ids) {
-    const out = [], seen = {};
-    ids.forEach(a => { const pa = party(P, a); if (pa) (pa.red || []).forEach(b => { const k = [a, b].sort().join('|'); if (ids.includes(b) && !seen[k]) { seen[k] = 1; out.push([a, b]); } }); });
-    return out;
-  }
-  function mlog(t) {
-    const m = mp(); if (!m) return;
-    m.log.unshift({ d: (typeof gameState !== 'undefined' && gameState.daysInOffice) || 0, t });
-    m.log.length = Math.min(m.log.length, 12);
-    try { addNewsToTicker(t, 'Cooperación'); } catch (e) { /* sin ticker */ }
-  }
-  const leaderOf = P => { const p = party(P, P.pm) || party(P, P.coal[0]); return p; };
-
-  // ---------------- ESTADO INICIAL ----------------
-  window.initMorocco = function (gn) {
-    const c = (window.MP && MP.COUNTRIES && MP.COUNTRIES.MA) || { start: { eco: 52, est: 60, apr: 55, mil: 58, tes: 9000, cap: 30 }, budget: [] };
-    const d = loadParties();
-    const P = Object.assign({}, c.start, { tes: d.treasury || c.start.tes, bud: Object.fromEntries(c.budget.map(b => [b.id, 50])) });
-    Object.assign(P, {
-      army: { tierra: P.mil, mar: clamp(P.mil - 2), aire: clamp(P.mil + 2) },
-      parties: d.parties, coal: [], pm: null, coh: 60, sumcd: 0,
-      setup: { phase: 'seats', done: false }, day: 0, next: 25
-    });
-    try { if (window.MP && MP.setAdapter && !MP.adapter()) MP.setAdapter({ me: 'MA' }); } catch (e) { /* nada */ }
-    return P;
-  };
-
-  // ---------------- ÓRDENES (se ejecutan siempre en la partida del anfitrión) ----------------
-  const H = {
-    seatd(P, a) {
-      if (!P.setup || P.setup.done || P.setup.phase !== 'seats') return;
-      const p = party(P, a.id); if (p) p.seats = clamp(Math.round(p.seats + (+a.d || 0)), 0, TOTAL);
-    },
-    seat(P, a) {
-      if (!P.setup || P.setup.done || P.setup.phase !== 'seats') return;
-      const p = party(P, a.id); if (p) p.seats = clamp(Math.round(+a.v || 0), 0, TOTAL);
-    },
-    preset(P, a) {
-      if (!P.setup || P.setup.done || P.setup.phase !== 'seats') return;
-      if (a.k === 'real') { P.parties.forEach(p => { p.seats = p.base; }); return; }
-      const w = P.parties.map(p => Math.max(1, p.base) * (0.35 + Math.random() * 1.3)), s = w.reduce((t, x) => t + x, 0);
-      let t = 0; P.parties.forEach((p, i) => { p.seats = Math.floor(w[i] / s * TOTAL); t += p.seats; });
-      const order = w.map((x, i) => i).sort((i, j) => w[j] - w[i]);
-      for (let k = 0; t < TOTAL; k = (k + 1) % order.length, t++) P.parties[order[k]].seats++;
-    },
-    seatsok(P) {
-      if (!P.setup || P.setup.done || P.setup.phase !== 'seats') return;
-      if (total(P) !== TOTAL) return toast('El reparto debe sumar exactamente ' + TOTAL + ' escaños.');
-      P.setup.phase = 'coal'; P.coal = []; P.pm = null;
-    },
-    back(P) { if (P.setup && !P.setup.done && P.setup.phase === 'coal' && !P.setup.reneg) P.setup.phase = 'seats'; },
-    coal(P, a) {
-      if (!P.setup || P.setup.done || P.setup.phase !== 'coal') return;
-      const p = party(P, a.id); if (!p || p.seats <= 0) return;
-      if (P.coal.includes(a.id)) { if (P.setup.reneg && a.id === P.pm) return toast('El partido del jefe de Gobierno no puede salir.'); P.coal = P.coal.filter(x => x !== a.id); if (P.pm === a.id) P.pm = null; }
-      else P.coal.push(a.id);
-    },
-    pm(P, a) { if (P.setup && !P.setup.done && P.setup.phase === 'coal' && P.coal.includes(a.id) && !P.setup.reneg) P.pm = a.id; },
-    coalok(P) {
-      if (!P.setup || P.setup.done || P.setup.phase !== 'coal') return;
-      const s = seatsOf(P, P.coal);
-      if (s < MAJ) return toast('Faltan escaños: la mayoría absoluta son ' + MAJ + ' y la coalición suma ' + s + '.');
-      if (conflicts(P, P.coal).length) return toast('Hay partidos con líneas rojas entre sí en la coalición.');
-      if (!P.pm || !P.coal.includes(P.pm)) P.pm = P.coal.slice().sort((x, y) => party(P, y).seats - party(P, x).seats)[0];
-      const reneg = !!P.setup.reneg;
-      P.setup = { phase: 'gov', done: true }; P.coh = reneg ? 50 : 60;
-      const L = party(P, P.pm);
-      mlog('Marruecos: ' + (reneg ? 'nuevo Gobierno de coalición' : 'Gobierno de coalición formado') + ' (' + P.coal.map(i => i).join(' + ') + ', ' + s + ' escaños) presidido por ' + (L.leader || L.name) + '.');
-    },
-    summit(P) {
-      const m = mp(); if (!m || pending(P) || (m.cd.Psummit || 0) > 0) return;
-      if (P.cap < 3) return toast('Capital político insuficiente.');
-      P.cap -= 3; m.cd.Psummit = 30; P.sumcd = 30; P.coh = clamp(P.coh + 12);
-      mlog('Marruecos: cumbre de la coalición; los socios cierran filas.');
-    },
-    join(P, a) {
-      if (pending(P)) return;
-      const p = party(P, a.id); if (!p || P.coal.includes(p.id) || p.seats <= 0) return;
-      if (P.cap < 6) return toast('Capital político insuficiente (6).');
-      if (conflicts(P, P.coal.concat(p.id)).length) return toast(p.name + ' tiene líneas rojas con algún socio actual.');
-      P.cap -= 6; P.coal.push(p.id); P.coh = clamp(P.coh - 4);
-      mlog('Marruecos: ' + p.name + ' entra en el Gobierno de coalición.');
-    },
-    drop(P, a) {
-      if (pending(P)) return;
-      const p = party(P, a.id); if (!p || !P.coal.includes(p.id) || p.id === P.pm) return;
-      if (seatsOf(P, P.coal.filter(x => x !== p.id)) < MAJ) return toast('Sin ese socio, la coalición perdería la mayoría absoluta.');
-      if (P.cap < 3) return toast('Capital político insuficiente (3).');
-      P.cap -= 3; P.coal = P.coal.filter(x => x !== p.id); P.coh = clamp(P.coh - 8); P.est = clamp(P.est - 2);
-      mlog('Marruecos: el Gobierno expulsa a ' + p.name + ' de la coalición.');
-    }
-  };
-  const MA = {
-    exec(f, a) { const m = mp(); if (!m || !m.P || !m.P.army || !Object.prototype.hasOwnProperty.call(H, f)) return; H[f](m.P, a || {}); },
-    // Desde la interfaz: el invitado manda la orden al anfitrión; en el anfitrión se ejecuta y se repinta
-    cmd(f, a) {
-      if (window.MP && MP.isGuest()) MP.sendMA(f, a);
-      else { MA.exec(f, a); try { render(); } catch (e) { /* nada */ } }
-    }
-  };
-  window.MA = MA;
-
-  // ---------------- SIMULACIÓN DIARIA (la llama daily() de multijugador.js) ----------------
-  window.moroccoTick = function () {
-    const m = mp(); if (!m || !m.P || !m.P.army) return;
-    const P = m.P;
-    // El ejército sigue al indicador de poder militar
-    const A = P.army, avg = (A.tierra + A.mar + A.aire) / 3, dm = P.mil - avg;
-    if (Math.abs(dm) > 0.0005) Object.keys(A).forEach(k => { A[k] = clamp(A[k] + dm); });
-    P.sumcd = m.cd.Psummit || 0;
-    if (!P.setup || !P.setup.done) return;
-    // Cohesión de la coalición: depende de la aprobación, la estabilidad y del margen de mayoría
-    const seats = seatsOf(P, P.coal), margin = seats - MAJ;
-    P.coh = clamp(P.coh + (P.apr - 50) * 0.004 + (P.est - 50) * 0.003 + (margin >= 15 ? 0.01 : -0.01) - 0.03);
-    P.est = clamp(P.est + (P.coh - 50) * 0.0006 - (margin < 10 ? 0.01 : 0));
-    // Crisis: con la cohesión por los suelos, el socio más pequeño abandona
-    if (P.coh < 25 && P.coal.length > 1) {
-      const cand = P.coal.filter(id => id !== P.pm).map(id => party(P, id)).sort((x, y) => x.seats - y.seats)[0];
-      if (cand) {
-        P.coal = P.coal.filter(x => x !== cand.id); P.coh = 45; P.est = clamp(P.est - 3); P.apr = clamp(P.apr - 3);
-        mlog('Marruecos: ' + cand.name + ' abandona la coalición de Gobierno.');
-        if (seatsOf(P, P.coal) < MAJ) {
-          P.setup = { phase: 'coal', done: false, reneg: true };
-          mlog('Marruecos pierde la mayoría absoluta y debe pactar de nuevo con otros partidos.');
-          try { setGameSpeed(0); } catch (e) { /* ya en pausa */ }
-        }
-      }
-    }
-  };
-
-  // ---------------- INTERFAZ ----------------
-  function hemi(P, hl) {
-    const R = 9, r0 = 75, dr = 12, cx = 180, cy = 178, rows = [];
-    let sum = 0; for (let i = 0; i < R; i++) { rows.push(r0 + i * dr); sum += r0 + i * dr; }
-    const counts = rows.map(r => Math.round(TOTAL * r / sum)); counts[R - 1] += TOTAL - counts.reduce((t, x) => t + x, 0);
-    const pts = [];
-    rows.forEach((r, i) => { const n = counts[i]; for (let k = 0; k < n; k++) { const th = Math.PI - (n === 1 ? .5 : k / (n - 1)) * Math.PI; pts.push({ x: cx + r * Math.cos(th), y: cy - r * Math.sin(th), th, r }); } });
-    pts.sort((a, b) => b.th - a.th || a.r - b.r);
-    const ord = P.parties.map((p, i) => ({ p, i })).sort((a, b) => a.p.ord - b.p.ord || a.i - b.i).map(o => o.p);
-    const col = []; ord.forEach(p => { for (let k = 0; k < p.seats && col.length < TOTAL; k++) col.push(p); });
-    const dots = pts.map((q, i) => { const p = col[i]; return `<circle cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="3.9" fill="${p ? p.color : '#1e293b'}" opacity="${p ? (hl && !hl.includes(p.id) ? .25 : 1) : .6}"/>`; }).join('');
-    const mid = hl && hl.length ? seatsOf(P, hl) : total(P);
-    return `<svg viewBox="0 0 360 190" class="w-full max-w-md mx-auto" role="img" aria-label="Hemiciclo de Marruecos">${dots}
-      <text x="${cx}" y="${cy - 22}" text-anchor="middle" font-size="30" font-weight="700" fill="#f1f5f9" font-family="monospace">${mid}</text>
-      <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="9" fill="#94a3b8">${hl && hl.length ? 'ESCAÑOS DE LA COALICIÓN · mayoría ' + MAJ : 'ESCAÑOS · mayoría ' + MAJ}</text></svg>`;
-  }
-  const bar = (label, v, cls) => `<div><div class="flex justify-between text-[10px] text-slate-400"><span>${label}</span><span class="font-mono">${Math.round(v)}</span></div><div class="h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800"><div class="h-full ${cls || (v >= 60 ? 'bg-emerald-500' : v >= 35 ? 'bg-amber-500' : 'bg-red-500')}" style="width:${clamp(v)}%"></div></div></div>`;
-  const chip = p => `<span class="inline-block w-2.5 h-2.5 rounded-full mr-1.5 align-middle" style="background:${p.color}"></span>`;
-  const btn = (cls, onclick, txt, dis) => `<button ${dis ? 'disabled' : `onclick="${onclick}"`} class="${cls}${/\bpx-/.test(cls) ? '' : ' px-2 py-1'} rounded text-[11px] ${dis ? 'opacity-40' : ''}">${txt}</button>`;
-  const cmd = (f, a) => `MA.cmd('${f}',${JSON.stringify(a || {}).replace(/"/g, "'")})`;
-
-  function setupHtml(P) {
-    const rn = !!P.setup.reneg;
-    if (P.setup.phase === 'seats') {
-      const tot = total(P), ok = tot === TOTAL;
-      const rows = P.parties.slice().sort((a, b) => b.seats - a.seats || a.ord - b.ord).map(p => `<div class="flex items-center gap-2 py-1 border-b border-slate-800/60">
-        <div class="flex-1 min-w-0 text-[12px] truncate">${chip(p)}<b>${esc(p.id)}</b> <span class="text-slate-400">${esc(p.name)}</span></div>
-        ${btn('hoi-button', cmd('seatd', { id: p.id, d: -5 }), '−5')}${btn('hoi-button', cmd('seatd', { id: p.id, d: -1 }), '−1')}
-        <input type="number" min="0" max="${TOTAL}" value="${p.seats}" onchange="${cmd('seat', { id: p.id, v: 0 }).replace("'v':0", "'v':this.value")}" class="w-16 text-center bg-slate-900 border border-slate-700 rounded text-[12px] py-0.5 font-mono text-slate-100">
-        ${btn('hoi-button', cmd('seatd', { id: p.id, d: 1 }), '+1')}${btn('hoi-button', cmd('seatd', { id: p.id, d: 5 }), '+5')}</div>`).join('');
-      return `<div class="hoi-box p-4 rounded-xl space-y-3 font-hoi-tech">
-        <div class="flex justify-between items-center flex-wrap gap-2"><div class="text-[11px] text-amber-400 tracking-wider">1 · REPARTO DE ESCAÑOS DE MARRUECOS</div>
-          <div class="text-xs">Asignados <b class="font-mono ${ok ? 'text-emerald-400' : 'text-red-400'}">${tot}</b> / ${TOTAL}${ok ? '' : ' <span class="text-slate-400">(' + (tot < TOTAL ? 'faltan ' + (TOTAL - tot) : 'sobran ' + (tot - TOTAL)) + ')</span>'}</div></div>
-        <p class="text-[11px] text-slate-400 font-sans">Decide cómo quedó la Cámara de Representantes. Parte de los resultados de 2021 (RNI, PAM e Istiqlal a la cabeza). Debe sumar ${TOTAL}.</p>
-        ${hemi(P, null)}
-        <div class="flex gap-2 flex-wrap">${btn('hoi-button', cmd('preset', { k: 'real' }), '<i class="fa-solid fa-rotate-left mr-1"></i>Resultado real de 2021')}${btn('hoi-button', cmd('preset', { k: 'rand' }), '<i class="fa-solid fa-dice mr-1"></i>Reparto aleatorio')}</div>
-        <div>${rows}</div>
-        <div class="text-right">${btn('hoi-button-gold px-4 py-2', cmd('seatsok'), 'Confirmar reparto y pactar <i class="fa-solid fa-arrow-right ml-1"></i>', !ok)}</div></div>`;
-    }
-    // Pactómetro
-    const s = seatsOf(P, P.coal), cf = conflicts(P, P.coal), ok = s >= MAJ && !cf.length;
-    const rows = P.parties.filter(p => p.seats > 0).sort((a, b) => b.seats - a.seats).map(p => {
-      const on = P.coal.includes(p.id), isPm = P.pm === p.id, bad = !on && conflicts(P, P.coal.concat(p.id)).length > 0;
-      return `<div class="flex items-center gap-2 py-1 border-b border-slate-800/60 ${bad ? 'opacity-60' : ''}">
-        <div class="flex-1 min-w-0 text-[12px]">${chip(p)}<b>${esc(p.id)}</b> <span class="text-slate-400">${esc(p.name)}</span><div class="text-[10px] text-slate-500">${esc(p.ide)}${(p.red || []).length ? ' · líneas rojas: ' + esc(p.red.join(', ')) : ''}</div></div>
-        <span class="font-mono text-xs w-10 text-right">${p.seats}</span>
-        ${on && !rn ? btn(isPm ? 'hoi-button-gold' : 'hoi-button', cmd('pm', { id: p.id }), isPm ? '★ Presidente' : 'Hacer presidente') : ''}
-        ${btn(on ? 'hoi-button-gold' : 'hoi-button', cmd('coal', { id: p.id }), on ? 'En el Gobierno ✓' : 'Invitar', on && rn && p.id === P.pm)}</div>`;
-    }).join('');
-    return `<div class="hoi-box p-4 rounded-xl space-y-3 font-hoi-tech">
-      <div class="flex justify-between items-center flex-wrap gap-2"><div class="text-[11px] ${rn ? 'text-red-400' : 'text-amber-400'} tracking-wider">${rn ? '⚠ CRISIS DE GOBIERNO · NUEVO PACTO' : '2 · PACTÓMETRO: FORMA EL GOBIERNO DE COALICIÓN'}</div>
-        <div class="text-xs">Coalición <b class="font-mono ${s >= MAJ ? 'text-emerald-400' : 'text-amber-400'}">${s}</b> / ${MAJ} para la mayoría absoluta</div></div>
-      <div class="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800 relative"><div class="h-full ${s >= MAJ ? 'bg-emerald-500' : 'bg-amber-500'}" style="width:${clamp(s / TOTAL * 100)}%"></div><div class="absolute top-0 bottom-0 w-px bg-white/70" style="left:${MAJ / TOTAL * 100}%"></div></div>
-      ${hemi(P, P.coal)}
-      ${cf.length ? `<div class="text-[11px] text-red-400">Líneas rojas: ${cf.map(([a, b]) => esc(a) + ' ✕ ' + esc(b)).join(' · ')}</div>` : ''}
-      ${rn ? '<p class="text-[11px] text-slate-400 font-sans">El Gobierno ha perdido la mayoría. Invita a otros partidos hasta superar los ' + MAJ + ' escaños.</p>' : '<p class="text-[11px] text-slate-400 font-sans">Elige los partidos del Gobierno y quién lo preside (por defecto, el de más escaños). Los partidos con líneas rojas no pueden coincidir.</p>'}
-      <div>${rows}</div>
-      <div class="flex justify-between flex-wrap gap-2">${rn ? '<span></span>' : btn('hoi-button', cmd('back'), '<i class="fa-solid fa-arrow-left mr-1"></i>Volver a los escaños')}${btn('hoi-button-gold px-4 py-2', cmd('coalok'), 'Formar Gobierno', !ok)}</div></div>`;
-  }
-
-  function panelHtml(P) {
-    const can = !!(window.MP && MP.canAct());
-    const L = leaderOf(P), s = seatsOf(P, P.coal), opp = total(P) - s;
-    const legend = P.parties.filter(p => p.seats > 0).sort((a, b) => b.seats - a.seats).map(p => {
-      const on = P.coal.includes(p.id);
-      return `<div class="flex items-center justify-between text-[11px] py-0.5 ${on ? '' : 'opacity-70'}"><span class="truncate">${chip(p)}<b>${esc(p.id)}</b> <span class="text-slate-500">${on ? (P.pm === p.id ? '★ Gobierno (presidencia)' : 'Gobierno') : 'Oposición'}</span></span>
-        <span class="flex items-center gap-1.5"><span class="font-mono">${p.seats}</span>
-        ${can && !on ? btn('hoi-button', cmd('join', { id: p.id }), 'Incorporar · 6 cap.', P.cap < 6 || conflicts(P, P.coal.concat(p.id)).length > 0) : ''}
-        ${can && on && p.id !== P.pm ? btn('hoi-button', cmd('drop', { id: p.id }), 'Expulsar · 3 cap.', P.cap < 3 || seatsOf(P, P.coal.filter(x => x !== p.id)) < MAJ) : ''}</span></div>`;
-    }).join('');
-    const A = P.army;
-    return `<div class="hoi-box p-4 rounded-xl space-y-3 font-hoi-tech">
-      <div class="flex justify-between flex-wrap gap-1"><div class="text-[11px] text-amber-400 tracking-wider">PARLAMENTO Y GOBIERNO DE MARRUECOS</div>
-        <div class="text-[11px] text-slate-300">Jefe de Gobierno: <b>${esc((L && (L.leader || L.name)) || '—')}</b> <span class="text-slate-500">(${esc(L ? L.id : '')})</span></div></div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-        <div>${hemi(P, P.coal)}</div>
-        <div class="space-y-2">
-          <div class="flex justify-between text-[11px]"><span>Coalición <b class="font-mono ${s >= MAJ ? 'text-emerald-400' : 'text-red-400'}">${s}</b> · Oposición <b class="font-mono">${opp}</b></span><span class="text-slate-500">Mayoría ${MAJ}</span></div>
-          ${bar('Cohesión de la coalición', P.coh)}
-          <div>${legend}</div>
-          ${can ? `<div>${btn('hoi-button', cmd('summit'), '<i class="fa-solid fa-handshake mr-1"></i>Cumbre de coalición · 3 cap.', P.cap < 3 || P.sumcd > 0)}${P.sumcd > 0 ? ' <span class="text-[10px] text-slate-500">disponible en ' + P.sumcd + ' días</span>' : ''}</div>` : ''}
-        </div></div>
-      <div class="grid grid-cols-3 gap-3"><div>${bar('Ejército de Tierra', A.tierra)}</div><div>${bar('Armada', A.mar)}</div><div>${bar('Fuerza Aérea', A.aire)}</div></div></div>`;
-  }
-
-  // Panel que ve cada jugador (en el anfitrión online es solo lectura)
-  window.renderMoroccoPanel = function (P) {
-    if (!P || !P.army) return '';
-    if (pending(P)) {
-      if (window.MP && MP.canAct()) return setupHtml(P);
-      const ph = P.setup.phase === 'coal' ? 'negociando su pactómetro' : 'ajustando sus escaños';
-      const m = mp();
-      return `<div class="hoi-box p-4 rounded-xl font-hoi-tech text-[12px] text-slate-300 space-y-3"><div>${P.setup.reneg ? '⚠ Crisis de Gobierno: ' : ''}🇲🇦 Marruecos está <b class="text-amber-300">${ph}</b>${m && m.mode !== 'online' ? '. Pasa el mando a Marruecos para que lo haga.' : '.'}</div>${hemi(P, P.setup.phase === 'coal' ? P.coal : null)}</div>`;
-    }
-    return panelHtml(P);
-  };
-  // Lo usa paintGuest(): setup o panel + el resto de la interfaz del invitado
-  window.renderMoroccoTab = function (P, o) {
-    o = o || {};
-    if (pending(P)) return setupHtml(P);
-    return panelHtml(P) + (o.rest || '');
   };
 })();
