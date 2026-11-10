@@ -30,6 +30,9 @@
 //  · basePct calculado como escaños / 395 (no es cuota de voto real).
 //  · minSeats = 0 (el original solo limitaba 0..max).
 // =====================================================================
+// Cámara de Representantes: 395 escaños, mayoría absoluta 198
+const CHAMBER = { seats: 395, majority: 198 };
+
 const SCENARIOS = {
   ACTUAL: {
     id: 'ACTUAL',
