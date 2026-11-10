@@ -814,8 +814,10 @@
   css.textContent = '.ma-pulse{animation:mapulse 1.1s infinite}@keyframes mapulse{50%{fill-opacity:.95}}';
   document.head.appendChild(css);
 
+  // En una sala online, el anfitrión (España) no ve ni toca la gestión de Marruecos: eso es solo del jugador 2
+  const viewM = () => !!M() && gameState.mp.mode !== 'online';
   function syncTab() {   // pestaña «Marruecos» en el menú lateral (solo si hay partida multijugador con Marruecos)
-    const on = !!M() && (gameState.step === 4 || gameState.step === 5);
+    const on = viewM() && (gameState.step === 4 || gameState.step === 5);
     let b = document.getElementById('tab-btn-morocco');
     if (on && !b) {
       const mp = document.getElementById('tab-btn-mp'), goals = document.getElementById('tab-btn-goals');
@@ -829,7 +831,7 @@
   }
 
   const _rtc = renderTabContent;
-  renderTabContent = function () { return gameState.activeTab === 'morocco' && M() ? renderMoroccoTab(M(), {}) : _rtc.apply(this, arguments); };
+  renderTabContent = function () { return gameState.activeTab === 'morocco' && viewM() ? renderMoroccoTab(M(), {}) : _rtc.apply(this, arguments); };
 
   // La partida no avanza mientras Marruecos forma Gobierno (el reloj se queda en pausa)
   const _gt = gameTick; let lastWarn = 0;
@@ -863,7 +865,7 @@
   render = function () {
     forceSetup();
     { const mm = M(); if (mm) mm.spd = gameState.gameSpeed; }
-    if (gameState.activeTab === 'morocco' && !M()) gameState.activeTab = 'main';
+    if (gameState.activeTab === 'morocco' && !viewM()) gameState.activeTab = 'main';
     let r = _r.apply(this, arguments);
     if (forceSetup()) r = _r.apply(this, arguments);   // la partida local se crea dentro del primer render: se repinta ya en la pestaña de Marruecos
     try { syncTab(); } catch (e) { console.error(e); }
