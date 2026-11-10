@@ -15721,18 +15721,23 @@ function playSound(n) {
 
   // ---------------- CAMPAÑA ----------------
   const ACTS = [
-    { id: 'mitin', t: 'Mitin multitudinario', ic: 'fa-people-group', cost: 60, cd: 5, mom: 1.2, apr: 0.5, d: 'Plaza llena y titulares favorables.' },
-    { id: 'spot', t: 'Campaña de spots en TV y redes', ic: 'fa-tv', cost: 150, cd: 10, mom: 2.5, d: 'Inversión publicitaria masiva.' },
-    { id: 'gira', t: 'Gira por provincias clave', ic: 'fa-bus', cost: 90, cd: 7, mom: 1.5, est: 1, d: 'Más cercanía y algo de calma social.' },
+    { id: 'mitin', t: 'Mitin multitudinario', ic: 'fa-people-group', cost: 0.6, cd: 5, mom: 1.2, apr: 0.5, d: 'Plaza llena y titulares favorables.' },
+    { id: 'spot', t: 'Campaña de spots en TV y redes', ic: 'fa-tv', cost: 2.5, cd: 10, mom: 2.5, d: 'Inversión publicitaria masiva.' },
+    { id: 'gira', t: 'Gira por provincias clave', ic: 'fa-bus', cost: 1.2, cd: 7, mom: 1.5, est: 1, d: 'Más cercanía y algo de calma social.' },
     { id: 'entrevista', t: 'Entrevista en horario de máxima audiencia', ic: 'fa-microphone', cost: 0, cd: 12, mom: 0.8, apr: 1, d: 'Gratis, pero el impacto es modesto.' },
-    { id: 'ataque', t: 'Ataque a la oposición', ic: 'fa-fire', cost: 40, cd: 8, mom: 2, apr: -2, risk: 0.3, d: 'Efectivo pero arriesgado: 30% de que se vuelva en tu contra.' },
-    { id: 'promesa', t: 'Promesa electoral estrella', ic: 'fa-handshake', cost: 0, cd: 25, mom: 3, max: 3, pledge: true, d: 'Sube mucho, pero se paga: 300 M€ por promesa al cierre de campaña (máx. 3).' }
+    { id: 'ataque', t: 'Ataque a la oposición', ic: 'fa-fire', cost: 0.3, cd: 8, mom: 2, apr: -2, risk: 0.3, d: 'Efectivo pero arriesgado: 30% de que se vuelva en tu contra.' },
+    { id: 'fondos', t: 'Cena de donantes y crowdfunding', ic: 'fa-sack-dollar', cost: 0, cd: 15, mom: 0, fund: 0.8, apr: -0.3, d: 'Consigues 0,8 M€ más para la campaña.' },
+    { id: 'promesa', t: 'Promesa electoral estrella', ic: 'fa-handshake', cost: 0, cd: 25, mom: 3, max: 3, pledge: true, d: 'Sube mucho, pero la paga el Estado: 300 M€ por promesa cumplida (máx. 3).' }
   ];
-  const off = x => { const c = C(); return (c.cd[x.id] || 0) > 0 || (x.cost && money() < x.cost) || (x.pledge && c.pledges >= x.max); };
+  const off = x => { const c = C(); return (c.cd[x.id] || 0) > 0 || (x.cost && (c.fund < x.cost || c.spent + x.cost > c.limit)) || (x.pledge && c.pledges >= x.max); };
 
   function init() {
     const s = gameState;
-    s.camp = { day: 0, mom: 0, cd: {}, spent: 0, pledges: 0, debate: false, debateOpen: false, nextQ: Q_FIRST, polls: [], log: [], done: false };
+    // Financiación real (LOREG): 21.167,64 € por escaño + 0,81 € por voto (partidos con escaño) de las elecciones anteriores;
+    // límite legal de gasto = 0,37 € por elector (~37,5 M electores) ≈ 13,9 M€. Se pagan tras las elecciones; antes se financia con anticipo (30%) y crédito.
+    const L0 = (s.parties || []).find(p => p.id === s.leaderPartyId) || {}, sts = L0.seats || 0;
+    const sub = sts * 0.02116764 + (sts / 350 * 24.5) * 0.81, limit = 13.9;
+    s.camp = { day: 0, mom: 0, cd: {}, spent: 0, pledges: 0, sub, limit, fund: Math.min(limit, sub + 1.0), debate: false, debateOpen: false, nextQ: Q_FIRST, polls: [], log: [], done: false };
     s.usedCampaignIds = []; s.currentCampaignQuestion = null; s.inCampaign = true;
     s.coupActive = false; s.pgeActive = false; s.activeDynamicEvent = null; s.activeNewsPopup = null;
     const m = document.getElementById('emergent-alert-modal'); if (m) m.remove();
@@ -15771,8 +15776,8 @@ function playSound(n) {
   function act(id) {
     const c = C(), x = ACTS.find(a => a.id === id);
     if (!live() || !x || gameState.currentCampaignQuestion || c.debateOpen || off(x)) return;
-    if (x.cost) { registerFinancialTransaction('Campaña: ' + x.t, -x.cost, 'economia'); c.spent += x.cost; }
-    c.cd[id] = x.cd; if (x.pledge) c.pledges++;
+    if (x.cost) { c.fund -= x.cost; c.spent += x.cost; }          // sale de los fondos del partido, no de la tesorería del Estado
+    c.cd[id] = x.cd; if (x.pledge) c.pledges++; if (x.fund) c.fund += x.fund;
     let r = x.mom || 0;
     if (x.risk && Math.random() < x.risk) { r = -3; stat('apr', -2); log('Tu ataque se vuelve en tu contra: la prensa critica la campaña sucia.'); }
     else { if (x.apr) stat('apr', x.apr); if (x.est) stat('est', x.est); log(x.t + ' (' + (x.cost ? '-' + x.cost + ' M€' : 'sin coste') + ').'); }
@@ -15821,8 +15826,9 @@ function playSound(n) {
       <div class="hoi-box p-4 rounded space-y-1 font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">ESTADO DE LA CAMPAÑA</div>
         <div class="flex justify-between text-xs"><span>Impulso electoral</span><b id="camp-mom" class="text-amber-300">${momLabel()}</b></div>
         <div class="flex justify-between text-xs"><span>Aprobación</span><b>${Math.round(m.apr || 0)}%</b></div>
-        <div class="flex justify-between text-xs"><span>Tesorería</span><b id="camp-tes">${fm(money())} M€</b></div>
-        <div class="flex justify-between text-xs"><span>Gastado en campaña</span><b>${fm(c.spent)} M€</b></div>
+        <div class="flex justify-between text-xs"><span>Fondos del partido</span><b id="camp-tes" class="text-amber-300">${c.fund.toFixed(1).replace('.', ',')} M€</b></div>
+        <div class="flex justify-between text-xs"><span>Gastado / límite legal</span><b>${c.spent.toFixed(1).replace('.', ',')} / ${c.limit} M€</b></div>
+        <div class="text-[10px] text-slate-500">Subvención por escaños de las elecciones anteriores: ${c.sub.toFixed(1).replace('.', ',')} M€. La campaña no gasta dinero del Estado.</div>
         <div class="flex justify-between text-xs"><span>Promesas hechas</span><b>${c.pledges}</b></div>
         <div class="flex justify-between text-xs"><span>Debate cara a cara</span><b>${c.debate ? 'Celebrado' : 'Día ' + DEBATE_DAY}</b></div></div>
       <div class="hoi-box p-4 rounded space-y-1 font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">BARÓMETROS</div>${polls}</div></div>
@@ -15840,7 +15846,7 @@ function playSound(n) {
     const c = C(); if (!c) return;
     const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
     set('camp-day', c.day); set('camp-left', DAYS - c.day); set('camp-date', dt(gameState.currentDate));
-    set('camp-mom', momLabel()); set('camp-tes', fm(money()) + ' M€');
+    set('camp-mom', momLabel()); set('camp-tes', C().fund.toFixed(1).replace('.', ',') + ' M€');
     const bar = document.getElementById('camp-bar'); if (bar) bar.style.width = Math.round(c.day / DAYS * 100) + '%';
     ACTS.forEach(x => {
       const e = document.getElementById('camp-a-' + x.id); if (!e) return;
