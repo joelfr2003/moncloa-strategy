@@ -120,6 +120,11 @@
       if (X.waiting && elapsed() <= X.day + 1) { X.waiting = false; localSpeed(X.waitSpd); }
     }
   }
+  // ---------------- CONFIGURACIÓN (la decide el anfitrión) ----------------
+  const FREE = 99;   // «Sin límite»: el motor usa 99 legislaturas para el modo libre
+  const diffName = k => (typeof DIFFICULTY !== 'undefined' && DIFFICULTY[k]) ? DIFFICULTY[k].name : k;
+  function applyCfg() { const m = S(); if (m && m.cfg) { gameState.difficulty = m.cfg.diff; gameState.campaignLegs = m.cfg.legs; } }
+  const cfgLine = m => 'Dificultad: <b class="text-amber-300">' + esc(diffName(m.cfg && m.cfg.diff)) + '</b> · Modo: <b class="text-amber-300">Sin límite</b> <span class="text-slate-500">(lo decide el anfitrión)</span>';
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
   // ---------------- LÓGICA DIPLOMÁTICA ----------------
@@ -165,7 +170,7 @@
       m.other = { id: String(d.c || '').slice(0, 24), name: String(d.n || d.c || 'Otro país').slice(0, 30), user: String(d.u || '').slice(0, 16) };
       if (m.role === 'host') {   // el anfitrión arbitra el valor inicial de la relación (el de su propia partida, si existe)
         try { const k = INTL_KEY[m.other.id], I = intlInit(); if (k && I.rel && I.rel[k] != null) m.rel = clamp(I.rel[k]); } catch (e) { /* sin INTL */ }
-        tx({ t: 'sync', auth: true });
+        tx({ t: 'sync', auth: true, cfg: m.cfg, go: !L.on });
       }
       if (m.other.id === myC().id) {   // no se permite el mismo país: se corta la conexión en ambos lados
         const msg = 'No se puede jugar con el mismo país: ' + myC().name + ' ya está en uso. Uno de los dos debe elegir otro país.';
@@ -175,7 +180,15 @@
       sendReady(); checkStart(); render(); return;
     }
     if (d.t === 'rdy' || d.t === 'spd' || d.t === 'day') { clockMsg(d); return; }
-    if (d.t === 'sync') { if (d.auth && m.role === 'guest') adopt(d); render(); return; }
+    if (d.t === 'sync') {
+      if (d.auth && m.role === 'guest') {
+        adopt(d);
+        if (d.go && L.on) { L.on = false; }
+        if (d.cfg && typeof d.cfg.diff === 'string') { m.cfg = { diff: (typeof DIFFICULTY !== 'undefined' && DIFFICULTY[d.cfg.diff]) ? d.cfg.diff : 'normal', legs: FREE }; applyCfg(); }
+      }
+      render(); return;
+    }
+    if (d.t === 'go') { if (m.role === 'guest' && L.on) { L.on = false; applyCfg(); render(); } return; }
     const x = ACT(d.id);
     if (d.t === 'prop' && x && x.k === 'prop' && typeof d.uid === 'string') {
       if (m.inbox.some(i => i.uid === d.uid)) return;
@@ -261,7 +274,7 @@
   function host() {
     if (!userOk()) return need();
     (useRelay() ? loadSb : loadPeer)(() => {
-      closeNet(); const m = ensure(); m.role = 'host'; m.other = null; m.code = Math.random().toString(36).slice(2, 7).toUpperCase();
+      closeNet(); const m = ensure(); m.role = 'host'; m.other = null; if (!m.cfg) m.cfg = { diff: L.diff, legs: FREE }; applyCfg(); m.code = Math.random().toString(36).slice(2, 7).toUpperCase();
       if (useRelay()) { const L = relayLink(m.code, 'host'); peer = { destroy: () => L.close() }; wire(L); render(); return; }
       peer = new Peer('moncloa-' + m.code);
       peer.on('open', () => render());
@@ -292,7 +305,7 @@
       <button onclick="MP.copy('${esc(location.origin + location.pathname)}#sala=${esc(m.code)}')" class="hoi-button px-3 py-1.5 rounded text-xs"><i class="fa-solid fa-link mr-1"></i>Copiar enlace de invitación</button>
       <button onclick="MP.leave()" class="hoi-button px-3 py-1.5 rounded text-xs ml-2">Cancelar</button></div>`;
     if (m.role === 'guest') return `<div class="hoi-box p-4 rounded-xl font-hoi-tech text-xs text-slate-300">Conectando con la sala <b class="text-amber-300">${esc(m.code)}</b>… <button onclick="MP.leave()" class="hoi-button px-3 py-1.5 rounded text-xs ml-2">Cancelar</button></div>`;
-    return `<div class="hoi-box p-4 rounded-xl space-y-3 font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">CONEXIÓN</div>
+    return `<div class="hoi-box p-4 rounded-xl space-y-3 font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">RECONECTAR</div>
       <div class="flex gap-2 flex-wrap items-center"><button onclick="MP.host()" class="hoi-button-gold px-4 py-2 rounded text-sm"><i class="fa-solid fa-globe mr-1"></i>Crear sala</button>
       <input id="mp-code2" maxlength="5" placeholder="CÓDIGO" class="lb-input" style="width:130px;text-transform:uppercase;letter-spacing:.2em">
       <button onclick="MP.enter(document.getElementById('mp-code2').value)" class="hoi-button px-4 py-2 rounded text-sm">Unirse</button></div></div>`;
@@ -316,6 +329,7 @@
         <div class="flex justify-between text-[11px] text-slate-300"><span>Relación ${esc(me.name)} – ${esc(oname())}</span><span class="font-mono">${r}/100</span></div>
         <div class="h-1.5 bg-slate-900 rounded overflow-hidden"><div class="h-full ${r >= 60 ? 'bg-emerald-500' : r >= 35 ? 'bg-amber-500' : 'bg-red-500'}" style="width:${r}%"></div></div>
         <div class="flex gap-1 flex-wrap">${pk}</div>
+        ${m.cfg ? `<div class="text-[11px] text-slate-300">${cfgLine(m)}</div>` : ''}
         <div class="text-[11px] ${X.day0 == null ? 'text-amber-400' : X.waiting ? 'text-amber-400' : 'text-emerald-400'}"><i class="fa-solid fa-clock mr-1"></i>Reloj compartido: ${X.day0 == null ? 'esperando a que los dos estéis en la partida' : X.waiting ? 'esperando al otro jugador' : 'sincronizado'}</div>
         <div class="flex justify-between text-[11px] text-slate-400"><span>Tu capital político: <b class="text-slate-200">${Math.floor(cap())}</b></span><span>Tu tesorería: <b class="text-slate-200">${fmt(treas())} M€</b></span></div>
         <button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded text-[10px]">Desconectar</button></div>
@@ -390,7 +404,7 @@
       <rect y="860" width="1600" height="40" fill="#04080e"/></svg>`;
   }
 
-  const L = { on: true, view: 'home', err: '', code: '' };
+  const L = { on: true, view: 'home', err: '', code: '', diff: 'normal' };
   try { const c = sessionStorage.getItem('mp_code'); if (c) { L.code = c; sessionStorage.removeItem('mp_code'); } } catch (e) { /* nada */ }
   function userOk() { return USER.trim().length >= 2; }
   function need() { if (userOk()) return true; L.err = 'Escribe un nombre de usuario (mínimo 2 caracteres).'; render(); const i = document.getElementById('lb-user'); if (i) i.focus(); return false; }
@@ -398,32 +412,40 @@
 
   function lobbyCard() {
     const m = S(), me = myC();
+    const back = '<button onclick="MP.lobby(\'home\')" class="hoi-button px-3 py-1.5 rounded text-xs text-slate-300 self-start"><i class="fa-solid fa-chevron-left mr-1"></i>Volver</button>';
     if (m && m.role && peer) {   // sala de espera
-      const ok = m.linked, url = location.origin + location.pathname + '#sala=' + m.code;
-      return `<div class="text-center space-y-1"><div class="lb-label">${m.role === 'host' ? 'Código de sala' : 'Conectando a la sala'}</div><div class="lb-cn" style="font-size:60px;letter-spacing:.35em;color:#f5cf68">${esc(m.code)}</div>
-        ${m.role === 'host' ? `<button onclick="MP.copy('${esc(url)}')" class="hoi-button px-3 py-1.5 rounded text-xs"><i class="fa-solid fa-link mr-1"></i>Copiar enlace de invitación</button>` : ''}</div>
-        <div class="lb-countries"><div class="lb-country sel"><div class="lb-flag">${flagOf(me.id)}</div><div class="lb-cn">${esc(me.name)}</div><div class="text-xs text-emerald-400">${esc(USER)} · tú</div></div>
+      const ok = m.linked, isHost = m.role === 'host', url = location.origin + location.pathname + '#sala=' + m.code;
+      return `<div class="text-center space-y-1"><div class="lb-label">${isHost ? 'Código de sala' : 'Conectando a la sala'}</div><div class="lb-cn" style="font-size:60px;letter-spacing:.35em;color:#f5cf68">${esc(m.code)}</div>
+        ${isHost ? `<button onclick="MP.copy('${esc(url)}')" class="hoi-button px-3 py-1.5 rounded text-xs"><i class="fa-solid fa-link mr-1"></i>Copiar enlace de invitación</button>` : ''}</div>
+        <div class="lb-countries"><div class="lb-country sel"><div class="lb-flag">${flagOf(me.id)}</div><div class="lb-cn">${esc(me.name)}</div><div class="text-xs text-emerald-400">${esc(USER)} · tú${isHost ? ' (anfitrión)' : ''}</div></div>
         <div class="lb-country ${ok ? 'sel' : ''}"><div class="lb-flag">${ok ? oflag() : '⏳'}</div><div class="lb-cn">${ok ? esc(oname()) : 'Esperando…'}</div><div class="text-xs ${ok ? 'text-emerald-400' : 'text-slate-500'}">${ok ? esc(m.other && m.other.user || 'conectado') : 'sin conectar'}</div></div></div>
-        <p class="text-[11px] text-slate-500 font-sans text-center">Cada jugador empieza su propia partida con su país; solo se comparte la diplomacia. No hace falta empezar a la vez.</p>
-        <div class="flex gap-2 justify-center flex-wrap">${btn('hoi-button-gold', 'fa-play', 'Empezar mi partida', 'MP.begin()', !ok)}${btn('hoi-button', 'fa-xmark', 'Cancelar', 'MP.cancel()')}</div>`;
+        ${m.cfg ? `<div class="text-xs text-slate-300 text-center">${cfgLine(m)}</div>` : ''}
+        <p class="text-[11px] text-slate-500 font-sans text-center">Cada jugador gobierna su país en su propia partida y los dos os relacionáis por la diplomacia. El anfitrión decide la dificultad y da la salida; el reloj es compartido.</p>
+        <div class="flex gap-2 justify-center flex-wrap">${isHost ? btn('hoi-button-gold', 'fa-play', ok ? 'Empezar partida' : 'Esperando al otro jugador…', 'MP.begin()', !ok) : '<span class="text-xs text-amber-300">' + (ok ? 'Esperando a que el anfitrión empiece la partida…' : 'Conectando…') + '</span>'}${btn('hoi-button', 'fa-xmark', 'Salir', 'MP.cancel()')}</div>`;
     }
-    let has = false; try { has = !!localStorage.getItem(SAVE_KEY); } catch (e) { /* sin guardado */ }
+    if (L.view === 'settings') {   // ajustes que fija el anfitrión
+      const diffs = (typeof DIFFICULTY !== 'undefined' ? Object.keys(DIFFICULTY) : []).map(k => { const d = DIFFICULTY[k];
+        return `<div class="lb-country ${L.diff === k ? 'sel' : ''}" onclick="MP.diff('${k}')"><div class="lb-cn" style="font-size:20px"><i class="fa-solid ${d.icon} mr-2"></i>${esc(d.name)}</div><div class="text-xs text-slate-400 mt-1">${esc(d.desc)}</div></div>`; }).join('');
+      return `${back}<div class="lb-label">Ajustes de la partida (los fijas tú como anfitrión)</div>
+        <div><div class="lb-label mb-2">Dificultad</div><div class="lb-countries">${diffs}</div></div>
+        <div><div class="lb-label mb-2">Modo</div><div class="lb-country sel"><div class="lb-cn" style="font-size:20px"><i class="fa-solid fa-infinity mr-2"></i>SIN LÍMITE</div><div class="text-xs text-slate-400 mt-1">Sin legislatura final: gobernáis hasta que os echen. La dificultad sube con cada legislatura.</div></div></div>
+        <div class="flex gap-2 flex-wrap">${btn('hoi-button-gold', 'fa-globe', 'Crear sala', 'MP.host()')}</div>`;
+    }
     const cards = (window.COUNTRIES || []).map(c => `<div class="lb-country ${me.id === c.id ? 'sel' : ''}" onclick="MP.country('${esc(c.id)}')"><div class="lb-flag">${flagOf(c.id)}</div><div class="lb-cn">${esc(c.name)}</div><div class="lb-tag">${me.id === c.id ? 'Tu país' : 'Cambiar a este país'}</div></div>`).join('');
     return `<div><div class="lb-label mb-1">1 · Nombre de usuario</div><input id="lb-user" class="lb-input" maxlength="16" placeholder="Ej.: Presidente_Moncloa" value="${esc(USER)}" oninput="MP.user(this.value)"></div>
-      <div><div class="lb-label mb-2">2 · Elige tu país</div><div class="lb-countries">${cards}</div></div>
-      <div><div class="lb-label mb-2">3 · Cómo jugar</div><div class="flex gap-2 flex-wrap items-center">
-        ${btn('hoi-button-gold', 'fa-user', 'Un jugador', 'MP.single()')}${btn('hoi-button', 'fa-globe', 'Crear sala online', 'MP.host()')}
+      <div><div class="lb-label mb-2">2 · Elige tu país (cada jugador, uno distinto)</div><div class="lb-countries">${cards}</div></div>
+      <div><div class="lb-label mb-2">3 · Crea una partida o únete a una</div><div class="flex gap-2 flex-wrap items-center">
+        ${btn('hoi-button-gold', 'fa-globe', 'Crear partida (anfitrión)', 'MP.create()')}
         <input id="mp-code" maxlength="5" value="${esc(L.code)}" placeholder="CÓDIGO DE SALA" class="lb-input" style="width:190px;text-transform:uppercase;letter-spacing:.2em" oninput="MP.codeIn(this.value)">
         ${btn('hoi-button', 'fa-right-to-bracket', 'Unirse', "MP.enter(document.getElementById('mp-code').value)")}</div></div>
-      <div class="lb-err">${esc(L.err)}</div>
-      ${has ? '<div class="text-center">' + btn('hoi-button', 'fa-folder-open', 'Continuar partida guardada', 'MP.cont()') + '</div>' : ''}`;
+      <div class="lb-err">${esc(L.err)}</div>`;
   }
 
   window.MP = {
     host, act, answer,
     join: c => join(c), enter: c => { L.code = (c || '').toUpperCase(); join(L.code); },
-    leave: () => { closeNet(); gameState.mp = null; render(); },
-    cancel: () => { closeNet(); gameState.mp = null; L.err = ''; render(); },
+    leave: () => { closeNet(); render(); },
+    cancel: () => { closeNet(); gameState.mp = null; L.err = ''; L.view = 'home'; render(); },
     codeIn: v => { L.code = v.toUpperCase(); },
     user: v => { USER = v.slice(0, 16); L.err = ''; try { localStorage.setItem('moncloa_user', USER); } catch (e) { /* nada */ } },
     country: id => {   // cambiar de país recarga la página (cada país carga su propio fichero); la conexión debe crearse después
@@ -431,17 +453,35 @@
       try { if (L.code) sessionStorage.setItem('mp_code', L.code); } catch (e) { /* nada */ }
       if (typeof window.switchCountry === 'function') window.switchCountry(id);
     },
-    single: () => { if (need()) { closeNet(); gameState.mp = null; L.on = false; render(); } },
-    begin: () => { L.on = false; render(); },
-    cont: () => { L.on = false; loadGame(); },
+    lobby: v => { L.view = v; L.err = ''; render(); },
+    create: () => { if (need()) { L.view = 'settings'; L.err = ''; render(); } },
+    diff: k => { if (typeof DIFFICULTY !== 'undefined' && DIFFICULTY[k]) { L.diff = k; render(); } },
+    begin: () => { const m = S(); if (!m || m.role !== 'host' || !m.linked) return; applyCfg(); tx({ t: 'go' }); L.on = false; render(); },
     copy: u => { try { navigator.clipboard.writeText(u); goalsToast('Enlace copiado.', '#10b981'); } catch (e) { prompt('Copia el enlace:', u); } },
     rel: () => (S() ? S().rel : null), pacts: () => (S() ? Object.assign({}, S().pacts) : {}), isLinked: () => !!(S() && S().linked),
     tab: () => render(), toast
   };
 
+  const _sd = setDifficulty;
+  setDifficulty = function () { if (S() && S().cfg) { toast('La dificultad la fija el anfitrión.', '#d9a726'); return; } return _sd.apply(this, arguments); };
+  const _scm = setCampaignMode;
+  setCampaignMode = function () { if (S() && S().cfg) { toast('El modo lo fija el anfitrión.', '#d9a726'); return; } return _scm.apply(this, arguments); };
+  const _ss = selectScenario;
+  selectScenario = function () { applyCfg(); return _ss.apply(this, arguments); };
   const _rs = renderScenarioSelect;
   renderScenarioSelect = function (app) {
-    if (!L.on) { _rs(app); return; }
+    if (!L.on) {
+      _rs(app);
+      const m = S();
+      if (m && m.cfg) {
+        const secs = Array.from(app.querySelectorAll('section'));
+        secs.filter(x => /ELIGE TU CAMPAÑA|ELIGE LA DIFICULTAD/i.test(x.textContent)).forEach(x => x.remove());
+        Array.from(app.querySelectorAll('section')).forEach((x, i) => { const n = x.querySelector('span.font-hoi-header'); if (n) n.textContent = String(i + 1); });
+        const first = app.querySelector('section');
+        if (first) first.insertAdjacentHTML('beforebegin', '<div class="hoi-box p-3 rounded-lg text-xs text-slate-300 font-hoi-tech text-center"><i class="fa-solid fa-people-arrows text-sky-400 mr-1"></i>Partida multijugador con ' + esc(oname()) + ' · ' + cfgLine(m) + '</div>');
+      }
+      return;
+    }
     app.innerHTML = `<div class="lb-root"><div class="lb-photo"></div>${bgSvg()}<div class="lb-shade"></div><div class="lb-wrap">
       <div><div class="lb-title">MONCLOA<br>STRATEGY</div></div><div class="lb-sub">Simulador político y estratégico · Siglo XXI</div>
       <div class="lb-card">${lobbyCard()}</div><div class="lb-foot">MONCLOA STRATEGY © 2026 · @joelfr302003</div></div></div>`;
