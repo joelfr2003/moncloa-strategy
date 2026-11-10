@@ -309,22 +309,22 @@ main#app, footer {
   </footer>
 
   <!-- =====================================================================
-       CARGADOR DINÁMICO DE PAÍSES  (carpeta Countries/)
-       - Lee Countries/index.json (lista de ficheros .js). Si no existe, intenta
-         leer el listado del directorio (servidores de desarrollo) y, como último
-         recurso, usa los ficheros antiguos de la raíz (pais-espana.js...).
-       - Fase "before": se ejecuta ANTES del motor (define SCENARIOS, etc.).
-       - Fase "after" : se ejecuta DESPUÉS del motor y antes de marruecos.js.
-         Un fichero entra en esta fase si en el manifiesto va como
-         {"file":"x.js","phase":"after"} o se llama "*.after.js".
-       - Carga síncrona y ordenada: mantiene exactamente el orden de ejecución
-         que tenían las antiguas etiquetas <script src>.
+       CARGADOR DE PAÍSES  (carpeta Countries/)
+       Cada país es un fichero completo (SCENARIOS, DYNAMIC_EVENTS, PRESS_NEWS_BANK…)
+       que declara las mismas constantes globales, así que en cada partida se
+       carga UN solo país, ANTES del motor. Para cambiar de país se guarda la
+       elección y se recarga la página (selector en la pantalla de inicio).
+       Orden de elección: ?pais=id  >  último elegido (localStorage)  >  "default"
+       del manifiesto  >  primer país de la lista.
+       Countries/index.json: { "default":"espana", "countries":[ {"id","name","flag","file"} ] }
        ===================================================================== -->
   <script>
   (function () {
-    var DIR = 'Countries/';
-    var LEGACY = { before: ['pais-espana.js'], after: ['pais-marruecos.js'] };
-    var state = { manifest: null, loaded: [], failed: [], legacy: [] };
+    var DIR = 'Countries/', KEY = 'moncloa-pais';
+    var BUILTIN = 'espana';   // el motor trae de serie el mazo de decisiones y el mapa de este país
+    window.BUILTIN_COUNTRY = BUILTIN;
+    window.COUNTRIES = [];
+    window.CURRENT_COUNTRY = null;
 
     function get(url) {
       try {
@@ -335,98 +335,71 @@ main#app, footer {
       } catch (e) {}
       return null;
     }
-
+    function norm(e) {
+      if (typeof e === 'string') e = { file: e };
+      if (!e || (!e.file && !e.url)) return null;
+      var base = (e.file || e.url).replace(/^.*\//, '').replace(/\.js$/i, '').replace(/^pais-/, '');
+      e.id = e.id || base;
+      e.name = e.name || (e.id.charAt(0).toUpperCase() + e.id.slice(1));
+      e.url = e.url || (DIR + e.file);
+      return e;
+    }
     function readManifest() {
       var txt = get(DIR + 'index.json');
       if (txt) {
         try {
           var j = JSON.parse(txt);
-          var list = Array.isArray(j) ? j : (j.countries || j.files || []);
-          return list.map(function (e) {
-            if (typeof e === 'string') e = { file: e };
-            e.phase = e.phase || (/\.after\.js$/i.test(e.file) ? 'after' : 'before');
-            return e;
-          }).filter(function (e) { return e && e.file && e.enabled !== false; });
+          var list = (Array.isArray(j) ? j : (j.countries || j.files || [])).map(norm).filter(function (e) { return e && e.enabled !== false; });
+          if (list.length) return { list: list, def: (!Array.isArray(j) && j.default) || null };
         } catch (err) { console.warn('[Countries] index.json no es JSON válido:', err); }
       }
-      // Fallback: listado de directorio (python -m http.server, serve, Apache...)
-      var html = get(DIR);
+      var html = get(DIR);   // listado de directorio (servidores de desarrollo)
       if (html) {
         var out = [], re = /href="([^"?#\/]+\.js)"/gi, m;
         while ((m = re.exec(html))) {
           var f = decodeURIComponent(m[1]);
-          if (!out.some(function (o) { return o.file === f; }))
-            out.push({ file: f, phase: /\.after\.js$/i.test(f) ? 'after' : 'before' });
+          if (!/^(generate-index|_)/.test(f) && !out.some(function (o) { return o.file === f; })) out.push(norm({ file: f }));
         }
-        if (out.length) { console.info('[Countries] Sin index.json: usando el listado del directorio.'); return out.sort(function (a, b) { return a.file.localeCompare(b.file); }); }
+        if (out.length) { console.info('[Countries] Sin index.json: usando el listado del directorio.'); return { list: out.sort(function (a, b) { return a.id.localeCompare(b.id); }), def: null }; }
       }
-      return null;
+      // Compatibilidad con el formato antiguo (fichero suelto en la raíz)
+      return { list: [norm({ id: BUILTIN, name: 'España', url: 'pais-espana.js', file: 'pais-espana.js' })], def: null };
     }
-
     function exec(url, code) {
       var s = document.createElement('script');
       s.textContent = code + '\n//# sourceURL=' + url;
       document.head.appendChild(s);          // los scripts inline se ejecutan de forma síncrona
       s.remove();
     }
-
-    function include(url) {
-      var code = get(url);
-      if (code == null) { state.failed.push(url); console.warn('[Countries] No se pudo cargar ' + url); return false; }
-      try { exec(url, code); state.loaded.push(url); return true; }
-      catch (e) { state.failed.push(url); console.error('[Countries] Error en ' + url, e); return false; }
-    }
-
     function banner(msg) {
       var d = document.createElement('div');
       d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#b91c1c;color:#fff;padding:10px;font:14px sans-serif';
       d.textContent = msg;
       (document.body || document.documentElement).appendChild(d);
     }
+    function stored() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
 
-    // ---- API pública para los ficheros de Countries/ ----
-    // registerScenario({ id, title, desc, parties:[...], decisions:[...]?, startYear:2023? })
-    window.registerScenario = function (sc) {
-      if (!sc || !sc.id) { console.warn('[Countries] registerScenario: falta "id"'); return; }
-      if (typeof SCENARIOS === 'undefined') window.SCENARIOS = {};
-      SCENARIOS[sc.id] = sc;
+    window.switchCountry = function (id) {
+      try { localStorage.setItem(KEY, id); } catch (e) {}
+      location.href = location.pathname;     // quita ?pais= para que mande la elección guardada
     };
 
-    function mergeDecisionBanks() {
-      if (typeof SCENARIOS === 'undefined' || typeof DECISION_BANK === 'undefined') return;
-      Object.keys(SCENARIOS).forEach(function (id) {
-        var d = SCENARIOS[id] && SCENARIOS[id].decisions;
-        if (Array.isArray(d) && d.length) DECISION_BANK[id] = (DECISION_BANK[id] || []).concat(d);
-      });
+    var m = readManifest();
+    window.COUNTRIES = m.list;
+    var want = (new URLSearchParams(location.search)).get('pais') || stored() || m.def || m.list[0].id;
+    var sel = m.list.filter(function (c) { return c.id === want; })[0] || m.list[0];
+
+    var code = get(sel.url);
+    if (code == null && sel !== m.list[0]) {   // país elegido inaccesible: vuelve al primero
+      console.warn('[Countries] No se pudo cargar ' + sel.url + '; se usa ' + m.list[0].url);
+      try { localStorage.removeItem(KEY); } catch (e) {}
+      sel = m.list[0]; code = get(sel.url);
     }
+    if (code != null) { exec(sel.url, code); window.CURRENT_COUNTRY = sel; }
+    window.countryIsBuiltin = !window.CURRENT_COUNTRY || sel.id === BUILTIN;
 
-    window.CountryLoader = {
-      state: state,
-      run: function (phase) {
-        if (state.manifest === null) state.manifest = readManifest() || false;
-        var files = state.manifest ? state.manifest.filter(function (e) { return e.phase === phase; }) : [];
-        var ok = 0;
-        files.forEach(function (e) { if (include(DIR + e.file)) ok++; });
-
-        // Compatibilidad: si Countries/ no aporta nada en esta fase, usa los ficheros antiguos de la raíz
-        if (!files.length) {
-          LEGACY[phase].forEach(function (f) {
-            if (include(f)) { ok++; state.legacy.push(f); }
-          });
-          if (state.legacy.length) console.info('[Countries] Usando ficheros antiguos de la raíz:', state.legacy.join(', '));
-        }
-
-        if (phase === 'before') {
-          if (typeof SCENARIOS === 'undefined' || !Object.keys(SCENARIOS).length)
-            banner('⚠ No se ha cargado ningún país. Comprueba que existe la carpeta Countries/ junto a index.html con su index.json (o ejecuta node Countries/generate-index.js) y recarga con Ctrl+F5.');
-        } else {
-          mergeDecisionBanks();
-        }
-        return ok;
-      }
-    };
-
-    window.CountryLoader.run('before');
+    if (typeof SCENARIOS === 'undefined' || !Object.keys(SCENARIOS).length)
+      banner('⚠ No se ha cargado ningún país. Comprueba que existe Countries/index.json y el fichero de "' + sel.id + '" (ejecuta node Countries/generate-index.js) y recarga con Ctrl+F5.');
   })();
   </script>
 <script>
@@ -2714,10 +2687,10 @@ function renderTabContent() {
       <div class="lg:col-span-5 hoi-box p-3 rounded flex flex-col justify-between space-y-2">
         <div>
           <h3 class="font-hoi-tech text-xs text-slate-300 flex items-center justify-between border-b border-slate-800 pb-1.5">
-            <span><i class="fa-solid fa-map-location-dot text-amber-400 mr-1.5"></i>Mapa Provincial de España</span>
+            <span><i class="fa-solid fa-map-location-dot text-amber-400 mr-1.5"></i>${typeof countryMapTitle === 'function' ? countryMapTitle() : 'Mapa Provincial de España'}</span>
             <span id="map-tooltip" class="text-amber-400 font-bold text-[10px]">Pasa el cursor por cada provincia</span>
           </h3>
-          <svg viewBox="0 0 500 400" class="w-full h-auto mt-2" style="background:radial-gradient(ellipse at 40% 40%,#12212b,#0a1218);border-radius:8px"><rect x="10" y="334" width="150" height="60" rx="4" fill="none" stroke="#3d4f59" stroke-dasharray="4 3"/><text x="14" y="346" fill="#64748b" font-size="7" font-family="Chakra Petch,sans-serif">CANARIAS</text>
+          <svg viewBox="0 0 500 400" class="w-full h-auto mt-2" style="background:radial-gradient(ellipse at 40% 40%,#12212b,#0a1218);border-radius:8px">${window.countryIsBuiltin === false ? '' : '<rect x="10" y="334" width="150" height="60" rx="4" fill="none" stroke="#3d4f59" stroke-dasharray="4 3"/><text x="14" y="346" fill="#64748b" font-size="7" font-family="Chakra Petch,sans-serif">CANARIAS</text>'}
             ${(typeof SPAIN_MAP_PATHS !== 'undefined' ? SPAIN_MAP_PATHS : []).map(prov => {
               const regionalVal = typeof getRegionalApproval === 'function' ? getRegionalApproval(prov) : 50;
               const isCrisis = gameState.provincesStatus && gameState.provincesStatus[prov.id] && gameState.provincesStatus[prov.id].crisis;
@@ -2729,6 +2702,7 @@ function renderTabContent() {
                        onclick="handleProvinceClick('${prov.id}')"
                        onmouseenter="showTooltip('${prov.name}', ${Math.round(regionalVal)}, '${isCrisis ? '¡DISTURBIOS Y HUELGA ACTIVA!' : prov.desc}')" />`;
             }).join('')}
+            ${(window.countryIsBuiltin === false && !(typeof SPAIN_MAP_PATHS !== 'undefined' && SPAIN_MAP_PATHS.length)) ? '<text x="250" y="200" text-anchor="middle" fill="#64748b" font-size="13" font-family="Chakra Petch,sans-serif">Mapa de ' + ((window.CURRENT_COUNTRY && window.CURRENT_COUNTRY.name) || 'este país') + ' no disponible</text>' : ''}
           </svg>
         </div>
         <div class="bg-slate-900/90 p-2 rounded border border-slate-800 text-[10px] font-hoi-tech flex justify-between items-center">
@@ -3624,7 +3598,7 @@ function makeDecision(optionIdx) {
   }
 
   // 11. Generación aleatoria de crisis provinciales por baja estabilidad
-  if (gameState.metrics && gameState.metrics.est < 45 && Math.random() < 0.4 && typeof SPAIN_MAP_PATHS !== 'undefined') {
+  if (gameState.metrics && gameState.metrics.est < 45 && Math.random() < 0.4 && typeof SPAIN_MAP_PATHS !== 'undefined' && SPAIN_MAP_PATHS.length) {
     const randomProv = SPAIN_MAP_PATHS[Math.floor(Math.random() * SPAIN_MAP_PATHS.length)];
     if (!gameState.provincesStatus) gameState.provincesStatus = {};
     gameState.provincesStatus[randomProv.id] = { crisis: true, title: 'Barricadas y Huelga' };
@@ -11012,8 +10986,54 @@ function playSound(n) {
 
 <!-- La integración de Marruecos (pestaña, reloj y render) vive solo en marruecos.js: este bloque duplicaba el avance diario y se ha eliminado. -->
 
-  <script>CountryLoader.run('after');</script>
+  <script>
+  // Ajustes tras el motor: contenido propio del país (el motor trae el de España)
+  (function () {
+    var C = window.CURRENT_COUNTRY || {}, builtin = window.countryIsBuiltin !== false;
+
+    window.countryMapTitle = function () {
+      if (builtin) return 'Mapa Provincial de España';
+      return (typeof COUNTRY_MAP !== 'undefined' && COUNTRY_MAP.title) || ('Mapa de ' + (C.name || 'este país'));
+    };
+
+    if (!builtin) {
+      // 1) Mazo de decisiones: COUNTRY_DECISIONS (array u objeto por escenario) o, si no existe, DYNAMIC_EVENTS
+      var deck = (typeof COUNTRY_DECISIONS !== 'undefined') ? COUNTRY_DECISIONS
+               : (typeof DYNAMIC_EVENTS !== 'undefined' ? DYNAMIC_EVENTS : null);
+      if (deck) Object.keys(SCENARIOS).forEach(function (id) {
+        var d = Array.isArray(deck) ? deck : deck[id];
+        if (Array.isArray(d) && d.length) DECISION_BANK[id] = d.slice();
+      });
+      // 2) Mapa: se vacía el de España y se usa el del país si lo define (COUNTRY_MAP.paths)
+      SPAIN_MAP_PATHS.length = 0;
+      if (typeof COUNTRY_MAP !== 'undefined' && Array.isArray(COUNTRY_MAP.paths))
+        COUNTRY_MAP.paths.forEach(function (pp) { SPAIN_MAP_PATHS.push(pp); });
+    }
+
+    // Selector de país en la pantalla de inicio
+    var _r = renderScenarioSelect;
+    renderScenarioSelect = function (app) {
+      _r(app);
+      var list = window.COUNTRIES || [];
+      var host = app.querySelector('.max-w-4xl');
+      if (list.length < 2 || !host) return;
+      var esc = function (t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); };
+      var sec = document.createElement('section');
+      sec.className = 'space-y-3';
+      sec.innerHTML =
+        '<div class="flex items-center gap-3"><span class="font-hoi-header text-3xl text-amber-400"><i class="fa-solid fa-earth-europe"></i></span>' +
+        '<h2 class="font-hoi-header text-2xl text-slate-100 tracking-wider">ELIGE EL PAÍS</h2></div>' +
+        '<div class="grid grid-cols-2 md:grid-cols-4 gap-3">' +
+        list.map(function (c) {
+          var on = C.id === c.id;
+          return '<div onclick="' + (on ? '' : "switchCountry('" + esc(c.id) + "')") + '" class="mode-card hoi-box rounded-lg p-3 text-center space-y-1.5 ' + (on ? 'sel' : '') + '">' +
+            (c.flag ? '<div class="font-hoi-tech text-xs text-amber-300">' + esc(c.flag) + '</div>' : '') +
+            '<h3 class="font-hoi-header text-base text-slate-100 leading-tight">' + esc(c.name) + '</h3></div>';
+        }).join('') + '</div>';
+      host.insertBefore(sec, host.firstChild);
+    };
+  })();
+  </script>
   <script src="multijugador.js"></script>
-  <script src="marruecos.js"></script>
 </body>
 </html>
