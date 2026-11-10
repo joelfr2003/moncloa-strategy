@@ -88,6 +88,38 @@
     if (typeof d.rel === 'number' && isFinite(d.rel)) setRel(d.rel);
     if (d.p && typeof d.p === 'object') Object.keys(m.pacts).forEach(k => { if (typeof d.p[k] === 'boolean') m.pacts[k] = d.p[k]; });
   };
+
+  // ---------------- RELOJ COMPARTIDO ----------------
+  // Pausa y velocidad se sincronizan entre los dos jugadores; el reloj no arranca hasta que ambos están en la partida,
+  // y quien va por delante espera a que el otro le alcance (así los dos avanzan los mismos días).
+  const X = { ready: false, sent: false, day: null, day0: null, waiting: false, waitSpd: 1, applying: false };
+  const inGame = () => gameState.step === 4 || gameState.step === 5;
+  const elapsed = () => (gameState.daysInOffice || 0) - (X.day0 == null ? (gameState.daysInOffice || 0) : X.day0);
+  const resetClock = () => { X.ready = false; X.sent = false; X.day = null; X.day0 = null; X.waiting = false; };
+  const _sg = setGameSpeed;
+  function localSpeed(v) { X.applying = true; try { _sg(v); } finally { X.applying = false; } }
+  setGameSpeed = function (v) {
+    const m = S();
+    if (m && m.linked && !X.applying) {
+      if (v > 0 && !(X.ready && inGame())) { localSpeed(0); toast('Reloj compartido: esperando a que el otro jugador llegue a la partida.', '#d9a726'); return; }
+      X.waiting = false; tx({ t: 'spd', v });
+    }
+    return _sg.apply(this, arguments);
+  };
+  function sendReady() { const m = S(); if (m && m.linked) { X.sent = inGame(); tx({ t: 'rdy', r: X.sent }); } }
+  function checkStart() {   // cuando los dos están dentro: se pausa y se fija el día 0 común
+    const m = S(); if (!m || !m.linked || !X.ready || !inGame() || X.day0 != null) return;
+    X.day0 = gameState.daysInOffice || 0; X.day = 0; localSpeed(0);
+    toast('Reloj compartido: pulsad ▶ para empezar a la vez.', '#d9a726');
+  }
+  function clockMsg(d) {
+    if (d.t === 'rdy') { X.ready = !!d.r; checkStart(); }
+    else if (d.t === 'spd' && [0, 1, 2, 3].indexOf(d.v) >= 0) { if (inGame() && X.day0 != null) { X.waiting = false; localSpeed(d.v); } }
+    else if (d.t === 'day' && typeof d.n === 'number') {
+      X.day = d.n;
+      if (X.waiting && elapsed() <= X.day + 1) { X.waiting = false; localSpeed(X.waitSpd); }
+    }
+  }
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
   // ---------------- LÓGICA DIPLOMÁTICA ----------------
@@ -135,10 +167,14 @@
         try { const k = INTL_KEY[m.other.id], I = intlInit(); if (k && I.rel && I.rel[k] != null) m.rel = clamp(I.rel[k]); } catch (e) { /* sin INTL */ }
         tx({ t: 'sync', auth: true });
       }
-      if (m.other.id === myC().id) toast('Los dos jugadores tenéis el mismo país: uno debe cambiarlo.', '#d9a726');
-      else toast(esc(m.other.user || m.other.name) + ' (' + esc(m.other.name) + ') se ha conectado.', '#10b981');
-      render(); return;
+      if (m.other.id === myC().id) {   // no se permite el mismo país: se corta la conexión en ambos lados
+        const msg = 'No se puede jugar con el mismo país: ' + myC().name + ' ya está en uso. Uno de los dos debe elegir otro país.';
+        closeNet(); gameState.mp = null; L.err = msg; toast(msg, '#d9a726'); render(); return;
+      }
+      toast(esc(m.other.user || m.other.name) + ' (' + esc(m.other.name) + ') se ha conectado.', '#10b981');
+      sendReady(); checkStart(); render(); return;
     }
+    if (d.t === 'rdy' || d.t === 'spd' || d.t === 'day') { clockMsg(d); return; }
     if (d.t === 'sync') { if (d.auth && m.role === 'guest') adopt(d); render(); return; }
     const x = ACT(d.id);
     if (d.t === 'prop' && x && x.k === 'prop' && typeof d.uid === 'string') {
@@ -170,6 +206,10 @@
     Object.keys(m.cd).forEach(k => { if (m.cd[k] > 0) m.cd[k]--; });
     pk.forEach(k => fx({ [PACT_FX[k][0]]: PACT_FX[k][1] }));
     if (m.pacts.trade && d % 30 === 0) cash(150, 'Pacto comercial con ' + oname());
+    if (m.linked && X.day0 != null) {
+      const e = elapsed(); if (e % 2 === 0) tx({ t: 'day', n: e });
+      if (X.day != null && gameState.gameSpeed > 0 && e > X.day + 3 && !X.waiting) { X.waiting = true; X.waitSpd = gameState.gameSpeed; localSpeed(0); toast('Reloj compartido: esperando al otro jugador…', '#d9a726'); }
+    }
     if (m.role === 'host' && m.linked && pk.length) { setRel(m.rel + 0.05 * pk.length); if (d % 10 === 0) tx({ t: 'sync', auth: true }); }
   }
 
@@ -212,12 +252,12 @@
   // ---------------- CONEXIÓN ----------------
   function wire(c) {
     link = c;
-    const hello = () => { const m = ensure(); m.linked = true; tx({ t: 'hello', c: myC().id, n: myC().name, u: USER }); render(); };
+    const hello = () => { const m = ensure(); m.linked = true; resetClock(); tx({ t: 'hello', c: myC().id, n: myC().name, u: USER }); render(); };
     c.on('open', hello);
     c.on('data', onData);
     c.on('close', () => { const m = S(); if (m) { m.linked = false; log('Conexión con ' + oname() + ' perdida.'); } link = null; render(); });
   }
-  function closeNet() { try { if (link) link.close(); if (peer) peer.destroy(); } catch (e) { /* ya cerrado */ } link = peer = null; const m = S(); if (m) { m.linked = false; m.role = null; m.code = ''; } }
+  function closeNet() { resetClock(); try { if (link) link.close(); if (peer) peer.destroy(); } catch (e) { /* ya cerrado */ } link = peer = null; const m = S(); if (m) { m.linked = false; m.role = null; m.code = ''; } }
   function host() {
     if (!userOk()) return need();
     (useRelay() ? loadSb : loadPeer)(() => {
@@ -262,7 +302,7 @@
     const m = S(), me = myC();
     const sub = `<p class="text-xs text-slate-400 font-sans">Gobiernas ${flagOf(me.id)} <b class="text-amber-300">${esc(me.name)}</b> con tu propia partida completa. Solo se comparte la diplomacia: propuestas, pactos, ayudas y la relación; el otro jugador nunca ve tus estadísticas.</p>`;
     if (!m || !m.linked) return `<div class="hoi-box p-5 rounded-xl space-y-3 font-hoi-tech">${head}${sub}</div>${connPanel()}${m && m.log.length ? logHtml(m) : ''}`;
-    const r = Math.round(m.rel), same = m.other && m.other.id === me.id;
+    const r = Math.round(m.rel);
     const inbox = m.inbox.filter(i => !i.mine).map(it => { const x = ACT(it.id); if (!x) return '';
       return `<div class="bg-slate-900 border border-amber-500/40 rounded p-2 text-[11px] space-y-1"><div><b>${oflag()} ${esc(oname())}</b> te propone: <b class="text-amber-300">${x.t}</b></div><div class="text-slate-400">${x.d}</div>
       <div class="flex gap-2"><button onclick="MP.answer('${it.uid}',true)" class="hoi-button-gold px-3 py-1 rounded">Aceptar</button><button onclick="MP.answer('${it.uid}',false)" class="hoi-button px-3 py-1 rounded">Rechazar</button></div></div>`; }).join('');
@@ -271,12 +311,12 @@
       return `<button ${off ? 'disabled' : ''} onclick="MP.act('${x.id}')" class="hoi-button p-2 rounded text-[11px] text-left ${off ? 'opacity-50' : ''} ${x.k === 'now' ? 'border-red-500/40' : ''}"><div><i class="fa-solid ${x.ic} mr-1"></i><b>${x.t}</b> <span class="text-slate-500">· ${x.cap} cap.</span></div><div class="text-slate-400 mt-0.5">${x.d}</div><div class="text-[10px] mt-1 ${on ? 'text-emerald-400' : 'text-slate-500'}">${on ? '✔ ACTIVO' : pend ? 'Propuesta pendiente' : cd > 0 ? 'Disponible en ' + cd + ' días' : x.k === 'prop' ? 'Requiere aceptación' : 'Efecto inmediato'}</div></button>`; }).join('');
     const pk = [['trade', 'Comercio'], ['border', 'Frontera'], ['defense', 'Defensa']].map(([k, l]) => `<span class="text-[10px] px-2 py-0.5 rounded border ${m.pacts[k] ? 'border-emerald-500 text-emerald-400' : 'border-slate-700 text-slate-500'}">${l}</span>`).join(' ');
     return `<div class="hoi-box p-5 rounded-xl space-y-3 font-hoi-tech">${head}${sub}</div>
-      ${same ? '<div class="hoi-box p-3 rounded-xl text-xs text-amber-300 font-hoi-tech">⚠ Los dos jugadores gobernáis el mismo país. Uno debe cambiar de país desde el menú principal.</div>' : ''}
       <div class="bg-slate-950 border border-amber-500/40 rounded-lg p-3 space-y-2 font-hoi-tech">
         <div class="flex justify-between items-center"><b class="text-sm text-slate-100">${oflag()} ${esc(oname())}</b><span class="text-[10px] text-emerald-400">● ${esc(m.other.user || 'conectado')}</span></div>
         <div class="flex justify-between text-[11px] text-slate-300"><span>Relación ${esc(me.name)} – ${esc(oname())}</span><span class="font-mono">${r}/100</span></div>
         <div class="h-1.5 bg-slate-900 rounded overflow-hidden"><div class="h-full ${r >= 60 ? 'bg-emerald-500' : r >= 35 ? 'bg-amber-500' : 'bg-red-500'}" style="width:${r}%"></div></div>
         <div class="flex gap-1 flex-wrap">${pk}</div>
+        <div class="text-[11px] ${X.day0 == null ? 'text-amber-400' : X.waiting ? 'text-amber-400' : 'text-emerald-400'}"><i class="fa-solid fa-clock mr-1"></i>Reloj compartido: ${X.day0 == null ? 'esperando a que los dos estéis en la partida' : X.waiting ? 'esperando al otro jugador' : 'sincronizado'}</div>
         <div class="flex justify-between text-[11px] text-slate-400"><span>Tu capital político: <b class="text-slate-200">${Math.floor(cap())}</b></span><span>Tu tesorería: <b class="text-slate-200">${fmt(treas())} M€</b></span></div>
         <button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded text-[10px]">Desconectar</button></div>
       ${inbox ? `<div class="space-y-2"><div class="text-[11px] text-amber-400 tracking-wider">PROPUESTAS RECIBIDAS</div>${inbox}</div>` : ''}
@@ -364,7 +404,6 @@
         ${m.role === 'host' ? `<button onclick="MP.copy('${esc(url)}')" class="hoi-button px-3 py-1.5 rounded text-xs"><i class="fa-solid fa-link mr-1"></i>Copiar enlace de invitación</button>` : ''}</div>
         <div class="lb-countries"><div class="lb-country sel"><div class="lb-flag">${flagOf(me.id)}</div><div class="lb-cn">${esc(me.name)}</div><div class="text-xs text-emerald-400">${esc(USER)} · tú</div></div>
         <div class="lb-country ${ok ? 'sel' : ''}"><div class="lb-flag">${ok ? oflag() : '⏳'}</div><div class="lb-cn">${ok ? esc(oname()) : 'Esperando…'}</div><div class="text-xs ${ok ? 'text-emerald-400' : 'text-slate-500'}">${ok ? esc(m.other && m.other.user || 'conectado') : 'sin conectar'}</div></div></div>
-        ${ok && m.other && m.other.id === me.id ? '<div class="lb-err">Los dos tenéis el mismo país. Uno debe cancelar y elegir otro.</div>' : ''}
         <p class="text-[11px] text-slate-500 font-sans text-center">Cada jugador empieza su propia partida con su país; solo se comparte la diplomacia. No hace falta empezar a la vez.</p>
         <div class="flex gap-2 justify-center flex-wrap">${btn('hoi-button-gold', 'fa-play', 'Empezar mi partida', 'MP.begin()', !ok)}${btn('hoi-button', 'fa-xmark', 'Cancelar', 'MP.cancel()')}</div>`;
     }
@@ -417,6 +456,7 @@
     lastStep = gameState.step;
     document.body.classList.toggle('mp-lobby', gameState.step === 1 && L.on);
     const mm = S(); if (mm && mm.linked && !(link && link.open)) mm.linked = false;   // partida cargada: sin conexión viva
+    if (mm && mm.linked && inGame() !== X.sent) { sendReady(); checkStart(); }
     const r = _r.apply(this, arguments);
     const b = document.getElementById('tab-btn-mp');
     if (b) {
