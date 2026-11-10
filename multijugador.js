@@ -143,6 +143,11 @@
     }
     log('Modo multijugador: España y ' + c.name + ' empiezan a gobernar en paralelo.');
   }
+  // Si la partida con Marruecos se creó con el estado genérico (sin ejército/escaños), se rehace con el completo
+  function ensureMA() {
+    const m = gameState.mp;
+    if (m && m.partner === 'MA' && m.P && !m.P.army && window.initMorocco) { m.P = window.initMorocco(m.gn || ''); m.synced = false; }
+  }
   function stop() { closeNet(); gameState.mp = null; render(); }
   function swap() {
     const m = S(); m.turn = oth(m.turn);
@@ -294,10 +299,11 @@
   }
   const gsend = o => { if (link && link.open) link.send(o); };
   function snap() {
+    ensureMA();
     const m = S(), me = { eco: 0, est: 0, apr: 0, mil: 0, tes: 0, cap: 0 }, wait = (gameState.step !== 4 && !(gameState.step === 5 && window.CAMP && CAMP.live())) || m.started === false;
     if (!wait) { STATS.forEach(([k]) => { me[k] = stat('ES', k); }); me.tes = treas('ES'); me.cap = cap('ES'); }
     const cd = {}; Object.keys(m.cd).forEach(k => { if (k[0] === 'P') cd[k] = m.cd[k]; });
-    return { wait, camp: (window.CAMP && CAMP.live()) ? CAMP.info() : null, diff: (gameState.campaign && gameState.campaign.diff) || gameState.difficulty || 'normal', day: gameState.daysInOffice || 0, pause: wait || !gameState.gameSpeed || !!gameState.currentCampaignQuestion, ES: me, rel: wait ? 45 : intlInit().rel[C().intl],
+    return { wait, pre: gameState.step >= 2, camp: (window.CAMP && CAMP.live()) ? CAMP.info() : null, diff: (gameState.campaign && gameState.campaign.diff) || gameState.difficulty || 'normal', day: gameState.daysInOffice || 0, pause: wait || !gameState.gameSpeed || !!gameState.currentCampaignQuestion, ES: me, rel: wait ? 45 : intlInit().rel[C().intl],
       m: { partner: m.partner, turn: 'P', P: m.P, pacts: m.pacts, inbox: m.inbox, log: m.log, cd, evt: m.evt, mode: 'online', code: m.code, hn: USER, gn: m.gn } };
   }
   let lastPush = 0;
@@ -324,7 +330,7 @@
     if (!el) { el = document.createElement('div'); el.id = 'mp-guest'; el.className = 'fixed inset-0 overflow-y-auto p-4'; el.style.zIndex = 100000; el.style.background = '#0b0f12'; document.body.appendChild(el); }
     const s = guest.s;
     const morG = !!(s && s.m && s.m.P && s.m.P.army && window.renderMoroccoTab);
-    el.innerHTML = `<div class="flex justify-between items-center mb-3 font-hoi-tech text-xs text-slate-300"><span>Sala <b class="text-amber-300">${guest.code}</b>${s && s.diff && typeof DIFFICULTY !== 'undefined' && DIFFICULTY[s.diff] ? ' · ' + DIFFICULTY[s.diff].name : ''}${s && s.m.hn ? ' · anfitrión: ' + s.m.hn : ''}${s ? ' · Día ' + s.day + (s.pause ? ' · <span class="text-amber-400">PARTIDA EN PAUSA</span>' : '') + (s.camp ? ' · <span class="text-sky-300">🗳️ Campaña en España: día ' + s.camp.d + '/' + s.camp.n + '</span>' : '') : ''}${guest.ok ? '' : ' · <span class="text-red-400">CONEXIÓN PERDIDA</span>'}</span><button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded">Salir de la sala</button></div><div class="${morG ? 'max-w-5xl' : 'max-w-3xl'} mx-auto space-y-3">${s && s.wait ? '<div class="hoi-box p-8 rounded-xl text-center font-hoi-tech text-slate-300"><div class="text-3xl mb-2">' + flag('P') + '</div>Estás dentro de la sala. Esperando a que el anfitrión empiece la partida…</div>' : morG ? window.renderMoroccoTab(s.m.P, { guest: true }) : renderMulti()}</div>`;
+    el.innerHTML = `<div class="flex justify-between items-center mb-3 font-hoi-tech text-xs text-slate-300"><span>Sala <b class="text-amber-300">${guest.code}</b>${s && s.diff && typeof DIFFICULTY !== 'undefined' && DIFFICULTY[s.diff] ? ' · ' + DIFFICULTY[s.diff].name : ''}${s && s.m.hn ? ' · anfitrión: ' + s.m.hn : ''}${s ? ' · Día ' + s.day + (s.pause ? ' · <span class="text-amber-400">PARTIDA EN PAUSA</span>' : '') + (s.camp ? ' · <span class="text-sky-300">🗳️ Campaña en España: día ' + s.camp.d + '/' + s.camp.n + '</span>' : '') : ''}${guest.ok ? '' : ' · <span class="text-red-400">CONEXIÓN PERDIDA</span>'}</span><button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded">Salir de la sala</button></div><div class="${morG ? 'max-w-5xl' : 'max-w-3xl'} mx-auto space-y-3">${s && s.wait && !(morG && s.pre && s.m.P.setup && !s.m.P.setup.done) ? '<div class="hoi-box p-8 rounded-xl text-center font-hoi-tech text-slate-300"><div class="text-3xl mb-2">' + flag('P') + '</div>' + (morG && s.pre ? 'Has dado el visto bueno a tu Gobierno. Esperando a que el anfitrión empiece la partida…' : 'Estás dentro de la sala. Esperando a que el anfitrión empiece la partida…') + '</div>' : morG ? window.renderMoroccoTab(s.m.P, { guest: true }) : renderMulti()}</div>`;
   }
 
   // ---------------- INTERFAZ ----------------
@@ -580,7 +586,16 @@
       if (m.P && m.P.army) { m.P.day = d; m.P.next = d + 25; }
       if (m.mode === 'online') setTimeout(() => goalsToast('Pulsa ▶ para empezar: la partida arrancará a la vez para ' + nm('ES') + ' y ' + nm('P') + '.', '#d9a726'), 300);
     }
+    try { ensureMA(); } catch (e) { console.error(e); }
     const r = _r.apply(this, arguments);
+    try {
+      const mm = gameState.mp, st = mm && mm.partner === 'MA' && mm.mode === 'online' && mm.started === false && mm.P && mm.P.setup, show = st && gameState.step >= 2 && gameState.step <= 4;
+      let bx = document.getElementById('ma-setup-badge');
+      if (show) {
+        if (!bx) { bx = document.createElement('div'); bx.id = 'ma-setup-badge'; bx.style.cssText = 'position:fixed;right:12px;bottom:56px;z-index:9999;max-width:260px'; bx.className = 'hoi-box rounded-lg px-3 py-2 font-hoi-tech text-[11px]'; document.body.appendChild(bx); }
+        bx.innerHTML = st.done ? '🇲🇦 <b class="text-emerald-400">Marruecos listo.</b> Cuando termines tu reparto, empieza la partida.' : '🇲🇦 Marruecos está ' + (st.phase === 'coal' ? 'negociando su pactómetro' : 'ajustando sus escaños') + '. No podrás empezar hasta que termine.';
+      } else if (bx) bx.remove();
+    } catch (e) { console.error(e); }
     const b = document.getElementById('tab-btn-mp');
     if (b) {
       b.style.display = gameState.step === 4 ? '' : 'none';
