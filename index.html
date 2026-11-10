@@ -358,7 +358,7 @@ main#app, footer {
         var out = [], re = /href="([^"?#\/]+\.js)"/gi, m;
         while ((m = re.exec(html))) {
           var f = decodeURIComponent(m[1]);
-          if (!/^(generate-index|_)/.test(f) && !out.some(function (o) { return o.file === f; })) out.push(norm({ file: f }));
+          if (!/^(generate-index|_|plantilla)/.test(f) && !out.some(function (o) { return o.file === f; })) out.push(norm({ file: f }));
         }
         if (out.length) { console.info('[Countries] Sin index.json: usando el listado del directorio.'); return { list: out.sort(function (a, b) { return a.id.localeCompare(b.id); }), def: null }; }
       }
@@ -1686,14 +1686,15 @@ function startGovernance() {
   // INICIALIZACIÓN FINANCIERA
   if (!gameState.expenseLog || gameState.expenseLog.length === 0) {
     gameState.expenseLog = [];
+    const initialTreasury = (gameState.scenario && Number(gameState.scenario.treasury) > 0) ? Number(gameState.scenario.treasury) : 75000;
     if (typeof addTransaction === 'function') {
-      addTransaction('Fondo Inicial de Tesorería del Estado', 75000);
+      addTransaction('Fondo Inicial de Tesorería del Estado', initialTreasury);
     } else {
-      gameState.treasury = 75000;
+      gameState.treasury = initialTreasury;
       gameState.expenseLog.unshift({
         date: gameState.currentDate ? gameState.currentDate.toLocaleDateString('es-ES') : '',
         concept: 'Fondo Inicial de Tesorería del Estado',
-        amount: 75000
+        amount: initialTreasury
       });
     }
   }
@@ -3225,7 +3226,8 @@ function addTransaction(concept, amount, ministryKey = 'general') {
 
 // Ejecución aleatoria autónoma
 function triggerRandomMinistryAction() {
-  const keys = Object.keys(MINISTRY_DECISIONS_BANK);
+  const keys = Object.keys(MINISTRY_DECISIONS_BANK).filter(k => Array.isArray(MINISTRY_DECISIONS_BANK[k]) && MINISTRY_DECISIONS_BANK[k].length);
+  if (!keys.length) return;
   const randomMinistryKey = keys[Math.floor(Math.random() * keys.length)];
   const actions = MINISTRY_DECISIONS_BANK[randomMinistryKey];
   const chosenAction = actions[Math.floor(Math.random() * actions.length)];
