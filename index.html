@@ -308,8 +308,127 @@ main#app, footer {
     <p>MONCLOA STRATEGY &copy; 2026 — Diseñado por <strong>@joelfr302003</strong>. Todos los derechos reservados.</p>
   </footer>
 
-  <script src="pais-espana.js"></script>
-<script>if (typeof SCENARIOS === "undefined") document.write('<div style="position:fixed;top:0;left:0;right:0;z-index:999999;background:#b91c1c;color:#fff;padding:10px;font:14px sans-serif">⚠ No se ha cargado pais-espana.js. Comprueba que está subido a GitHub en la misma carpeta que index.html (con ese nombre exacto) y recarga con Ctrl+F5.</div>');</script>
+  <!-- =====================================================================
+       CARGADOR DINÁMICO DE PAÍSES  (carpeta Countries/)
+       - Lee Countries/index.json (lista de ficheros .js). Si no existe, intenta
+         leer el listado del directorio (servidores de desarrollo) y, como último
+         recurso, usa los ficheros antiguos de la raíz (pais-espana.js...).
+       - Fase "before": se ejecuta ANTES del motor (define SCENARIOS, etc.).
+       - Fase "after" : se ejecuta DESPUÉS del motor y antes de marruecos.js.
+         Un fichero entra en esta fase si en el manifiesto va como
+         {"file":"x.js","phase":"after"} o se llama "*.after.js".
+       - Carga síncrona y ordenada: mantiene exactamente el orden de ejecución
+         que tenían las antiguas etiquetas <script src>.
+       ===================================================================== -->
+  <script>
+  (function () {
+    var DIR = 'Countries/';
+    var LEGACY = { before: ['pais-espana.js'], after: ['pais-marruecos.js'] };
+    var state = { manifest: null, loaded: [], failed: [], legacy: [] };
+
+    function get(url) {
+      try {
+        var x = new XMLHttpRequest();
+        x.open('GET', url, false);
+        x.send(null);
+        if ((x.status >= 200 && x.status < 300) || (x.status === 0 && x.responseText)) return x.responseText;
+      } catch (e) {}
+      return null;
+    }
+
+    function readManifest() {
+      var txt = get(DIR + 'index.json');
+      if (txt) {
+        try {
+          var j = JSON.parse(txt);
+          var list = Array.isArray(j) ? j : (j.countries || j.files || []);
+          return list.map(function (e) {
+            if (typeof e === 'string') e = { file: e };
+            e.phase = e.phase || (/\.after\.js$/i.test(e.file) ? 'after' : 'before');
+            return e;
+          }).filter(function (e) { return e && e.file && e.enabled !== false; });
+        } catch (err) { console.warn('[Countries] index.json no es JSON válido:', err); }
+      }
+      // Fallback: listado de directorio (python -m http.server, serve, Apache...)
+      var html = get(DIR);
+      if (html) {
+        var out = [], re = /href="([^"?#\/]+\.js)"/gi, m;
+        while ((m = re.exec(html))) {
+          var f = decodeURIComponent(m[1]);
+          if (!out.some(function (o) { return o.file === f; }))
+            out.push({ file: f, phase: /\.after\.js$/i.test(f) ? 'after' : 'before' });
+        }
+        if (out.length) { console.info('[Countries] Sin index.json: usando el listado del directorio.'); return out.sort(function (a, b) { return a.file.localeCompare(b.file); }); }
+      }
+      return null;
+    }
+
+    function exec(url, code) {
+      var s = document.createElement('script');
+      s.textContent = code + '\n//# sourceURL=' + url;
+      document.head.appendChild(s);          // los scripts inline se ejecutan de forma síncrona
+      s.remove();
+    }
+
+    function include(url) {
+      var code = get(url);
+      if (code == null) { state.failed.push(url); console.warn('[Countries] No se pudo cargar ' + url); return false; }
+      try { exec(url, code); state.loaded.push(url); return true; }
+      catch (e) { state.failed.push(url); console.error('[Countries] Error en ' + url, e); return false; }
+    }
+
+    function banner(msg) {
+      var d = document.createElement('div');
+      d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#b91c1c;color:#fff;padding:10px;font:14px sans-serif';
+      d.textContent = msg;
+      (document.body || document.documentElement).appendChild(d);
+    }
+
+    // ---- API pública para los ficheros de Countries/ ----
+    // registerScenario({ id, title, desc, parties:[...], decisions:[...]?, startYear:2023? })
+    window.registerScenario = function (sc) {
+      if (!sc || !sc.id) { console.warn('[Countries] registerScenario: falta "id"'); return; }
+      if (typeof SCENARIOS === 'undefined') window.SCENARIOS = {};
+      SCENARIOS[sc.id] = sc;
+    };
+
+    function mergeDecisionBanks() {
+      if (typeof SCENARIOS === 'undefined' || typeof DECISION_BANK === 'undefined') return;
+      Object.keys(SCENARIOS).forEach(function (id) {
+        var d = SCENARIOS[id] && SCENARIOS[id].decisions;
+        if (Array.isArray(d) && d.length) DECISION_BANK[id] = (DECISION_BANK[id] || []).concat(d);
+      });
+    }
+
+    window.CountryLoader = {
+      state: state,
+      run: function (phase) {
+        if (state.manifest === null) state.manifest = readManifest() || false;
+        var files = state.manifest ? state.manifest.filter(function (e) { return e.phase === phase; }) : [];
+        var ok = 0;
+        files.forEach(function (e) { if (include(DIR + e.file)) ok++; });
+
+        // Compatibilidad: si Countries/ no aporta nada en esta fase, usa los ficheros antiguos de la raíz
+        if (!files.length) {
+          LEGACY[phase].forEach(function (f) {
+            if (include(f)) { ok++; state.legacy.push(f); }
+          });
+          if (state.legacy.length) console.info('[Countries] Usando ficheros antiguos de la raíz:', state.legacy.join(', '));
+        }
+
+        if (phase === 'before') {
+          if (typeof SCENARIOS === 'undefined' || !Object.keys(SCENARIOS).length)
+            banner('⚠ No se ha cargado ningún país. Comprueba que existe la carpeta Countries/ junto a index.html con su index.json (o ejecuta node Countries/generate-index.js) y recarga con Ctrl+F5.');
+        } else {
+          mergeDecisionBanks();
+        }
+        return ok;
+      }
+    };
+
+    window.CountryLoader.run('before');
+  })();
+  </script>
 <script>
     const SPANISH_FAMOUS_PEOPLE = [
       "Pedro Sánchez", "Pablo Iglesias", "Alberto Núñez Feijóo", "Yolanda Díaz",
@@ -1584,7 +1703,7 @@ function startGovernance() {
   gameState.nextHousingEventDay = 30;
 
   if (!gameState.isContinuingLegislature || !gameState.currentDate) {
-    const startYear = scenarioKey === 'TRANSICION' ? 1977 : 2023;
+    const startYear = (gameState.scenario && gameState.scenario.startYear) || (scenarioKey === 'TRANSICION' ? 1977 : 2023);
     gameState.currentDate = new Date(startYear, 0, 1);
   }
 
@@ -10893,7 +11012,7 @@ function playSound(n) {
 
 <!-- La integración de Marruecos (pestaña, reloj y render) vive solo en marruecos.js: este bloque duplicaba el avance diario y se ha eliminado. -->
 
-  <script src="pais-marruecos.js"></script>
+  <script>CountryLoader.run('after');</script>
   <script src="multijugador.js"></script>
   <script src="marruecos.js"></script>
 </body>
