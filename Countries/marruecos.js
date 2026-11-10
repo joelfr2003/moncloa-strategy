@@ -1,905 +1,829 @@
 // =====================================================================
-//  CONTENIDO DE MARRUECOS: escenario y decisiones, prensa, ministerios, focos,
-//  proyectos, logros, Banco Al-Maghrib… (separado del motor principal).
-//  Se carga ANTES del script principal.
+//  MARRUECOS — MONCLOA STRATEGY
+//  Contenido unificado de pais-marruecos.js + marruecos.js, adaptado a la
+//  estructura exacta de plantilla-pais.js (17 constantes globales).
+//  Cárgalo ANTES del script principal con una etiqueta <script> normal.
+//
+//  NOTAS DE ADAPTACIÓN
+//  · cost > 0 gasta tesorería; cost < 0 ingresa (convención de
+//    pais-marruecos.js). Todas las cantidades están en M€.
+//  · 'palace' (Confianza del Palacio) no existe como métrica base: en
+//    eventos, shocks y acciones presidenciales se ha pasado a `con`.
+//    En ministros, espíritus y proyectos se ha omitido. VERIFICAR el uso
+//    de `con` en el motor.
+//  · Los efectos sobre `debt`, `ES` (España) y `rel` bilateral de los
+//    eventos no tienen campo en la plantilla y se han omitido.
+//  · Cartera ministerial original -> cartera de la lista cerrada:
+//    awqaf -> cultura · equipamiento -> transicion_ecologica
+//    agricultura -> territorio · industria -> economia
+//    energia -> transicion_ecologica
+//  · Los ministros «TEC» (técnicos del Palacio) usan el partido 'OTR'.
+//  · Titulares (`news`, `textResult`) y cabeceras de diario: redactados
+//    al adaptar, porque los archivos originales no los incluían.
 // =====================================================================
 
+
+// =====================================================================
+// 1. SCENARIOS
+//  · spectrumOrder reescalado de 1–11 (hemiciclo original) a 1–7,
+//    conservando el orden relativo.
+//  · basePct calculado como escaños / 395 (no es cuota de voto real).
+//  · minSeats = 0 (el original solo limitaba 0..max).
+// =====================================================================
 const SCENARIOS = {
   ACTUAL: {
     id: 'ACTUAL',
-    title: 'MARRUECOS ACTUAL (2021)',
-    desc: 'Cámara de Representantes de 395 escaños (mayoría absoluta: 198). Deberás equilibrar las reformas económicas, la cohesión social, la sequía estructural y la modernización del Reino.',
+    title: 'MARRUECOS (2021)',
+    treasury: 9000,   // M€ iniciales (opcional; por defecto el motor usa 75.000)
+    desc: 'Cámara de Representantes de 395 escaños (mayoría absoluta: 198), dominada por el RNI, el PAM y el Istiqlal tras el hundimiento del PJD. El Palacio conserva los ministerios de soberanía mientras la sequía, la inflación y la protesta juvenil marcan la agenda.',
     parties: [
-      { id: 'FGD',  name: 'Federación de la Izquierda Democrática',     leader: 'Candidatura FGD',       seats: 1,   baseSeats: 1,   minSeats: 0, maxSeats: 395, basePct: 0.3,  color: '#be185d', isRegional: false, ideology: 'Izquierda',                spectrumOrder: 1, redLines: ['RNI', 'PAM', 'UC', 'PI', 'MP'] },
-      { id: 'PPS',  name: 'Partido del Progreso y el Socialismo',       leader: 'Nabil Benabdallah',     seats: 22,  baseSeats: 22,  minSeats: 0, maxSeats: 395, basePct: 5.6,  color: '#f97316', isRegional: false, ideology: 'Izquierda',                spectrumOrder: 2, redLines: [] },
-      { id: 'USFP', name: 'Unión Socialista de Fuerzas Populares',      leader: 'Driss Lachguar',        seats: 34,  baseSeats: 34,  minSeats: 0, maxSeats: 395, basePct: 8.6,  color: '#f43f5e', isRegional: false, ideology: 'Socialdemocracia',         spectrumOrder: 3, redLines: [] },
-      { id: 'PJD',  name: 'Partido Justicia y Desarrollo',              leader: 'Abdelilah Benkirane',   seats: 13,  baseSeats: 13,  minSeats: 0, maxSeats: 395, basePct: 3.3,  color: '#38bdf8', isRegional: false, ideology: 'Islamismo conservador',    spectrumOrder: 4, redLines: ['PAM'] },
-      { id: 'MP',   name: 'Movimiento Popular',                         leader: 'Mohand Laenser',        seats: 28,  baseSeats: 28,  minSeats: 0, maxSeats: 395, basePct: 7.1,  color: '#a16207', isRegional: false, ideology: 'Centro rural',             spectrumOrder: 4, redLines: [] },
-      { id: 'UC',   name: 'Unión Constitucional',                       leader: 'Mohamed Sajid',         seats: 18,  baseSeats: 18,  minSeats: 0, maxSeats: 395, basePct: 4.6,  color: '#eab308', isRegional: false, ideology: 'Liberal',                  spectrumOrder: 5, redLines: [] },
-      { id: 'PAM',  name: 'Autenticidad y Modernidad',                  leader: 'Abdellatif Ouahbi',     seats: 87,  baseSeats: 87,  minSeats: 0, maxSeats: 395, basePct: 22.0, color: '#16a34a', isRegional: false, ideology: 'Centro modernista',        spectrumOrder: 5, redLines: ['PJD'] },
-      { id: 'RNI',  name: 'Agrupación Nacional de Independientes',      leader: 'Aziz Akhannouch',       seats: 102, baseSeats: 102, minSeats: 0, maxSeats: 395, basePct: 25.8, color: '#2563eb', isRegional: false, ideology: 'Liberal / centroderecha',  spectrumOrder: 6, redLines: [] },
-      { id: 'PI',   name: 'Istiqlal',                                   leader: 'Nizar Baraka',          seats: 81,  baseSeats: 81,  minSeats: 0, maxSeats: 395, basePct: 20.5, color: '#dc2626', isRegional: false, ideology: 'Nacionalista conservador', spectrumOrder: 6, redLines: [] },
-      { id: 'MDS',  name: 'Movimiento Demócrata y Social',              leader: 'Abdemahdoud Archi',     seats: 3,   baseSeats: 3,   minSeats: 0, maxSeats: 395, basePct: 0.8,  color: '#94a3b8', isRegional: false, ideology: 'Centro',                   spectrumOrder: 4, redLines: [] }
+      { id: 'FGD',  name: 'Federación de la Izquierda Democrática',     leader: 'Candidatura de la FGD', seats: 1,   baseSeats: 1,   minSeats: 0, maxSeats: 60,  basePct: 0.3,  color: '#be185d', isRegional: false, ideology: 'Izquierda',                spectrumOrder: 1, redLines: ['RNI', 'PAM', 'UC', 'PI', 'MP'] },
+      { id: 'PPS',  name: 'Partido del Progreso y el Socialismo',       leader: 'Nabil Benabdallah',     seats: 22,  baseSeats: 22,  minSeats: 0, maxSeats: 70,  basePct: 5.6,  color: '#f97316', isRegional: false, ideology: 'Izquierda',                spectrumOrder: 2, redLines: [] },
+      { id: 'USFP', name: 'Unión Socialista de Fuerzas Populares',      leader: 'Driss Lachguar',        seats: 34,  baseSeats: 34,  minSeats: 0, maxSeats: 90,  basePct: 8.6,  color: '#f43f5e', isRegional: false, ideology: 'Socialdemocracia',         spectrumOrder: 3, redLines: [] },
+      { id: 'PJD',  name: 'Partido Justicia y Desarrollo',              leader: 'Abdelilah Benkirane',   seats: 13,  baseSeats: 13,  minSeats: 0, maxSeats: 130, basePct: 3.3,  color: '#38bdf8', isRegional: false, ideology: 'Islamismo conservador',    spectrumOrder: 4, redLines: ['PAM'] },
+      { id: 'MP',   name: 'Movimiento Popular',                         leader: 'Dirección del MP',      seats: 28,  baseSeats: 28,  minSeats: 0, maxSeats: 70,  basePct: 7.1,  color: '#a16207', isRegional: false, ideology: 'Centro rural',             spectrumOrder: 4, redLines: [] },
+      { id: 'UC',   name: 'Unión Constitucional',                       leader: 'Mohamed Sajid',         seats: 18,  baseSeats: 18,  minSeats: 0, maxSeats: 60,  basePct: 4.6,  color: '#eab308', isRegional: false, ideology: 'Liberal',                  spectrumOrder: 5, redLines: [] },
+      { id: 'PAM',  name: 'Autenticidad y Modernidad',                  leader: 'Abdellatif Ouahbi',     seats: 87,  baseSeats: 87,  minSeats: 0, maxSeats: 130, basePct: 22.0, color: '#16a34a', isRegional: false, ideology: 'Centro modernista',        spectrumOrder: 5, redLines: ['PJD'] },
+      { id: 'RNI',  name: 'Agrupación Nacional de Independientes',      leader: 'Aziz Akhannouch',       seats: 102, baseSeats: 102, minSeats: 0, maxSeats: 150, basePct: 25.8, color: '#2563eb', isRegional: false, ideology: 'Liberal / centroderecha',  spectrumOrder: 6, redLines: [] },
+      { id: 'PI',   name: 'Istiqlal',                                   leader: 'Nizar Baraka',          seats: 81,  baseSeats: 81,  minSeats: 0, maxSeats: 120, basePct: 20.5, color: '#dc2626', isRegional: false, ideology: 'Nacionalista conservador', spectrumOrder: 6, redLines: [] },
+      { id: 'MDS',  name: 'Movimiento Demócrata y Social',              leader: 'Dirección del MDS',     seats: 3,   baseSeats: 3,   minSeats: 0, maxSeats: 25,  basePct: 0.8,  color: '#94a3b8', isRegional: false, ideology: 'Centro',                   spectrumOrder: 4, redLines: [] },
+      { id: 'OTR',  name: 'Independientes y otros',                     leader: 'Independiente',         seats: 6,   baseSeats: 6,   minSeats: 0, maxSeats: 30,  basePct: 1.5,  color: '#64748b', isRegional: false, ideology: 'Varios',                   spectrumOrder: 4, redLines: [] }
     ]
   }
 };
 
-// ==========================================
-// 1. EVENTOS DINÁMICOS Y GEOPOLÍTICOS (POPUPS ÚNICOS)
-// ==========================================
+
+// =====================================================================
+// 2. DYNAMIC_EVENTS — decisiones de gobierno (DECS de marruecos.js)
+//    «Estadios frente a hospitales y escuelas» está en HOUSING_EVENTS.
+// =====================================================================
 const DYNAMIC_EVENTS = [
   {
     id: 'SPECIAL_MUDAWANA',
-    category: 'SOCIEDAD Y FAMILIA',
+    category: 'SOCIEDAD',
     title: 'REFORMA DEL CÓDIGO DE FAMILIA (MUDAWANA)',
-    desc: 'Las organizaciones de mujeres exigen avances en custodia, herencia y matrimonio, mientras que los sectores religiosos defienden el marco tradicional.',
+    desc: 'Las organizaciones de mujeres exigen más derechos en herencia, custodia y matrimonio; los sectores conservadores y religiosos se oponen.',
     condition: (m) => true,
     options: [
-      { text: 'Aprobar una reforma amplia e igualitaria en los tribunales de familia', stats: { apr: +6, est: -3, con: -2 }, cost: 0, loyaltyImpact: { USFP: +20, PPS: +25, PJD: -35, PI: -15, MP: -10 }, news: 'El Ejecutivo impulsa una reforma de la Mudawana enfocada en la igualdad de derechos.' },
-      { text: 'Limitar los cambios a ajustes procedimentales tras consultar al Consejo de Ulemas', stats: { apr: -4, est: +3, con: +4 }, cost: 0, loyaltyImpact: { PJD: +20, PI: +15, USFP: -20, PPS: -25 }, news: 'Rabat circunscribe la reforma de la Mudawana a criterios técnicos acordados con los ulemas.' }
+      { text: 'Aprobar una reforma profunda e igualitaria', stats: { apr: +4, est: -3, con: -2 }, cost: 0, loyaltyImpact: { USFP: +15, PPS: +20, PJD: -30, MP: -10, PI: -15 }, news: 'El Gobierno aprueba una profunda reforma de la Mudawana; los islamistas la rechazan.' },
+      { text: 'Limitarse a retoques técnicos tras consultar al Consejo de Ulemas', stats: { apr: -3, est: +2, con: +3 }, cost: 0, loyaltyImpact: { PJD: +10, PI: +10, USFP: -15, PPS: -20 }, news: 'El Gobierno limita la reforma de la Mudawana a retoques técnicos tras consultar a los ulemas.' }
     ]
   },
   {
     id: 'SPECIAL_CANNABIS_RIF',
-    category: 'ECONOMÍA REGIONAL',
-    title: 'CANNABIS LEGAL EN EL RIF Y REGULARIZACIÓN',
-    desc: 'Las cooperativas del norte solicitan ampliar las licencias para uso medicinal e industrial y condonar antecedentes a los agricultores.',
+    category: 'ECONOMÍA',
+    title: 'CANNABIS LEGAL EN EL RIF',
+    desc: 'Las cooperativas piden extender la producción legal de cannabis medicinal e industrial y regularizar a miles de agricultores.',
     condition: (m) => true,
     options: [
-      { text: 'Expandir licencias de cultivo legal e integrar a miles de agricultores', stats: { eco: +5, apr: +4, est: +3 }, cost: 150, loyaltyImpact: { PAM: +20, RNI: +10, PJD: -20 }, news: 'El Gobierno amplía la legalización del cannabis industrial e integra a las cooperativas del Rif.' },
-      { text: 'Restringir las cuotas de producción para evitar tensiones de control fiscal', stats: { eco: -2, apr: -3, est: -2 }, cost: 0, loyaltyImpact: { PAM: -15, PJD: +10 }, news: 'Controles estrictos a la producción de cannabis generan malestar en las provincias del norte.' }
+      { text: 'Ampliar la producción legal a todo el Rif', stats: { eco: +3, apr: +3, est: +2 }, cost: 150, loyaltyImpact: { PAM: +15, PJD: -15, PI: -5 }, news: 'Rabat extiende el cannabis legal a todo el Rif y regulariza a miles de agricultores.' },
+      { text: 'Mantener el modelo restrictivo', stats: { apr: -2, est: -2 }, cost: 0, loyaltyImpact: { PAM: -10, PJD: +8 }, news: 'Rabat mantiene el modelo restrictivo y las cooperativas del Rif se sienten abandonadas.' }
     ]
   },
   {
     id: 'GEO_SAHARA_AUTONOMIA',
-    category: 'POLÍTICA EXTERIOR',
-    title: 'PROYECCIÓN ATLÁNTICA Y PLAN DE AUTONOMÍA EN EL SÁHARA',
-    desc: 'Se busca consolidar las inversiones estratégicas en Dakhla y El Aaiún para reforzar la posición diplomática internacional.',
+    category: 'SUR',
+    title: 'PROVINCIAS DEL SUR Y PLAN DE AUTONOMÍA',
+    desc: 'El Palacio pide reforzar la apuesta por el Sáhara en el plano económico y diplomático.',
     condition: (m) => true,
     options: [
-      { text: 'Acelerar las obras del Puerto Dakhla Atlántico e infraestructuras del Sur', stats: { eco: +6, apr: +3, con: +5 }, cost: 500, loyaltyImpact: { PI: +20, RNI: +15, PAM: +15 }, news: 'Inyección económica récord para impulsar el polo logístico de Dakhla Atlántico.' },
-      { text: 'Intensificar la ofensiva diplomática para recabar nuevos reconocimientos formales', stats: { con: +6, apr: +2, est: +2 }, cost: 120, loyaltyImpact: { PI: +15, USFP: +10 }, news: 'Marruecos suma nuevos apoyos internacionales a su propuesta de autonomía.' }
+      { text: 'Acelerar inversiones en Dakhla y el puerto atlántico', stats: { eco: +3, apr: +2, con: +4 }, cost: 500, loyaltyImpact: { PI: +10 }, news: 'El Gobierno acelera las inversiones en Dakhla y su puerto atlántico.' },
+      { text: 'Ofensiva diplomática en busca de nuevos reconocimientos', stats: { con: +5, apr: +1 }, cost: 120, loyaltyImpact: { PI: +8 }, news: 'La diplomacia marroquí lanza una ofensiva para sumar nuevos reconocimientos sobre el Sáhara.' }
     ]
   },
   {
     id: 'HUELGA_SMIG',
-    category: 'TRABAJO Y PENSIONES',
-    title: 'ACUERDO SOBRE EL SALARIO MÍNIMO (SMIG Y SMAG)',
-    desc: 'Los sindicatos amenazan con paros generales si no se compensa la subida del coste de la vida en el campo y la ciudad.',
+    category: 'LABORAL',
+    title: 'SALARIO MÍNIMO Y DIÁLOGO SOCIAL',
+    desc: 'Los sindicatos amenazan con huelgas generales si no se actualizan los salarios ante la inflación.',
     condition: (m) => true,
     options: [
-      { text: 'Subir el SMIG un 10% y equiparar progresivamente el salario agrícola', stats: { apr: +8, est: +4, eco: -4 }, cost: 350, loyaltyImpact: { USFP: +20, PPS: +20, RNI: -10, UC: -15 }, news: 'Pacto social de madrugada: subida del 10% del salario mínimo urbano y agrícola.' },
-      { text: 'Congelar el salario mínimo ofreciendo deducciones a las pymes contratantes', stats: { eco: +4, apr: -8, est: -5 }, cost: 0, loyaltyImpact: { RNI: +15, UC: +15, USFP: -25, PPS: -25 }, news: 'Las centrales sindicales convocan movilizaciones tras el rechazo a subir el SMIG.' }
+      { text: 'Subir el SMIG un 10 % y firmar el acuerdo social', stats: { apr: +6, est: +3, eco: -2 }, cost: 350, loyaltyImpact: { USFP: +15, PPS: +15, UC: -10, RNI: -5 }, news: 'Gobierno y sindicatos firman el acuerdo social con una subida del 10 % del SMIG.' },
+      { text: 'Congelar salarios y dar incentivos fiscales a las empresas', stats: { eco: +3, apr: -6, est: -3 }, cost: 0, loyaltyImpact: { RNI: +10, UC: +10, USFP: -15 }, news: 'El Gobierno congela los salarios y premia a las empresas; los sindicatos amenazan con paros.' }
     ]
   },
   {
     id: 'CRISIS_SEQUIA_ESTRUCTURAL',
-    category: 'MEDIO AMBIENTE & AGUA',
-    title: 'SEQUÍA ESTRUCTURAL Y NIVELES DE EMBALSES EN MÍNIMOS',
-    desc: 'La falta de precipitaciones amenaza el suministro urbano en el eje Casablanca-Rabat y la viabilidad del regadío.',
+    category: 'AGUA',
+    title: 'SEQUÍA ESTRUCTURAL',
+    desc: 'Los embalses están al mínimo histórico. Hay que elegir entre priorizar el consumo humano o el campo exportador.',
     condition: (m) => true,
     options: [
-      { text: 'Acelerar la autopista del agua y construir mega-desaladoras de urgencia', stats: { eco: +2, est: +5, apr: +3 }, cost: 600, loyaltyImpact: { PI: +15, RNI: +10, MP: -10 }, news: 'El Gobierno activa el plan de urgencia hídrica con la interconexión de cuencas.' },
-      { text: 'Priorizar el agua para la agricultura de exportación recortando riego local', stats: { eco: +5, est: -6, apr: -6 }, cost: 0, loyaltyImpact: { MP: +15, RNI: +10, PPS: -15 }, news: 'Restricciones de agua en ciudades intermedias para salvaguardar las exportaciones agrícolas.' }
+      { text: 'Acelerar desaladoras y restringir cultivos de alto consumo', stats: { eco: +1, est: +3, apr: -1 }, cost: 500, loyaltyImpact: { MP: -10 }, news: 'El Gobierno acelera las desaladoras y restringe los cultivos que más agua consumen.' },
+      { text: 'Priorizar la exportación agrícola con trasvases', stats: { eco: +3, est: -4, apr: -2 }, cost: 0, loyaltyImpact: { MP: +10, RNI: +5 }, news: 'El Gobierno prioriza la exportación agrícola con trasvases; protestas por el agua en el interior.' }
     ]
   },
   {
     id: 'CRISIS_CAJA_COMPENSACION',
-    category: 'ECONOMÍA NACIONAL',
-    title: 'REFORMA DEL SISTEMA DE SUBSIDIOS DE LA CAJA DE COMPENSACIÓN',
-    desc: 'El coste de subvencionar el gas butano, la harina y el azúcar presiona el presupuesto del Estado.',
+    category: 'PRECIOS',
+    title: 'REFORMA DE LA CAJA DE COMPENSACIÓN',
+    desc: 'Los subsidios universales al butano y al pan pesan cada vez más en las cuentas públicas.',
     condition: (m) => true,
     options: [
-      { text: 'Sustituir la subvención universal por pagos directos del Registro Social Único', stats: { eco: +5, apr: -4, est: -3 }, cost: 200, loyaltyImpact: { RNI: +15, PAM: +10, PPS: -15, USFP: -15 }, news: 'Despliegue del subsidio directo directo a familias vulnerables tras la reforma de la Caja.' },
-      { text: 'Mantener congelados los precios del butano y alimentos básicos sin cambios', stats: { apr: +6, est: +3, eco: -5 }, cost: 400, loyaltyImpact: { PPS: +15, USFP: +15, RNI: -10 }, news: 'El Ejecutivo mantendrá las subvenciones tradicionales al gas y la harina.' }
+      { text: 'Sustituirlos por ayuda directa a las familias', stats: { eco: +2, apr: -3, est: -2 }, cost: 300, loyaltyImpact: { RNI: +8, PPS: -8 }, news: 'El Gobierno sustituye los subsidios universales por ayudas directas a las familias.' },
+      { text: 'Mantener los subsidios universales', stats: { apr: +4, est: +2, eco: -2 }, cost: 250, loyaltyImpact: { PPS: +8, USFP: +8 }, news: 'El Gobierno mantiene los subsidios al butano y al pan pese al coste para las arcas públicas.' }
     ]
   },
   {
     id: 'SPECIAL_MODERNIZACION_MILITAR',
-    category: 'DEFENSA Y SEGURIDAD',
-    title: 'PLAN DE ADQUISICIÓN Y MODERNIZACIÓN DE LAS FAR',
-    desc: 'La cúpula de las Fuerzas Armadas Reales solicita renovar los sistemas de defensa aérea y sistemas no tripulados.',
+    category: 'DEFENSA',
+    title: 'MODERNIZACIÓN MILITAR',
+    desc: 'Las FAR piden renovar drones y defensa antiaérea ante la carrera de armamentos regional.',
     condition: (m) => true,
     options: [
-      { text: 'Adquirir radares avanzados y sistemas de defensa estratégica de última generación', stats: { mil: +8, con: +4, apr: -2 }, cost: 700, loyaltyImpact: { PI: +10, PAM: +10 }, news: 'Las Fuerzas Armadas Reales firman un importante contrato de equipamiento defensivo.' },
-      { text: 'Desarrollar una industria de mantenimiento y ensamblaje militar local', stats: { mil: +5, eco: +4, emp: +3 }, cost: 400, loyaltyImpact: { RNI: +15, PAM: +10 }, news: 'Marruecos aprueba el marco regulatorio para la industria de defensa nacional.' }
+      { text: 'Comprar drones y sistemas antiaéreos en el exterior', stats: { mil: +7, con: +3, apr: -1 }, cost: 600, loyaltyImpact: {}, news: 'Marruecos adquiere drones y defensa antiaérea en el exterior para modernizar las FAR.' },
+      { text: 'Producir en Marruecos con socios europeos', stats: { mil: +4, eco: +2 }, cost: 350, loyaltyImpact: {}, news: 'Marruecos fabricará material militar en su territorio junto a socios europeos.' }
     ]
   },
   {
     id: 'GEO_ADUANAS_CEUTA_MELILLA',
-    category: 'RELACIONES INTERNACIONALES',
-    title: 'RÉGIMEN COMERCIAL Y ADUANAS CON CEUTA Y MELILLA',
-    desc: 'Comerciantes y sectores regionales presionan para regularizar la aduana comercial fronteriza.',
+    category: 'ESPAÑA',
+    title: 'ADUANAS DE CEUTA Y MELILLA',
+    desc: 'Los comerciantes del norte piden normalizar el comercio fronterizo con las ciudades autónomas.',
     condition: (m) => true,
     options: [
-      { text: 'Apertura progresiva y controlada de las aduanas comerciales reguladas', stats: { eco: +4, est: +3, apr: +2 }, cost: 50, loyaltyImpact: { RNI: +10, PAM: +10, PJD: -10 }, news: 'Entra en funcionamiento la prueba piloto de aduana comercial en los pasos del norte.' },
-      { text: 'Mantener la restricción del comercio fronterizo directo para favorecer los puertos locales', stats: { eco: +2, est: -2, apr: +2 }, cost: 0, loyaltyImpact: { PI: +10, PJD: +10 }, news: 'Rabat mantiene las limitaciones al paso comercial enfatizando la inversión en Nador.' }
+      { text: 'Abrir aduanas comerciales para reactivar el comercio', stats: { eco: +2 }, cost: 0, loyaltyImpact: {}, news: 'Marruecos abre sus aduanas con Ceuta y Melilla y se reactiva el comercio fronterizo.' },
+      { text: 'Mantenerlas cerradas como palanca de presión', stats: { apr: +1 }, cost: 0, loyaltyImpact: {}, news: 'Marruecos mantiene cerradas las aduanas con Ceuta y Melilla como palanca de presión sobre Madrid.' }
     ]
   },
   {
     id: 'REGULACION_REFORMA_FISCAL',
-    category: 'FINANZAS PÚBLICAS',
-    title: 'REVISION DEL IMPUESTO DE SOCIEDADES Y TRIBUTACIÓN PROGRESIVA',
-    desc: 'Recomendaciones internacionales aconsejan simplificar los tramos fiscales e incentivar el empleo formal.',
+    category: 'FISCAL',
+    title: 'REFORMA FISCAL',
+    desc: 'El FMI y la oposición reclaman un nuevo reparto de la carga tributaria.',
     condition: (m) => true,
     options: [
-      { text: 'Unificar tipos del Impuesto de Sociedades penalizando sectores oligopólicos', stats: { eco: +5, apr: +4, est: +2 }, cost: 0, loyaltyImpact: { USFP: +15, PPS: +15, RNI: -15 }, news: 'Hacienda aprueba la reestructuración del Impuesto de Sociedades para empresas.' },
-      { text: 'Conceder exenciones de 5 años a nuevas inversiones en zonas francas e industriales', stats: { eco: +6, emp: +4, apr: -4 }, cost: 200, loyaltyImpact: { RNI: +20, UC: +15, USFP: -15 }, news: 'Incentivos fiscales agresivos para captar capital internacional en polígonos del norte.' }
+      { text: 'Impuestos progresivos y a artículos de lujo', stats: { eco: -1, apr: +3, est: +1 }, cost: -400, loyaltyImpact: { USFP: +10, PPS: +10, UC: -10 }, news: 'El Gobierno aprueba impuestos progresivos y a los artículos de lujo y recauda 400 M€.' },
+      { text: 'Bajar el impuesto de sociedades para atraer inversión', stats: { eco: +4, apr: -2 }, cost: 200, loyaltyImpact: { RNI: +10, UC: +10, USFP: -10 }, news: 'El Gobierno baja el impuesto de sociedades para atraer inversión extranjera.' }
     ]
   },
   {
     id: 'ESCANDALO_ENRIQUECIMIENTO_ILICITO',
-    category: 'CORRUPCIÓN Y JUSTICIA',
-    title: 'PROYECTO DE LEY CONTRA EL ENRIQUECIMIENTO ILÍCITO',
-    desc: 'Casos mediáticos de contrataciones irregulares reabren el debate sobre la fiscalización de cargos públicos.',
+    category: 'JUSTICIA',
+    title: 'LEY CONTRA EL ENRIQUECIMIENTO ILÍCITO',
+    desc: 'Un escándalo de contratos públicos reabre el debate sobre una ley anticorrupción.',
     condition: (m) => true,
     options: [
-      { text: 'Aprobar la ley con confiscación preventiva y auditoría de patrimonio obligatorio', stats: { apr: +8, est: +4, con: -2 }, cost: 0, loyaltyImpact: { PJD: +20, PPS: +15, RNI: -10, PAM: -10 }, news: 'Luz verde a la ley de transparencia patrimonial para la función pública.' },
-      { text: 'Retirar la norma del trámite parlamentario para elaborar un texto consensuado', stats: { apr: -8, est: -4, eco: +2 }, cost: 0, loyaltyImpact: { RNI: +10, PAM: +10, PJD: -25 }, news: 'El Gobierno retira la ley de enriquecimiento ilícito levantando ampollas en la oposición.' }
+      { text: 'Aprobarla con una agencia independiente', stats: { apr: +6, est: +2, con: -1 }, cost: 0, loyaltyImpact: { PJD: +10, PPS: +10, RNI: -10, PAM: -10 }, news: 'El Gobierno aprueba la ley contra el enriquecimiento ilícito con una agencia independiente.' },
+      { text: 'Archivar el proyecto', stats: { apr: -6, est: -2 }, cost: 0, loyaltyImpact: { RNI: +5, PAM: +5 }, news: 'El Gobierno archiva la ley anticorrupción y la oposición clama contra la impunidad.' }
     ]
   },
   {
     id: 'SPECIAL_GIGAFACTORIA_BATERIAS',
-    category: 'GEOPOLÍTICA & COMERCIO',
-    title: 'INSTALACIÓN DE LA GIGAFACTORÍA DE BATERÍAS EN KÉNITRA',
-    desc: 'Consorcios automovilísticos internacionales evalúan implantar la mayor planta de baterías para vehículos eléctricos.',
+    category: 'INVERSIÓN',
+    title: 'GIGAFACTORÍA DE BATERÍAS',
+    desc: 'Un consorcio internacional quiere instalar una gran fábrica de baterías para coches eléctricos.',
     condition: (m) => true,
     options: [
-      { text: 'Subvencionar el suelo industrial e infraestructuras con 250 M€ de fondos públicos', stats: { eco: +8, emp: +6, apr: +4 }, cost: 250, loyaltyImpact: { RNI: +20, PAM: +15, UC: +10 }, news: 'Marruecos cierra el acuerdo para la gigafactoría de baterías en el eje Kénitra-Tánger.' },
-      { text: 'Exigir un 40% de componentes e insumos locales sin aportar subsidios directos', stats: { eco: +3, emp: +2, apr: -2 }, cost: 0, loyaltyImpact: { PI: +10, USFP: +10, RNI: -10 }, news: 'Las multinacionales renegocian los plazos tras las condiciones de integración local.' }
+      { text: 'Ofrecer incentivos generosos al consorcio asiático', stats: { eco: +5, apr: +2, con: +1 }, cost: 250, loyaltyImpact: {}, news: 'Un consorcio asiático levantará en Marruecos una gigafactoría de baterías con incentivos públicos.' },
+      { text: 'Exigir contenido local y socios europeos', stats: { eco: +2, apr: +1 }, cost: 0, loyaltyImpact: {}, news: 'Rabat exige contenido local y socios europeos para la gigafactoría de baterías.' }
     ]
   },
   {
     id: 'TENSION_MIGRACION_SUBSAHARIANA',
-    category: 'DEFENSA Y SEGURIDAD',
-    title: 'GESTIÓN MIGRATORIA Y REGULARIZACIÓN EXTRAORDINARIA',
-    desc: 'Organizaciones internacionales proponen regularizar la residencia de colectivos subsaharianos integrados.',
+    category: 'MIGRACIÓN',
+    title: 'MIGRACIÓN SUBSAHARIANA',
+    desc: 'Miles de migrantes viven sin papeles en las ciudades del norte y presionan hacia Europa.',
     condition: (m) => true,
     options: [
-      { text: 'Aprobar la regularización extraordinaria con visado de empleo y residencia', stats: { apr: +4, est: +4, con: -2 }, cost: 100, loyaltyImpact: { PPS: +15, USFP: +15, PJD: -15 }, news: 'Marruecos lanza una nueva fase de regularización de residentes subsaharianos.' },
-      { text: 'Reforzar las patrullas en los perímetros fronterizos y trasladar campamentos', stats: { con: +5, mil: +3, apr: -2 }, cost: 50, loyaltyImpact: { PJD: +10, PAM: +5, PPS: -10 }, news: 'Dispositivo especial de seguridad en los accesos del norte para frenar la presión.' }
+      { text: 'Regularizarlos con permisos de trabajo', stats: { eco: +1, apr: -3, est: +1 }, cost: 100, loyaltyImpact: { PJD: -10, PPS: +10 }, news: 'Marruecos regulariza a miles de migrantes subsaharianos con permisos de trabajo.' },
+      { text: 'Endurecer controles y repatriaciones', stats: { apr: +2, est: +1, eco: -1 }, cost: 0, loyaltyImpact: { PJD: +5 }, news: 'Marruecos endurece los controles y acelera las repatriaciones de migrantes.' }
     ]
   },
   {
-    id: 'TERREMOTO_AL_HAOUZ_RECONSTRUCCION',
-    category: 'EMERGENCIA NACIONAL',
-    title: 'PLAN DE RECONSTRUCCIÓN DE LAS ZONAS AFECTADAS EN EL ALTO ATLAS',
-    desc: 'Se requiere agilizar el programa de ayudas para la reconstrucción de viviendas e infraestructuras de montaña.',
+    id: 'REGULACION_REFORMA_ELECTORAL',
+    category: 'POLÍTICA',
+    title: 'REFORMA ELECTORAL',
+    desc: 'Los grandes partidos quieren cambiar el cociente electoral; los pequeños temen desaparecer.',
     condition: (m) => true,
     options: [
-      { text: 'Lanzar un plan de choque con 1.200 M€ para vivienda y escuelas rurales', stats: { apr: +10, est: +6, eco: -4 }, cost: 1200, loyaltyImpact: { PAM: +15, MP: +20, PI: +15 }, news: 'Moncloa moviliza recursos masivos para la reconstrucción de las aldeas del Alto Atlas.' },
-      { text: 'Gestionar las ayudas a través de fondos de reconstrucción diferidos a 3 años', stats: { apr: -6, est: -4, eco: +2 }, cost: 300, loyaltyImpact: { MP: -20, PAM: -10 }, news: 'Protestas de los afectados en las zonas de montaña por la lentitud de los pagos.' }
+      { text: 'Cambiar el cociente a favor de los grandes partidos', stats: { est: +3, apr: -2 }, cost: 0, loyaltyImpact: { RNI: +15, PAM: +15, PJD: -25, PPS: -15, USFP: -15 }, news: 'La Cámara aprueba un nuevo cociente electoral que favorece a los grandes partidos.' },
+      { text: 'Mantener el cociente actual sobre inscritos', stats: { est: -1 }, cost: 0, loyaltyImpact: { PJD: +10, PPS: +10, USFP: +10, RNI: -8 }, news: 'El Gobierno mantiene el cociente actual y calma a los partidos pequeños.' }
     ]
   },
   {
-    id: 'ORGANIZACION_MUNDIAL_2030',
-    category: 'INFRAESTRUCTURAS',
-    title: 'PROYECTO DEL GRAND STADE DE CASABLANCA Y MUNDIAL 2030',
-    desc: 'La preparación de la cita mundialista requiere acelerar la construcción del estadio de Benslimane y redes de transporte.',
+    id: 'PROTESTAS_AMNISTIA_RIF',
+    category: 'DERECHOS',
+    title: 'AMNISTÍA PARA LAS PROTESTAS DEL RIF',
+    desc: 'Se multiplican las peticiones de gracia para condenados por las protestas del norte.',
     condition: (m) => true,
     options: [
-      { text: 'Declarar las obras de interés nacional acelerando las conexiones de TGV y estadios', stats: { eco: +7, emp: +5, apr: +5 }, cost: 1500, loyaltyImpact: { RNI: +20, PAM: +20, PI: +15 }, news: 'Luz verde al plan masivo de infraestructuras deportivas y ferroviarias para el Mundial.' },
-      { text: 'Priorizar las partidas sanidad y educación moderando el gasto en estadios', stats: { apr: +6, est: +4, eco: -2 }, cost: 400, loyaltyImpact: { PPS: +20, USFP: +20, RNI: -15 }, news: 'El Ejecutivo reajusta el presupuesto del Mundial para blindar el gasto social.' }
+      { text: 'Pedir al Rey un indulto amplio', stats: { apr: +5, est: +3, con: -2 }, cost: 0, loyaltyImpact: { USFP: +10, PPS: +10, PJD: +10 }, news: 'El Gobierno pide al Rey un indulto amplio para los condenados por las protestas del Rif.' },
+      { text: 'Mantener las condenas', stats: { apr: -3, con: +2 }, cost: 0, loyaltyImpact: {}, news: 'El Gobierno mantiene las condenas de las protestas del Rif y se enfría el diálogo con la región.' }
     ]
   },
   {
-    id: 'ESTRATEGIA_HIDROGENO_VERDE',
-    category: 'ENERGÍA & TRANSICIÓN',
-    title: 'OFERTA DE MARRUECOS PARA EL HIDRÓGENO VERDE',
-    desc: 'Inversores internacionales solicitan 100.000 hectáreas en las regiones del sur para proyectos eólicos y solares.',
+    id: 'SPECIAL_GASODUCTO_NIGERIA',
+    category: 'ENERGÍA',
+    title: 'GASODUCTO NIGERIA–MARRUECOS',
+    desc: 'El proyecto energético africano necesita financiación para dar el salto.',
     condition: (m) => true,
     options: [
-      { text: 'Adjudicar los terrenos con cláusula de transferencia tecnológica e industrial', stats: { eco: +8, emp: +4, apr: +3 }, cost: 100, loyaltyImpact: { RNI: +15, PAM: +15, PI: +10 }, news: 'Marruecos asigna suelo para grandes proyectos de hidrógeno verde con tecnología local.' },
-      { text: 'Limitar la concesión a consorcios mixtos con participación de la empresa pública', stats: { eco: +4, est: +3, apr: +2 }, cost: 0, loyaltyImpact: { PI: +15, USFP: +10, RNI: -10 }, news: 'El Estado participará directamente en el accionariado de las plantas de hidrógeno.' }
-    ]
-  },
-  {
-    id: 'REFORMA_SANIDAD_AMO_TAHAMON',
-    category: 'SANIDAD Y SOCIAL',
-    title: 'GENERALIZACIÓN DEL SEGURO DE ENFERMEDAD OBLIGATORIO (AMO)',
-    desc: 'Millones de ciudadanos acceden a la cobertura médica pública requerida por la ley de protección social.',
-    condition: (m) => true,
-    options: [
-      { text: 'Financiar con el presupuesto público la cuota de las familias sin ingresos', stats: { apr: +10, est: +6, eco: -6 }, cost: 900, loyaltyImpact: { PPS: +20, USFP: +20, RNI: +10 }, news: 'Aprobada la cobertura total del seguro médico público AMO Tadamon a familias vulnerables.' },
-      { text: 'Imponer una coproporción del 20% en las consultas privadas concertadas', stats: { eco: +2, apr: -6, est: -3 }, cost: 200, loyaltyImpact: { PPS: -15, USFP: -15, RNI: +10 }, news: 'Críticas de los usuarios por el copago en las consultas médicas concertadas.' }
-    ]
-  },
-  {
-    id: 'AMPLIACION_TANGER_MED',
-    category: 'INFRAESTRUCTURAS',
-    title: 'AMPLIACIÓN DE LA TERMINAL DE CONTENEDORES DE TÁNGER MED',
-    desc: 'El puerto roza la saturación y exige una nueva fase de expansión para competir en el Mediterráneo.',
-    condition: (m) => true,
-    options: [
-      { text: 'Aprobar la fase III de ampliación mediante concesiones de colaboración público-privada', stats: { eco: +8, emp: +4, apr: +2 }, cost: 800, loyaltyImpact: { RNI: +15, UC: +15, PAM: +10 }, news: 'Tánger Med inicia las obras de ampliación para reforzar su liderazgo logístico.' },
-      { text: 'Priorizar el desarrollo del nuevo complejo portuario Nador West Med', stats: { eco: +5, emp: +5, apr: +3 }, cost: 1100, loyaltyImpact: { PAM: +15, MP: +15, RNI: -5 }, news: 'El Ejecutivo concentra las inversiones en el puerto industrial de Nador.' }
-    ]
-  },
-  {
-    id: 'CRISIS_ACEITE_ARGAN_OLIVA',
-    category: 'AGRICULTURA Y MEDIO AMBIENTE',
-    title: 'PRECIOS DEL ACEITE DE OLIVA Y PROTECCIÓN DEL SECTOR',
-    desc: 'La baja cosecha de aceituna eleva el precio de la garrafa en los mercados locales.',
-    condition: (m) => true,
-    options: [
-      { text: 'Suspender las exportaciones de aceite de oliva hasta normalizar el mercado interno', stats: { apr: +8, est: +4, eco: -3 }, cost: 0, loyaltyImpact: { PPS: +15, USFP: +15, RNI: -15 }, news: 'El Gobierno restringe las ventas al exterior de aceite de oliva para frenar los precios.' },
-      { text: 'Conceder subvenciones a la importación de aceites vegetales alternativos', stats: { eco: -3, apr: +2, est: +2 }, cost: 250, loyaltyImpact: { RNI: +10, PI: +10 }, news: 'Subsidios a la importación de aceites para mantener abastecida la cesta básica.' }
-    ]
-  },
-  {
-    id: 'PROGRAMA_VILLES_SANS_BIDONVILLES',
-    category: 'INFRAESTRUCTURAS Y VIVIENDA',
-    title: 'REINICIO DEL PROGRAMA VILLES SANS BIDONVILLES',
-    desc: 'Se busca erradicar los núcleos de chabolas persistentes en la periferia de Casablanca y Salé.',
-    condition: (m) => true,
-    options: [
-      { text: 'Aprobar la entrega de pisos sociales en altura y cheques de realojo', stats: { apr: +8, est: +5, eco: -4 }, cost: 700, loyaltyImpact: { PAM: +20, PPS: +15, RNI: +10 }, news: 'Inyección económica para realojar a 20.000 familias en viviendas dignas.' },
-      { text: 'Ofrecer parcelas de autoconstrucción asistida con servicios de agua y luz', stats: { apr: +4, est: +3, eco: -2 }, cost: 350, loyaltyImpact: { MP: +15, PI: +10 }, news: 'Plan de lotes de suelo urbanizado para agilizar el realojo periurbano.' }
-    ]
-  },
-  {
-    id: 'SECTOR_PHOSPHATES_OCP',
-    category: 'ECONOMÍA NACIONAL',
-    title: 'ESTRATEGIAS DE PRODUCCIÓN DE FERTILIZANTES VERDES DE LA OCP',
-    desc: 'El grupo estatal OCP solicita respaldo institucional para sus inversiones en amoníaco verde.',
-    condition: (m) => true,
-    options: [
-      { text: 'Garantizar el plan de inversiones de 12.000 M€ con avales públicos', stats: { eco: +9, emp: +4, apr: +3 }, cost: 300, loyaltyImpact: { RNI: +15, PI: +15, PAM: +15 }, news: 'Respaldo del Estado a la OCP para liderar el mercado mundial de fertilizantes sostenibles.' },
-      { text: 'Destinar parte de los dividendos de la OCP directamente al presupuesto general', stats: { eco: +5, apr: +4, est: +2 }, cost: -500, loyaltyImpact: { PPS: +15, USFP: +15, RNI: -10 }, news: 'Hacienda capta un dividendo extraordinario de los fosfatos para las arcas públicas.' }
+      { text: 'Financiación pública del tramo marroquí', stats: { eco: +4, apr: +1 }, cost: 700, loyaltyImpact: {}, news: 'El Estado financiará el tramo marroquí del gasoducto Nigeria–Marruecos.' },
+      { text: 'Esperar a inversores privados del Golfo', stats: { eco: +1 }, cost: 0, loyaltyImpact: {}, news: 'El Gobierno espera a los inversores del Golfo para financiar el gasoducto africano.' }
     ]
   }
 ];
 
-// ==========================================
-// BANCO DE TITULARES DE CAMPAÑA ELECTORAL
-// ==========================================
+
+// =====================================================================
+// 3. CAMPAIGN_HEADLINES — preguntas de campaña (CQ) y debate (cdeb)
+//  · score = round(3 × impulso + Δaprobación original), acotado a -5…+15.
+//  · El debate original era probabilístico: aquí se usa el valor esperado.
+//  · El coste en M€ de las opciones originales no tiene campo aquí.
+// =====================================================================
 const CAMPAIGN_HEADLINES = [
   {
     id: 1,
-    newspaper: 'LE MATIN',
-    headline: 'DEBATE ELECTORAL: EL MODELO DE CRECIMIENTO ECONÓMICO Y LA INVERSIÓN',
-    desc: 'Los candidatos exponen su visión sobre el papel del Estado y el sector privado en la creación de empleo. ¿Cuál es tu propuesta?',
+    newspaper: 'HESPRESS',
+    headline: 'POLÉMICA POR EL PRECIO DEL PAN',
+    desc: 'La oposición te acusa de abandonar a las clases populares. ¿Cómo respondes?',
     options: [
-      { text: 'Fomentar la inversión privada y las exenciones fiscales al sector productivo', score: +15, textResult: 'Atraes al electorado urbano y al sector empresarial.' },
-      { text: 'Aumentar el gasto social público en sanidad y educación básica', score: +15, textResult: 'Mobilizas a las clases populares y a los sindicatos.' },
-      { text: 'Mantener el rigor en las cuentas del Estado y reducir el déficit', score: +10, textResult: 'Generas confianza entre los organismos financieros.' }
+      { text: 'Anunciar subsidios', score: +10, textResult: 'El anuncio calma a los barrios populares y te devuelve la iniciativa en campaña.' },
+      { text: 'Culpar a la inflación mundial', score: -5, textResult: 'Suena a excusa: la oposición explota tu falta de respuestas.' }
     ]
   },
   {
     id: 2,
-    newspaper: 'L'ÉCONOMISTE',
-    headline: 'DISPUTA SOBRE LA REFORMA DE LA CAJA DE COMPENSACIÓN',
-    desc: 'El debate económico se centra en la sustitución de las subvenciones tradicionales por ayudas directas.',
+    newspaper: 'LE MATIN',
+    headline: 'ESCÁNDALO EN UN MINISTERIO',
+    desc: 'Un diario revela contratos dudosos en un departamento. ¿Cómo reaccionas?',
     options: [
-      { text: 'Defender los pagos directos del Registro Social Único a los hogares', score: +15, textResult: 'Iniciativa vista como moderna y bien focalizada.' },
-      { text: 'Mantener el subsidio al pan, azúcar y gas butano para evitar subidas de precios', score: +12, textResult: 'Calmas los temores de pérdida de poder adquisitivo.' }
+      { text: 'Cesar al ministro y abrir investigación', score: +5, textResult: 'La rapidez de tu reacción limita el daño y proyecta imagen de firmeza.' },
+      { text: 'Negarlo todo', score: -5, textResult: 'Nuevas filtraciones desmienten tu versión y el escándalo se agranda.' }
     ]
   },
   {
     id: 3,
-    newspaper: 'HESPRESS',
-    headline: 'LA REGIONALIZACIÓN AVANZADA Y LAS PROVINCIAS DEL SUR EN EL CENTRO DE LA CAMPAÑA',
-    desc: 'Sectores locales exigen mayor autonomía presupuestaria para las comarcas y regiones.',
+    newspaper: 'AKHBAR AL YAOUM',
+    headline: 'HUELGA DE DOCENTES',
+    desc: 'Los sindicatos paralizan las escuelas en plena campaña. ¿Qué haces?',
     options: [
-      { text: 'Prometer la transferencia de competencias y fondos a los consejos regionales', score: +15, textResult: 'Gran acogida en las provincias del Sur y en el ámbito rural.' },
-      { text: 'Centralizar los grandes proyectos desde los ministerios en Rabat', score: +5, textResult: 'Discurso de control administrativo estatal.' }
+      { text: 'Aceptar subida salarial', score: +10, textResult: 'Los docentes vuelven a las aulas y tú sales como el Gobierno que escucha.' },
+      { text: 'Mantener la línea dura', score: -5, textResult: 'El conflicto se alarga y las familias te responsabilizan del caos escolar.' }
     ]
   },
   {
     id: 4,
     newspaper: 'TELQUEL',
-    headline: 'EL ACCESO A LA VIVIENDA Y LA ERRADICACIÓN DE CHABOLAS A DEBATE',
-    desc: 'Las organizaciones urbanas reclaman soluciones urgentes para la vivienda social asequible.',
+    headline: 'ENTREVISTA DE LA OPOSICIÓN',
+    desc: 'Tu rival arrasa en la televisión nacional. ¿Cómo contraatacas?',
     options: [
-      { text: 'Aumentar las subvenciones directas a compradores de primera vivienda social', score: +15, textResult: 'Propuesta estrella muy bien acogida por jóvenes y familias.' },
-      { text: 'Incentivar a las promotoras privadas mediante suelo fiscalmente protegido', score: +10, textResult: 'Apoyo firme del sector de la construcción.' }
+      { text: 'Contraprogramar con un gran acto', score: +6, textResult: 'El mitin llena la plaza y desvía la atención de la entrevista de tu rival.' },
+      { text: 'Ignorarlo', score: -5, textResult: 'La entrevista domina el debate público durante días sin respuesta tuya.' }
     ]
   },
   {
     id: 5,
-    newspaper: 'MEDIAS24',
-    headline: 'LA GESTIÓN DEL AGUA Y LA LUCHA CONTRA LA SEQUÍA EN LA AGENDA',
-    desc: 'La crisis hídrica obliga a pronunciarse sobre el modelo de infraestructuras del agua.',
+    newspaper: 'LE360',
+    headline: 'APOYO DE UN LÍDER RELIGIOSO',
+    desc: 'Un influyente personaje te ofrece su respaldo público. ¿Lo aceptas?',
     options: [
-      { text: 'Construir una red masiva de plantas desalinizadoras alimentadas por energía solar', score: +15, textResult: 'Puntos extra por aportar una visión tecnológica de largo plazo.' },
-      { text: 'Priorizar los trasvases y la protección de los acuíferos subterráneos', score: +10, textResult: 'Propuesta tradicional bien vista por los agricultores.' }
+      { text: 'Aceptar el apoyo', score: +10, textResult: 'El respaldo te abre puertas en el electorado más conservador.' },
+      { text: 'Rechazarlo por prudencia', score: 0, textResult: 'Evitas polémicas, pero renuncias a un impulso electoral valioso.' }
     ]
   },
   {
     id: 6,
-    newspaper: 'AL YAOUM 24',
-    headline: 'LA REFORMA EDUCATIVA Y LA FORMACIÓN PROFESIONAL DUAL',
-    desc: 'Docentes y familias piden mejoras en la escuela pública y salarios de los profesores.',
+    newspaper: 'LE MATIN',
+    headline: 'ENCUESTA FILTRADA',
+    desc: 'Un sondeo interno te da por perdedor. ¿Cómo lo gestionas?',
     options: [
-      { text: 'Aumentar los sueldos del profesorado y dignificar el estatus docente', score: +15, textResult: 'Desconvocas tensiones con el colectivo de la enseñanza.' },
-      { text: 'Impulsar la Formación Profesional orientada a la industria del motor y aeronáutica', score: +12, textResult: 'Aplaudido por las industrias exportadoras.' }
+      { text: 'Desmentirlo con datos', score: +3, textResult: 'Tus cifras frenan el rumor, aunque no logran movilizar a tus votantes.' },
+      { text: 'Pedir el voto útil', score: +5, textResult: 'El llamamiento al voto útil moviliza a tu electorado, pero alimenta el relato de debilidad.' }
     ]
   },
   {
     id: 7,
-    newspaper: '2M',
-    headline: 'LA GENERALIZACIÓN DE LA COBERTURA MÉDICA PÚBLICA (AMO)',
-    desc: 'Debate sobre cómo financiar el seguro de enfermedad para toda la población.',
+    newspaper: 'TELQUEL',
+    headline: 'DEBATE CARA A CARA',
+    desc: 'Millones de espectadores siguen el debate decisivo. ¿Qué estrategia eliges?',
     options: [
-      { text: 'Garantizar la gratuidad total de la AMO para las familias con bajos ingresos', score: +15, textResult: 'Enorme reconocimiento de las clases trabajadoras.' },
-      { text: 'Incentivar la concertación con la red de clínicas privadas de salud', score: +8, textResult: 'Respaldo del sector médico privado.' }
-    ]
-  },
-  {
-    id: 8,
-    newspaper: 'SNRT',
-    headline: 'EL ROL DE LA DIPLOMACIA Y LA PROYECCIÓN EN ÁFRICA',
-    desc: 'Foros internacionales valoran la consolidación del comercio y las rutas transaharianas.',
-    options: [
-      { text: 'Potenciar la cooperación sur-sur y la presencia bancaria en África subsahariana', score: +15, textResult: 'Sólida imagen de liderazgo continental.' },
-      { text: 'Priorizar los acuerdos de libre comercio con la Unión Europea', score: +10, textResult: 'Ganas apoyo en las empresas exportadoras.' }
-    ]
-  },
-  {
-    id: 9,
-    newspaper: 'LA VIE ÉCO',
-    headline: 'LA INTEGRACIÓN DEL SECTOR INFORMAL EN LA ECONOMÍA FORMAL',
-    desc: 'Un tercio del empleo no cotiza en la Seguridad Social; la patronal pide incentivos.',
-    options: [
-      { text: 'Crear el estatus de Autoempresario con cuota fija simbólica e impuestos cero el primer año', score: +15, textResult: 'Propuesta muy popular entre comerciantes y emprendedores.' },
-      { text: 'Intensificar las inspecciones del trabajo en los mercados tradicionales', score: +2, textResult: 'Genera rechazo en los pequeños comercios.' }
-    ]
-  },
-  {
-    id: 10,
-    newspaper: 'LE MATIN',
-    headline: 'EL MINUTO DE ORO: LLAMAMIENTO FINAL A LAS URNAS',
-    desc: 'Última alocución televisada antes de la jornada de reflexión.',
-    options: [
-      { text: 'Pedir una mayoría sólida para consolidar el Estado Social y las reformas', score: +15, textResult: 'Transmites estabilidad y vocación de gobierno.' },
-      { text: 'Apelar a la unidad nacional y al orgullo del desarrollo del Reino', score: +15, textResult: 'Emocionas a tus simpatizantes en el cierre de campaña.' }
+      { text: 'Agresivo: ir a la yugular', score: -1, textResult: 'El tono duro genera titulares, pero divide al público y el resultado es incierto.' },
+      { text: 'Presidencial: balance de gestión', score: +4, textResult: 'Proyectas solvencia y los sondeos instantáneos te dan una ligera ventaja.' },
+      { text: 'Cercano: hablar de lo cotidiano', score: +3, textResult: 'Conectas con los problemas del día a día y ganas simpatía entre los indecisos.' }
     ]
   }
 ];
 
-// ==========================================
-// BANCO DE NOTICIAS DE PRENSA (NOTICIAS MENSUALES)
-// ==========================================
+
+// =====================================================================
+// 4. PRESS_NEWS_BANK — sucesos «Última hora» de la pestaña Prensa (EVS)
+//    «Protestas juveniles» está en HOUSING_EVENTS.
+// =====================================================================
 const PRESS_NEWS_BANK = [
   {
-    id: 'NEWS_MAR_1',
-    newspaper: 'LE MATIN',
-    headline: 'RECORD DE EXPORTACIONES DE AUTOMÓVILES Y FOSFATOS',
-    desc: 'Los datos de la Oficina de Cambios muestran un crecimiento de las ventas del sector del motor en Europa.',
-    options: [
-      { text: 'Destacar en rueda de prensa la solidez del tejido industrial', stats: { eco: +4, apr: +3 }, news: 'El Gobierno celebra el impulso industrial y exportador del país.' },
-      { text: 'Destinar el superávit comercial a sanear las cuentas de las empresas públicas', stats: { eco: +6, est: +2 }, news: 'Hacienda amortiza deuda de las empresas estatales con el excedente.' }
-    ]
-  },
-  {
-    id: 'NEWS_MAR_2',
-    newspaper: 'L'ÉCONOMISTE',
-    headline: 'LA INFLACIÓN DE ALIMENTOS FRESCOS CEDE TRES PUNTOS',
-    desc: 'Las buenas cosechas en el Souss reducen el precio del tomate y las hortalizas en los mercados.',
-    options: [
-      { text: 'Aprovechar la tregua para fijar acuerdos de precios estables en los zocos', stats: { apr: +5, eco: +2 }, news: 'El Ejecutivo firma un protocolo de precios moderados con distribuidores.' }
-    ]
-  },
-  {
-    id: 'NEWS_MAR_3',
+    id: 'NEWS_1',
     newspaper: 'HESPRESS',
-    headline: 'MÁXIMOS HISTÓRICOS EN LA LLEGADA DE TURISTAS A MARRAKECH Y AGADIR',
-    desc: 'Los aeropuertos internacionales registran un aumento del 18% en pasajeros durante el trimestre.',
+    headline: 'SEQUÍA Y MALAS COSECHAS',
+    desc: 'Seis años de sequía hunden el campo y el pan se encarece.',
     options: [
-      { text: 'Lanzar un plan de inversión para la renovación de las medinas históricas', stats: { apr: +5, eco: +3 }, cost: 100, news: 'Turismo aprueba fondos para embellecer los cascos históricos.' }
+      { text: 'Importar cereal y subsidiar el pan', stats: { apr: +4, eco: -1 }, cost: 400, news: 'El Gobierno importa cereal y subsidia el pan para contener los precios.' },
+      { text: 'Racionar el agua y dejar que ajuste el mercado', stats: { apr: -6, est: -3, eco: +1 }, news: 'El Gobierno raciona el agua y deja que el mercado ajuste: crece el malestar rural.' }
     ]
   },
   {
-    id: 'NEWS_MAR_4',
-    newspaper: 'MEDIAS24',
-    headline: 'AVANCES EN LAS OBRAS DE LA DESALADORA DE CASABLANCA',
-    desc: 'La mega-instalación hídrica entra en su fase final asegurando el consumo urbano futuro.',
+    id: 'NEWS_2',
+    newspaper: 'LE MATIN',
+    headline: 'BOOM DE LOS FOSFATOS',
+    desc: 'El precio mundial de los fosfatos se dispara.',
     options: [
-      { text: 'Poner en marcha la fase de pruebas acelerando los plazos de entrega', stats: { est: +5, apr: +4 }, cost: 150, news: 'El Gobierno supervisa la llegada del agua desalada al área metropolitana.' }
+      { text: 'Contrato preferente con España (+500 M€)', stats: { eco: +2 }, cost: -500, news: 'OCP firma un contrato preferente con España y la relación bilateral sale reforzada.' },
+      { text: 'Vender al mejor postor (+800 M€)', stats: { eco: +3 }, cost: -800, news: 'OCP vende al mejor postor y Madrid recibe con frialdad la decisión.' }
     ]
   },
   {
-    id: 'NEWS_MAR_5',
+    id: 'NEWS_3',
     newspaper: 'TELQUEL',
-    headline: 'SINDICATOS DOCENTES PIDEN LA REVISIÓN DEL ESTATUTO DEL PROFESORADO',
-    desc: 'Asociaciones de la enseñanza convocan paros demandando la integración en la función pública.',
+    headline: 'PRESIÓN MIGRATORIA EN CEUTA Y MELILLA',
+    desc: 'Cientos de personas se concentran junto a la valla.',
     options: [
-      { text: 'Firmar el nuevo estatuto unificado equiparando las condiciones del personal regional', stats: { apr: +7, est: +4, eco: -4 }, cost: 500, news: 'Acuerdo histórico entre Educación y los sindicatos docentes.' },
-      { text: 'Desestimar las peticiones manteniendo el régimen de contratación regional', stats: { apr: -6, est: -5 }, news: 'Continuidad en las protestas educativas tras no alcanzarse un acuerdo.' }
+      { text: 'Reforzar la contención', stats: {}, cost: 200, news: 'Marruecos refuerza la contención en la valla y Madrid agradece la colaboración.' },
+      { text: 'Relajar controles para presionar a Madrid', stats: { apr: +3 }, news: 'Marruecos relaja los controles fronterizos y tensa la relación con Madrid.' }
     ]
   },
   {
-    id: 'NEWS_MAR_6',
-    newspaper: '2M',
-    headline: 'INVERSIÓN MULTIMILLONARIA EN EL PARQUE EÓLICO DE TAZA',
-    desc: 'Nuevos aerogeneradores aportan 300 MW limpios a la red eléctrica nacional.',
+    id: 'NEWS_4',
+    newspaper: 'AKHBAR AL YAOUM',
+    headline: 'TERREMOTO EN EL ATLAS',
+    desc: 'Un seísmo devasta varias provincias de montaña.',
     options: [
-      { text: 'Presumir del éxito en la cuota de energías renovables en la mezcla eléctrica', stats: { apr: +4, eco: +3 }, news: 'Energía destaca la contribución del eólico a la soberanía energética.' }
-    ]
-  },
-  {
-    id: 'NEWS_MAR_7',
-    newspaper: 'SNRT',
-    headline: 'ACUERDO DE COOPERACIÓN TECNOLÓGICA CON LA UNIÓN EUROPEA',
-    desc: 'Bruselas aporta 200 M€ en subvenciones para programas de formación digital e inteligencia artificial.',
-    options: [
-      { text: 'Destinar los fondos a la modernización de los institutos técnicos de FP', stats: { eco: +5, emp: +3 }, news: 'Los fondos europeos impulsarán las aulas de informática en los centros de FP.' }
-    ]
-  },
-  {
-    id: 'NEWS_MAR_8',
-    newspaper: 'LA VIE ÉCO',
-    headline: 'LA OFICINA DE FOSFATOS (OCP) PRESENTA RESULTADOS RECORD DE FACTURACIÓN',
-    desc: 'El aumento de la demanda mundial de fertilizantes impulsa la contribución fiscal de la entidad.',
-    options: [
-      { text: 'Reinvertir el beneficio en la producción de hidrógeno verde para amoníaco', stats: { eco: +6, emp: +2 }, news: 'La OCP acelera su plan de neutralidad en carbono con hidrógeno verde.' }
+      { text: 'Pedir ayuda urgente a España (+1.000 M€)', stats: { apr: +3 }, cost: -1000, news: 'España envía ayuda urgente a las provincias del Atlas devastadas por el terremoto.' },
+      { text: 'Gestionarlo en solitario', stats: { apr: -2, est: -2 }, cost: 700, news: 'El Gobierno afronta en solitario la reconstrucción del Atlas, con críticas por la lentitud.' }
     ]
   }
 ];
 
-// ==========================================
-// BANCO DE DECISIONES DE MINISTERIOS
-// ==========================================
+
+// =====================================================================
+// 5. MINISTRY_DECISIONS_BANK
+//  · Decisiones tomadas de pais-marruecos.js (secciones y decretos) y de
+//    marruecos.js (POL y programas militares PROGS).
+//  · Defensa: Δmil = (suma de efectos sobre tierra/mar/aire) / 3.
+//  · interior y exteriores: SIN CONTENIDO en los archivos originales.
+// =====================================================================
 const MINISTRY_DECISIONS_BANK = {
   sanidad: [
-    { title: 'Inauguración y equipamiento de centros de salud de proximidad', cost: 250, stats: { apr: +2, est: +1 } },
-    { title: 'Suministro urgente de medicamentos para enfermedades crónicas', cost: 200, stats: { apr: +2 } },
-    { title: 'Digitalización del expediente médico en el CHU de Rabat', cost: 150, stats: { eco: +1 } },
-    { title: 'Programa de unidades médicas móviles para comarcas atlas', cost: 180, stats: { apr: +2, est: +1 } },
-    { title: 'Refuerzo de enfermería y personal en las urgencias hospitalarias', cost: 300, stats: { apr: +2, emp: +1 } },
-    { title: 'Modernización del parque de ambulancias y transporte sanitario', cost: 120, stats: { est: +1 } },
-    { title: 'Ampliación de salas de maternidad en áreas rurales', cost: 210, stats: { apr: +2 } },
-    { title: 'Campañas sanitarias de vacunación y nutrición infantil', cost: 100, stats: { est: +1 } }
+    { title: 'Programa de protección social universal (AMO)', cost: 600, stats: { apr: +6, est: +3 } }
   ],
   educacion: [
-    { title: 'Programa de transporte escolar para evitar el abandono rural', cost: 180, stats: { apr: +2, est: +1 } },
-    { title: 'Equipamiento informático en escuelas primarias', cost: 220, stats: { emp: +2 } },
-    { title: 'Rehabilitación y climatización de aulas en provincias del sur', cost: 250, stats: { apr: +2 } },
-    { title: 'Aumento de la oferta de comedores escolares en preescolar', cost: 190, stats: { apr: +2 } },
-    { title: 'Nuevos centros de Formación Profesional en industrias del motor', cost: 310, stats: { emp: +3, eco: +1 } },
-    { title: 'Incentivos a docentes destinados en zonas aisladas', cost: 140, stats: { est: +1 } }
+    { title: 'Reforma educativa', cost: 400, stats: { apr: +3, eco: +1 } },
+    { title: 'Mundial 2030 con España', cost: 800, stats: { apr: +4, eco: +3 } }
   ],
   infraestructuras: [
-    { title: 'Refuerzo y reasfaltado de la red de carreteras nacionales', cost: 350, stats: { eco: +2, est: +1 } },
-    { title: 'Obras de dragado y mantenimiento en puertos pesqueros', cost: 200, stats: { eco: +1 } },
-    { title: 'Construcción de viaductos y desvíos urbanos en Casablanca', cost: 420, stats: { eco: +2, apr: +1 } },
-    { title: 'Mantenimiento de las líneas ferroviarias de trenes convencionales', cost: 280, stats: { est: +1 } },
-    { title: 'Construcción de pequeñas presas de retención de crecidas', cost: 310, stats: { est: +2, apr: +1 } }
+    { title: 'Alta velocidad Tánger–Marrakech', cost: 900, stats: { eco: +4, apr: +2 } }
   ],
-  interior: [
-    { title: 'Modernización de los centros de control de la DGSN', cost: 220, stats: { con: +2, est: +1 } },
-    { title: 'Nuevos vehículos e inspección táctica para la Gendarmería Real', cost: 260, stats: { con: +2 } },
-    { title: 'Digitalización del padrón e identificación civil', cost: 110, stats: { est: +1 } },
-    { title: 'Refuerzo de la protección civil en prevención de inundaciones', cost: 180, stats: { est: +2, apr: +1 } }
-  ],
+  interior: [],
   defensa: [
-    { title: 'Mantenimiento de helicópteros de salvamento y patrulla de las FAR', cost: 380, stats: { mil: +2 } },
-    { title: 'Partida para maniobras combinadas multinacionales', cost: 300, stats: { mil: +2 } },
-    { title: 'Renovación de cuarteles e instalaciones de alojamiento de la tropa', cost: 220, stats: { mil: +2, apr: +1 } },
-    { title: 'Sistemas de comunicación e inteligencia en zonas fronterizas', cost: 350, stats: { mil: +2, est: +1 } }
+    { title: 'Servicio militar obligatorio', cost: 150, stats: { mil: +3, apr: -3, est: +1 } },
+    { title: 'Profesionalización de la tropa', cost: 500, stats: { mil: +2, apr: +1 } },
+    { title: 'Modernizar carros y artillería', cost: 450, stats: { mil: +2 } },
+    { title: 'Flota y guardia costera', cost: 600, stats: { mil: +3, est: +1 } },
+    { title: 'Aviación de combate', cost: 900, stats: { mil: +3 } },
+    { title: 'Drones y defensa antiaérea', cost: 500, stats: { mil: +2 } },
+    { title: 'Ciberdefensa e inteligencia', cost: 300, stats: { mil: +2, est: +1 } },
+    { title: 'Industria nacional de defensa', cost: 700, stats: { mil: +2, eco: +2 } },
+    { title: 'Maniobras conjuntas con España', cost: 200, stats: { mil: +2 } },
+    { title: 'Despliegue en la frontera de Ceuta y Melilla', cost: 250, stats: { mil: +1 } }
   ],
   economia: [
-    { title: 'Línea de créditos ICO/CCG para la modernización de Pymes', cost: 300, stats: { eco: +2, emp: +2 } },
-    { title: 'Ventanilla única de facilitación de inversiones extranjeras', cost: 100, stats: { eco: +2 } },
-    { title: 'Plan de incentivos a la formalización del comercio en zocos', cost: 150, stats: { eco: +2, apr: +1 } },
-    { title: 'Incentivos fiscales a las empresas emergentes innovadoras', cost: 180, stats: { eco: +2 } }
+    { title: 'Fondo Mohammed VI de inversión', cost: 600, stats: { eco: +3, emp: +2 } },
+    { title: 'Subvención al butano y al trigo (Caja de Compensación)', cost: 450, stats: { apr: +4, est: +2 } },
+    { title: 'Subsidio al pan y al butano', cost: 300, stats: { apr: +4, est: +2 } },
+    { title: 'Nuevo Modelo de Desarrollo', cost: 300, stats: { eco: +4, apr: +2, emp: +2 } },
+    { title: 'Plan Marruecos Digital', cost: 250, stats: { eco: +3, emp: +2 } }
   ],
   vivienda: [
-    { title: 'Programa de bonificación a la compra de primera vivienda asequible', cost: 350, stats: { apr: +3 } },
-    { title: 'Rehabilitación de fachadas e inmuebles antiguos en las medinas', cost: 200, stats: { apr: +2, eco: +1 } },
-    { title: 'Suelo urbanizado con servicios para promociones sociales', cost: 280, stats: { apr: +2, emp: +1 } }
+    { title: 'Plan de vivienda social', cost: 450, stats: { apr: +5, emp: +2 } }
   ],
   territorio: [
-    { title: 'Fondo de desarrollo rural para la electrificación de aldeas', cost: 260, stats: { est: +2, apr: +2 } },
-    { title: 'Programas de conservación de oasis y lucha contra la desertificación', cost: 220, stats: { est: +2, apr: +1 } },
-    { title: 'Planes de desarrollo integrado en las provincias del Sur', cost: 400, stats: { est: +2, eco: +2 } }
+    { title: 'Ayuda directa a las familias rurales', cost: 300, stats: { apr: +4, est: +2 } },
+    { title: 'Fondo regional para el MP', cost: 200, stats: { apr: +1 } },
+    { title: 'Cumbre con la oposición', cost: 0, stats: { est: +2, apr: +1 } },
+    { title: 'Ronda de contactos con el Istiqlal', cost: 150, stats: { est: +1 } },
+    { title: 'Pacto con el grupo UC–MDS', cost: 120, stats: { est: +1 } }
   ],
   trabajo: [
-    { title: 'Cursos de formación laboral acelerada para jóvenes desempleados', cost: 200, stats: { emp: +3 } },
-    { title: 'Inspecciones de seguridad en talleres e industrias textiles', cost: 110, stats: { emp: +2, apr: +1 } },
-    { title: 'Incentivos a las pymes que contraten trabajadores indefinidos', cost: 290, stats: { emp: +3, eco: +1 } }
+    { title: 'Plan de empleo juvenil', cost: 350, stats: { emp: +5, apr: +3, est: +2 } },
+    { title: 'Pacto social con los sindicatos (UMT, UGTM, CDT, UNMT)', cost: 250, stats: { est: +3, apr: +2 } }
   ],
   justicia: [
-    { title: 'Digitalización del sistema judicial y tribunales comerciales', cost: 180, stats: { est: +2, eco: +1 } },
-    { title: 'Construcción de nuevas sedes de juzgados de familia', cost: 210, stats: { apr: +2, est: +1 } }
+    { title: 'Reforma de la ley de partidos', cost: 0, stats: { est: +2 } }
   ],
-  exteriores: [
-    { title: 'Apertura de nuevos consulados en nodos comerciales estratégicos', cost: 150, stats: { eco: +2, est: +1 } },
-    { title: 'Promoción de la cultura marroquí y diplomacia económica', cost: 180, stats: { apr: +2, eco: +1 } }
-  ],
+  exteriores: [],
   transicion_ecologica: [
-    { title: 'Incentivos para la instalación de bombas de agua fotovoltaicas', cost: 250, stats: { eco: +2, apr: +2 } },
-    { title: 'Planes de reforestación y conservación de bosques de cedro', cost: 190, stats: { est: +2, apr: +1 } }
+    { title: 'Plan Generación Verde', cost: 600, stats: { eco: +3, apr: +2 } },
+    { title: 'Desaladoras y trasvases', cost: 500, stats: { eco: +2, est: +2 } },
+    { title: 'Gasoducto con España', cost: 700, stats: { eco: +3 } },
+    { title: 'Estrategia nacional del agua', cost: 400, stats: { est: +3, eco: +2 } },
+    { title: 'Marruecos, hub energético verde', cost: 500, stats: { eco: +5 } },
+    { title: 'Reserva de emergencia contra la sequía', cost: 400, stats: { est: +3, apr: +2 } }
   ],
   cultura: [
-    { title: 'Apoyo a festivales culturales y artes tradicionales', cost: 150, stats: { apr: +2, eco: +1 } },
-    { title: 'Restauración de monumentos y kasbahs históricas', cost: 210, stats: { apr: +2, eco: +1 } }
+    { title: 'Campaña de comunicación del Gobierno', cost: 80, stats: { apr: +3 } },
+    { title: 'Diálogo con la juventud (GenZ 212)', cost: 0, stats: { apr: +4, est: +2 } }
   ],
   igualdad: [
-    { title: 'Centros de acogida y orientación jurídica para mujeres', cost: 140, stats: { apr: +3, est: +1 } },
-    { title: 'Programas de fomento del microcrédito y emprendimiento femenino', cost: 180, stats: { emp: +2, apr: +2 } }
+    { title: 'Reforma de la Moudawana', cost: 0, stats: { apr: +3, est: -2 } }
   ]
 };
 
-// ==========================================
-// EVENTOS DE VIVIENDA
-// ==========================================
+
+// =====================================================================
+// 6. HOUSING_EVENTS — protestas sociales
+// =====================================================================
 const HOUSING_EVENTS = [
   {
-    id: 'HOUS_MAR_1',
-    category: 'VIVIENDA Y URBANISMO',
-    title: 'PROTESTAS CONTRA LA SUBIDA DE PRECIOS DEL ALQUILER URBANO',
-    desc: 'Familias de las periferias de Casablanca y Rabat piden ampliar el parque de vivienda con alquiler moderado.',
+    id: 'HOUS_1',
+    category: 'PROTESTAS SOCIALES',
+    title: 'ESTADIOS FRENTE A HOSPITALES Y ESCUELAS',
+    desc: 'Los jóvenes protestan: piden que el dinero de las grandes obras deportivas se destine a sanidad y educación.',
     options: [
-      { text: 'Aprobar la deducción fiscal para promotores que destinen vivienda al alquiler social', stats: { apr: +8, eco: -2, est: +3 }, cost: 250, loyaltyImpact: { PAM: +15, PPS: +15, RNI: +10 }, news: 'Nuevos incentivos a las promotoras para incrementar la vivienda de alquiler social.' },
-      { text: 'Confiar en la autorregulación del mercado mediante la liberación de suelo', stats: { eco: +3, apr: -6, est: -3 }, cost: 0, loyaltyImpact: { RNI: +15, UC: +10, PPS: -15 }, news: 'El Ejecutivo prioriza la liberalización de suelo ante las peticiones del sector residencial.' }
+      { text: 'Reorientar fondos a hospitales y escuelas', stats: { apr: +8, est: +4, eco: -1 }, cost: 600, loyaltyImpact: { USFP: +10, PPS: +10, RNI: -8 }, news: 'El Gobierno reorienta fondos de las obras del Mundial a hospitales y escuelas tras las protestas.' },
+      { text: 'Mantener el calendario de obras del Mundial 2030', stats: { apr: -7, est: -4, eco: +3 }, cost: 0, loyaltyImpact: { RNI: +8, PI: +5 }, news: 'El Gobierno mantiene el calendario del Mundial 2030 y las protestas juveniles se endurecen.' }
     ]
   },
   {
-    id: 'HOUS_MAR_2',
-    category: 'REHABILITACIÓN HISTÓRICA',
-    title: 'RIESGO DE DERRUMBE DE EDIFICIOS EN LAS MEDINAS ANTIGUAS',
-    desc: 'Inmuebles históricos amurallados requieren consolidación urgente tras las lluvias invernales.',
+    id: 'HOUS_2',
+    category: 'PROTESTAS SOCIALES',
+    title: 'PROTESTAS JUVENILES',
+    desc: 'Miles de jóvenes salen a la calle exigiendo sanidad, educación y empleo.',
     options: [
-      { text: 'Inyectar un fondo público de reconstrucción y seguridad estructural en medinas', stats: { apr: +8, est: +4, eco: -2 }, cost: 300, loyaltyImpact: { PI: +20, USFP: +15, PAM: +10 }, news: 'Lanzado un programa urgente de rehabilitación edilicia en las medinas históricas.' },
-      { text: 'Ofrecer créditos blandos a los propietarios particulares para su reparación', stats: { eco: +1, apr: -2, est: +1 }, cost: 80, loyaltyImpact: { RNI: +10, UC: +10 }, news: 'Hacienda habilita préstamos bonificados para el arreglo de fincas privadas.' }
+      { text: 'Abrir diálogo y reformas', stats: { apr: +6, est: +4 }, cost: 300, loyaltyImpact: {}, news: 'El Gobierno abre un diálogo con los jóvenes y anuncia reformas en sanidad, educación y empleo.' },
+      { text: 'Mano dura y detenciones', stats: { est: -2, apr: -7, mil: +2 }, cost: 0, loyaltyImpact: {}, news: 'Las fuerzas del orden disuelven las protestas con detenciones y crece la indignación.' }
     ]
   }
 ];
 
-// ==========================================
-// MINISTROS REALES
-// ==========================================
+
+// =====================================================================
+// 7. REAL_MINISTERS
+//  · El efecto «Palacio» de los ministros originales se ha omitido.
+//  · Sin candidatos para: trabajo, vivienda, igualdad.
+// =====================================================================
 const REAL_MINISTERS = [
-  // --- ECONOMÍA Y HACIENDA ---
-  { 
-    id: "fettah_rni", name: "Nadia Fettah Alaoui", party: "RNI", portfolio: "economia",
-    desc: "+1.5% Crecimiento Económico, +0.5% Rigor Presupuestario",
-    pros: "+1.5% Crecimiento Económico, +0.5% Rigor Presupuestario",
-    cons: "-1.0% Aprobación Social Popular",
+  // --- ECONOMÍA ---
+  {
+    id: 'fettah_rni', name: 'Nadia Fettah Alaoui', party: 'RNI', portfolio: 'economia',
+    desc: '+1.5% Economía',
+    pros: '+1.5% Economía',
+    cons: '-1.0% Aprobación (ajustes impopulares)',
     effects: { eco: 1.5, apr: -1.0 }
   },
-  { 
-    id: "baraka_pi", name: "Nizar Baraka", party: "PI", portfolio: "economia",
-    desc: "+1.5% Equilibrio Regional e Infraestructuras",
-    pros: "+1.5% Equilibrio Regional e Infraestructuras",
-    cons: "-0.5% Aumento de la Carga del Déficit",
-    effects: { eco: 1.5, est: -0.5 }
-  },
-  { 
-    id: "benkirane_pjd", name: "Abdelilah Benkirane", party: "PJD", portfolio: "economia",
-    desc: "+1.5% Apoyo de Bases Populares",
-    pros: "+1.5% Apoyo Populista y Reforma de Subsidios",
-    cons: "-1.5% Tensión con Inversores Privados",
-    effects: { apr: 1.5, eco: -1.5 }
-  },
-  { 
-    id: "lachguar_usfp", name: "Driss Lachguar", party: "USFP", portfolio: "economia",
-    desc: "+1.5% Empleo y Salarios",
-    pros: "+1.5% Fomento del Empleo y Cohesión",
-    cons: "-1.0% Confianza Empresarial",
-    effects: { emp: 1.5, eco: -1.0 }
-  },
-
-  // --- INTERIOR Y SEGURIDAD ---
-  { 
-    id: "laftit_otr", name: "Abdelouafi Laftit", party: "OTR", portfolio: "interior",
-    desc: "+2.0% Control Policial y Orden Público",
-    pros: "+2.0% Control Policial, +1.0% Estabilidad Estatal",
-    cons: "-1.0% Apertura Político-Social",
-    effects: { con: 2.0, est: 1.0, apr: -1.0 }
-  },
-  { 
-    id: "ouahbi_pam", name: "Abdellatif Ouahbi", party: "PAM", portfolio: "interior",
-    desc: "+1.5% Modernización Administrativa",
-    pros: "+1.5% Modernización e Inserción Local",
-    cons: "-1.0% Fricción con Colectivos Religiosos",
-    effects: { con: 1.5, apr: -1.0 }
-  },
-  { 
-    id: "benabdallah_pps", name: "Nabil Benabdallah", party: "PPS", portfolio: "interior",
-    desc: "+1.5% Mediación Social Urbano-Rural",
-    pros: "+1.5% Mediación Social y Concertación",
-    cons: "-1.0% Firmeza Policial",
-    effects: { apr: 1.5, con: -1.0 }
-  },
-
-  // --- DEFENSA NACIONAL ---
-  { 
-    id: "loudiyi_otr", name: "Abdeltif Loudiyi", party: "OTR", portfolio: "defensa",
-    desc: "+2.5% Lealtad y Capacidad de las FAR",
-    pros: "+2.5% Lealtad y Capacidad de las FAR",
-    cons: "-1.0% Gasto Presupuestario Civil",
-    effects: { mil: 2.5, eco: -1.0 }
-  },
-  { 
-    id: "boussaid_rni", name: "Mohamed Boussaid", party: "RNI", portfolio: "defensa",
-    desc: "+1.5% Eficiencia de Compras Militares",
-    pros: "+1.5% Eficiencia y Contratos Militares",
-    cons: "-0.5% Menor Perfil Operativo Táctico",
-    effects: { mil: 1.5, eco: -0.5 }
-  },
-
-  // --- VIVIENDA Y URBANISMO ---
-  { 
-    id: "mansouri_pam", name: "Fatima Ezzahra El Mansouri", party: "PAM", portfolio: "vivienda",
-    desc: "+2.0% Erradicación de Chabolas y Vivienda Social",
-    pros: "+2.0% Avances en Vivienda y Realojo",
-    cons: "-1.0% Coste para el Tesoro Público",
-    effects: { apr: 2.0, eco: -1.0 }
-  },
-  { 
-    id: "bouchareb_mp", name: "Nouzha Bouchareb", party: "MP", portfolio: "vivienda",
-    desc: "+1.5% Desarrollo Urbano en Zonas Rurales",
-    pros: "+1.5% Desarrollo Urbano Comarcal",
-    cons: "-0.5% Eficiencia en Mega-Proyectos",
-    effects: { apr: 1.5, eco: -0.5 }
-  },
-
-  // --- POLÍTICA TERRITORIAL ---
-  { 
-    id: "baraka_territorio", name: "Nizar Baraka", party: "PI", portfolio: "territorio",
-    desc: "+2.0% Cohesión Territorial y Provincias del Sur",
-    pros: "+2.0% Inversión en Cohesión Territorial",
-    cons: "-1.0% Tensión de Reparto de Recursos",
-    effects: { est: 2.0, eco: -1.0 }
-  },
-  { 
-    id: "laenser_mp", name: "Mohand Laenser", party: "MP", portfolio: "territorio",
-    desc: "+1.5% Respaldo del Ámbito Rural y Montaña",
-    pros: "+1.5% Respaldo del Mundo Rural",
-    cons: "-0.5% Modernización de Grandes Urbes",
-    effects: { est: 1.5, apr: 0.5 }
-  },
-
-  // --- SANIDAD Y SALUD PÚBLICA ---
   {
-    id: "ait_taleb_otr", name: "Khalid Aït Taleb", party: "OTR", portfolio: "sanidad",
-    desc: "+2.0% Despliegue de la Cobertura Médica (AMO)",
-    pros: "+2.0% Despliegue de Cobertura Sanitaria Universal",
-    cons: "-1.0% Gasto Corriente en Salud",
-    effects: { apr: 2.0, eco: -1.0 }
+    id: 'mezzour_pi', name: 'Ryad Mezzour', party: 'PI', portfolio: 'economia',
+    desc: '+2.0% Economía (automoción y aeronáutica)',
+    pros: '+2.0% Economía (automoción y aeronáutica)',
+    cons: '-0.5% Aprobación',
+    effects: { eco: 2.0, apr: -0.5 }
   },
+  // --- INTERIOR ---
   {
-    id: "baitas_rni", name: "Mustafa Baitas", party: "RNI", portfolio: "sanidad",
-    desc: "+1.5% Concertación Sanitaria Privada",
-    pros: "+1.5% Eficiencia en Concertación Médica",
-    cons: "-0.5% Reticencia de Sindicatos Médicos",
-    effects: { eco: 1.5, apr: -0.5 }
-  },
-
-  // --- EDUCACIÓN Y FORMACIÓN ---
-  {
-    id: "benmoussa_otr", name: "Chakib Benmoussa", party: "OTR", portfolio: "educacion",
-    desc: "+2.0% Reformas Curriculares y Calidad Educativa",
-    pros: "+2.0% Calidad y Hoja de Ruta Educativa",
-    cons: "-1.0% Resistencia de Gremios de Docentes",
-    effects: { emp: 2.0, est: -1.0 }
-  },
-  {
-    id: "amzazi_mp", name: "Saaïd Amzazi", party: "MP", portfolio: "educacion",
-    desc: "+1.5% Formación Profesional e Inclusión Rural",
-    pros: "+1.5% Impulso a la FP y Cobertura Rural",
-    cons: "-0.5% Tensiones de Presupuesto",
-    effects: { emp: 1.5, apr: 0.5 }
-  },
-
-  // --- TRABAJO Y ECONOMÍA SOCIAL ---
-  {
-    id: "sekkouri_pam", name: "Younes Sekkouri", party: "PAM", portfolio: "trabajo",
-    desc: "+2.0% Empleo Joven y Diálogo Social",
-    pros: "+2.0% Diálogo Social y Programas de Empleo",
-    cons: "-1.0% Presión sobre las Pymes",
-    effects: { emp: 2.0, eco: -1.0 }
-  },
-  {
-    id: "yatim_pjd", name: "Mohamed Yatim", party: "PJD", portfolio: "trabajo",
-    desc: "+1.5% Protección Social del Trabajador",
-    pros: "+1.5% Cobertura y Subsidios Laborales",
-    cons: "-1.0% Flexibilidad Empresarial",
-    effects: { apr: 1.5, eco: -1.0 }
-  },
-
-  // --- JUSTICIA ---
-  {
-    id: "ouahbi_justicia", name: "Abdellatif Ouahbi", party: "PAM", portfolio: "justicia",
-    desc: "+2.0% Digitalización y Reformas Penales",
-    pros: "+2.0% Agilización y Modernización del Penal",
-    cons: "-1.0% Choque con Sectores Conservadores",
+    id: 'laftit_otr', name: 'Abdelouafi Laftit', party: 'OTR', portfolio: 'interior',
+    desc: '+2.0% Estabilidad',
+    pros: '+2.0% Estabilidad',
+    cons: '-1.0% Aprobación (mano dura)',
     effects: { est: 2.0, apr: -1.0 }
   },
+  // --- DEFENSA ---
   {
-    id: "ramid_pjd", name: "Mustafa Ramid", party: "PJD", portfolio: "justicia",
-    desc: "+1.5% Rigor Jurídico e Inspecciones",
-    pros: "+1.5% Rigor e Inspección de Tribunales",
-    cons: "-1.0% Agilidad en Causas Comerciales",
-    effects: { est: 1.5, eco: -1.0 }
+    id: 'loudiyi_otr', name: 'Abdellatif Loudiyi', party: 'OTR', portfolio: 'defensa',
+    desc: '+2.0% Lealtad militar',
+    pros: '+2.0% Lealtad militar',
+    cons: 'Sin control parlamentario',
+    effects: { mil: 2.0 }
   },
-
-  // --- ASUNTOS EXTERIORES Y COOPERACIÓN ---
+  // --- EXTERIORES ---
   {
-    id: "bourita_otr", name: "Nasser Bourita", party: "OTR", portfolio: "exteriores",
-    desc: "+2.5% Éxitos Diplomáticos Internacionales",
-    pros: "+2.5% Reconocimientos Internacionales y Firmeza",
-    cons: "-0.5% Tensiones con Países Vecinos",
-    effects: { est: 2.5, apr: 1.0, eco: 0.5 }
+    id: 'bourita_otr', name: 'Nasser Bourita', party: 'OTR', portfolio: 'exteriores',
+    desc: '+0.5% Economía',
+    pros: '+0.5% Economía',
+    cons: 'Diplomacia opaca para la coalición',
+    effects: { eco: 0.5 }
+  },
+  // --- JUSTICIA ---
+  {
+    id: 'ouahbi_pam', name: 'Abdellatif Ouahbi', party: 'PAM', portfolio: 'justicia',
+    desc: '+1.0% Estabilidad',
+    pros: '+1.0% Estabilidad',
+    cons: '-1.0% Aprobación (polémicas constantes)',
+    effects: { est: 1.0, apr: -1.0 }
+  },
+  // --- EDUCACIÓN ---
+  {
+    id: 'berrada_rni', name: 'Mohamed Saad Berrada', party: 'RNI', portfolio: 'educacion',
+    desc: '+1.0% Aprobación (reforma escolar)',
+    pros: '+1.0% Aprobación (reforma escolar)',
+    cons: '-0.5% Estabilidad (huelgas docentes)',
+    effects: { apr: 1.0, est: -0.5 }
+  },
+  // --- SANIDAD ---
+  {
+    id: 'aittaleb_rni', name: 'Khalid Aït Taleb', party: 'RNI', portfolio: 'sanidad',
+    desc: '+1.5% Aprobación (red hospitalaria)',
+    pros: '+1.5% Aprobación (red hospitalaria)',
+    cons: '-0.5% Economía (coste del sistema)',
+    effects: { apr: 1.5, eco: -0.5 }
+  },
+  // --- TERRITORIO (Agricultura, Pesca y Desarrollo Rural) ---
+  {
+    id: 'sadiki_rni', name: 'Mohammed Sadiki', party: 'RNI', portfolio: 'territorio',
+    desc: '+1.0% Economía, +0.5% Estabilidad',
+    pros: '+1.0% Economía, +0.5% Estabilidad',
+    cons: '-0.5% Aprobación (sequía)',
+    effects: { eco: 1.0, est: 0.5, apr: -0.5 }
+  },
+  // --- TRANSICIÓN ECOLÓGICA (Equipamiento y Agua · Transición Energética) ---
+  {
+    id: 'baraka_pi', name: 'Nizar Baraka', party: 'PI', portfolio: 'transicion_ecologica',
+    desc: '+1.5% Economía (obra pública)',
+    pros: '+1.5% Economía (obra pública)',
+    cons: 'Peso propio del Istiqlal en el Gobierno',
+    effects: { eco: 1.5 }
   },
   {
-    id: "mezouar_rni", name: "Salaheddine Mezouar", party: "RNI", portfolio: "exteriores",
-    desc: "+1.5% Diplomacia Económica y Comercio",
-    pros: "+1.5% Atracción de Capital Extranjero",
-    cons: "-0.5% Presencia en Foros Multilaterales",
-    effects: { eco: 1.5, est: 0.5 }
+    id: 'benali_otr', name: 'Leila Benali', party: 'OTR', portfolio: 'transicion_ecologica',
+    desc: '+1.5% Economía, +0.5% Estabilidad',
+    pros: '+1.5% Economía, +0.5% Estabilidad',
+    cons: '-0.5% Aprobación',
+    effects: { eco: 1.5, est: 0.5, apr: -0.5 }
   },
-
-  // --- TRANSICIÓN ECOLÓGICA Y ENERGÍA ---
+  // --- CULTURA (Juventud, Cultura y Comunicación · Habices y Asuntos Islámicos) ---
   {
-    id: "benali_pam", name: "Leila Benali", party: "PAM", portfolio: "transicion_ecologica",
-    desc: "+2.0% Despliegue de Renovables y Litio/Baterías",
-    pros: "+2.0% Transición Energética e Hidrógeno Verde",
-    cons: "-1.0% Transición de la Industria Tradicional",
-    effects: { eco: 2.0, apr: 1.0 }
+    id: 'bensaid_pam', name: 'Mehdi Bensaid', party: 'PAM', portfolio: 'cultura',
+    desc: '+1.0% Aprobación (juventud)',
+    pros: '+1.0% Aprobación (juventud)',
+    cons: '-0.5% Estabilidad',
+    effects: { apr: 1.0, est: -0.5 }
   },
   {
-    id: "rabbah_pjd", name: "Aziz Rabbah", party: "PJD", portfolio: "transicion_ecologica",
-    desc: "+1.5% Reducción de la Dependencia Energética",
-    pros: "+1.5% Soberanía Energética y Minas",
-    cons: "-0.5% Ritmo de Inversión Extranjera",
-    effects: { eco: 1.5, est: 0.5 }
-  },
-
-  // --- CULTURA Y JUVENTUD ---
-  {
-    id: "bensaid_pam", name: "Mohamed Mehdi Bensaid", party: "PAM", portfolio: "cultura",
-    desc: "+2.0% Promoción Cultural e Industria del Videojuego",
-    pros: "+2.0% Impulso a la Juventud y Patrimonio Cultural",
-    cons: "-0.5% Reparto de Subvenciones en Provincias",
-    effects: { apr: 2.0, eco: 0.5 }
-  },
-
-  // --- IGUALDAD Y FAMILIA ---
-  {
-    id: "hayar_pi", name: "Aawatif Hayar", party: "PI", portfolio: "igualdad",
-    desc: "+2.0% Inclusión Social y Asistencia a Familias",
-    pros: "+2.0% Asistencia a Familias Vulnerables",
-    cons: "-0.5% Ritmo de Reformas Legislativas Radicarles",
-    effects: { apr: 2.0, est: 0.5 }
+    id: 'toufiq_otr', name: 'Ahmed Toufiq', party: 'OTR', portfolio: 'cultura',
+    desc: '+1.0% Estabilidad',
+    pros: '+1.0% Estabilidad',
+    cons: 'Poco margen para reformas',
+    effects: { est: 1.0 }
   }
 ];
 
-// ==========================================
-// OBJETIVOS DEL GOBIERNO
-// ==========================================
+
+// =====================================================================
+// 8. GOAL_POOL
+//  · «Deuda Bajo Control» (deuda ≤ 60 % del PIB) omitida: no hay
+//    equivalente en el estado de la plantilla.
+//  · «Confianza del Palacio» usa la métrica `con`.
+// =====================================================================
 const GOAL_POOL = [
-  { id: 'eco',   icon: 'fa-chart-line',   title: 'Marruecos Emergente',  desc: 'Mantén la Economía ≥ 70%',            check: s => s.metrics.eco >= 70 },
-  { id: 'est',   icon: 'fa-shield-halved',title: 'Estabilidad del Reino',desc: 'Mantén la Estabilidad ≥ 65%',         check: s => s.metrics.est >= 65 },
-  { id: 'apr',   icon: 'fa-heart',        title: 'Aprobación Ciudadana', desc: 'Mantén la Aprobación ≥ 65%',          check: s => s.metrics.apr >= 65 },
-  { id: 'emp',   icon: 'fa-briefcase',    title: 'Pleno Empleo Industrial',desc: 'Mantén el Empleo ≥ 70%',            check: s => s.metrics.emp >= 70 },
-  { id: 'mil',   icon: 'fa-person-military-pointing', title: 'Fuerzas Armadas Leales', desc: 'Mantén la Lealtad Militar ≥ 60%', check: s => s.metrics.mil >= 60 },
-  { id: 'caja',  icon: 'fa-vault',        title: 'Superávit en Tesorería',desc: 'Acumula una tesorería ≥ 120.000 M€', check: s => (Number(s.treasury) || 0) >= 120000 },
-  { id: 'doble', icon: 'fa-scale-balanced', title: 'Doble Confianza',   desc: 'Aprobación ≥ 60% y Estabilidad ≥ 60%',check: s => s.metrics.apr >= 60 && s.metrics.est >= 60 },
-  { id: 'todo',  icon: 'fa-star',         title: 'Reino Equilibrado',   desc: 'Todas las métricas ≥ 55%',            check: s => Object.values(s.metrics).every(v => v >= 55) }
+  { id: 'eco',     icon: 'fa-chart-line',     title: 'Milagro Económico',           desc: 'Mantén la Economía ≥ 70%',             check: s => s.metrics.eco >= 70 },
+  { id: 'est',     icon: 'fa-shield-halved',  title: 'Paz Social',                  desc: 'Mantén la Estabilidad ≥ 65%',          check: s => s.metrics.est >= 65 },
+  { id: 'apr',     icon: 'fa-heart',          title: 'Jefe de Gobierno Querido',    desc: 'Mantén la Aprobación ≥ 65%',           check: s => s.metrics.apr >= 65 },
+  { id: 'emp',     icon: 'fa-briefcase',      title: 'Pleno Empleo',                desc: 'Mantén el Empleo ≥ 70%',               check: s => s.metrics.emp >= 70 },
+  { id: 'mil',     icon: 'fa-person-military-pointing', title: 'Cuarteles en Calma', desc: 'Mantén la fuerza de las FAR ≥ 60%',   check: s => s.metrics.mil >= 60 },
+  { id: 'caja',    icon: 'fa-vault',          title: 'Superávit',                   desc: 'Acumula una tesorería ≥ 15.000 M€',    check: s => (Number(s.treasury) || 0) >= 15000 },
+  { id: 'palacio', icon: 'fa-crown',          title: 'Confianza del Palacio',       desc: 'Confianza del Palacio ≥ 75%',          check: s => s.metrics.con >= 75 },
+  { id: 'doble',   icon: 'fa-scale-balanced', title: 'Doble Confianza',             desc: 'Aprobación ≥ 60% y Estabilidad ≥ 60%', check: s => s.metrics.apr >= 60 && s.metrics.est >= 60 },
+  { id: 'todo',    icon: 'fa-star',           title: 'Marruecos Equilibrado',       desc: 'Todas las métricas ≥ 55%',             check: s => Object.values(s.metrics).every(v => v >= 55) }
 ];
 
+
+// =====================================================================
+// 9. GOAL_ACTIONS
+//  · Las 7 acciones de gobierno originales + las acciones de ingreso de
+//    las secciones Tesorería y Finanzas (cost 0 + gain). Su efecto sobre
+//    la deuda (debt) se ha omitido.
+//  · La recompensa de misión (goalReward: 10 cap, 300 M€) no tiene campo.
+// =====================================================================
 const GOAL_ACTIONS = [
-  { id: 'tv',     icon: 'fa-tv',           title: 'Alocución al País',        cap: 15, cost: 0,    cd: 30, fx: { apr: 6, est: 2 },        news: 'El Presidente del Gobierno comparece en prime time explicando las reformas.' },
-  { id: 'ue',     icon: 'fa-earth-africa', title: 'Cumbre de la Unión Africana',cap: 20, cost: 0,    cd: 45, fx: { eco: 6, apr: 2 },        news: 'Marruecos firma acuerdos bilaterales en la cumbre continental africana.' },
-  { id: 'pacto',  icon: 'fa-handshake',    title: 'Pacto Nacional de Inversión',cap: 25, cost: 0,    cd: 60, fx: { est: 6, apr: 3, con: 4 },news: 'Gobierno y agentes económicos firman un histórico Pacto por la Inversión.' },
-  { id: 'empleo', icon: 'fa-hammer',       title: 'Plan de Choque AWRAS',      cap: 10, cost: 3000, cd: 40, fx: { emp: 8, eco: 3 },        news: 'El Gobierno moviliza 3.000 M€ para contratos de empleo directo en comarcas.' },
-  { id: 'army',   icon: 'fa-medal',        title: 'Modernización de las FAR',  cap: 15, cost: 1500, cd: 50, fx: { mil: 8, apr: -3 },       news: 'Nuevas partidas para equipamiento y condiciones laborales en las Fuerzas Armadas Reales.' },
-  { id: 'ahorro', icon: 'fa-piggy-bank',   title: 'Ajuste de Gasto Público',   cap: 0,  cost: 0,    cd: 60, fx: { apr: -5, est: -2 }, gain: 8000, news: 'Consolidación fiscal: contención del gasto que ahorra 8.000 M€ a las arcas.' }
+  { id: 'tv',        icon: 'fa-tv',                  title: 'Comparecencia televisada',                 cap: 15, cost: 0,   cd: 30,  fx: { apr: 6, est: 2 },         news: 'El Jefe de Gobierno comparece en prime time y remonta en las encuestas.' },
+  { id: 'ue',        icon: 'fa-earth-europe',        title: 'Cumbre en Bruselas',                       cap: 20, cost: 0,   cd: 45,  fx: { eco: 6, apr: 2 },         news: 'Bruselas desbloquea fondos y elogia las reformas del Gobierno.' },
+  { id: 'pacto',     icon: 'fa-handshake',           title: 'Pacto social y político',                  cap: 25, cost: 0,   cd: 60,  fx: { est: 6, apr: 3 },         news: 'Gobierno, sindicatos y oposición firman un pacto histórico.' },
+  { id: 'empleo',    icon: 'fa-hammer',              title: 'Plan de choque del empleo',                cap: 10, cost: 300, cd: 40,  fx: { emp: 8, eco: 3 },         news: 'El Gobierno lanza un plan de choque con 300 M€ contra el paro.' },
+  { id: 'army',      icon: 'fa-medal',               title: 'Reforma de las FAR',                       cap: 15, cost: 250, cd: 50,  fx: { mil: 8, apr: -3 },        news: 'Se modernizan las Fuerzas Armadas Reales; el Ejército responde con lealtad.' },
+  { id: 'ahorro',    icon: 'fa-piggy-bank',          title: 'Recorte del gasto público',                cap: 0,  cost: 0,   cd: 60,  fx: { apr: -5, est: -2 }, gain: 600,  news: 'Austeridad: el Gobierno recorta gasto y ahorra 600 M€, a costa de la calle.' },
+  { id: 'trono',     icon: 'fa-crown',               title: 'Audiencia con el Rey y Discurso del Trono', cap: 12, cost: 0,  cd: 90,  fx: { con: 8, apr: 2 },         news: 'El Rey recibe al Jefe de Gobierno y respalda su hoja de ruta.' },
+  { id: 'privatizar', icon: 'fa-building-columns',   title: 'Privatizar participaciones públicas',      cap: 3,  cost: 0,   cd: 120, fx: { apr: -3, eco: 1, con: -1 }, gain: 900,  news: 'El Gobierno vende participaciones de empresas públicas e ingresa 900 M€.' },
+  { id: 'amnistia',  icon: 'fa-file-invoice-dollar', title: 'Amnistía fiscal parcial',                  cap: 2,  cost: 0,   cd: 90,  fx: { apr: -2, est: -1 },       gain: 500,  news: 'Una amnistía fiscal parcial hace aflorar capitales y llena las arcas con 500 M€.' },
+  { id: 'iva',       icon: 'fa-receipt',             title: 'Cobrar el IVA de forma más estricta',      cap: 2,  cost: 0,   cd: 60,  fx: { apr: -2, eco: -1 },       gain: 350,  news: 'Hacienda refuerza la recaudación del IVA y suma 350 M€.' },
+  { id: 'ocp',       icon: 'fa-industry',            title: 'Dividendos de OCP (fosfatos)',             cap: 2,  cost: 0,   cd: 120, fx: { eco: 1, apr: -1 },        gain: 400,  news: 'El Estado exige a OCP un dividendo extraordinario de 400 M€.' },
+  { id: 'mre',       icon: 'fa-plane-arrival',       title: 'Remesas de los MRE: plan de atracción',    cap: 3,  cost: 0,   cd: 90,  fx: { eco: 1, con: 1 },         gain: 250,  news: 'Un plan de incentivos atrae 250 M€ de remesas de los marroquíes del exterior.' },
+  { id: 'fmi',       icon: 'fa-hand-holding-dollar', title: 'Préstamo del FMI (línea de precaución y liquidez)', cap: 4, cost: 0, cd: 150, fx: { apr: -3, con: -1 }, gain: 1500, news: 'El FMI concede a Marruecos una línea de liquidez de 1.500 M€, con condiciones.' },
+  { id: 'reffiscal', icon: 'fa-scale-unbalanced',    title: 'Reforma fiscal (Ley marco 69-19)',         cap: 4,  cost: 0,   cd: 150, fx: { apr: -2, eco: 1 },        gain: 300,  news: 'La reforma fiscal ensancha la base tributaria y recauda 300 M€ más.' }
 ];
 
-// ==========================================
-// ÁRBOL DE FOCOS NACIONALES
-// ==========================================
+
+// =====================================================================
+// 10. FOCUS_TREE
+//  · Se omiten los efectos ES / rel del foco d2.
+// =====================================================================
 const FOCUS_TREE = [
-  { id: 'e1', b: 'eco', title: 'Reforma Tributaria',      days: 365, now: { eco: 4 },            spirit: { name: 'Fisco Eficiente',      daily: {},                    money: 600 } },
-  { id: 'e2', b: 'eco', title: 'Plan Emergence y OCP',    days: 420, req: 'e1', now: { emp: 3 },  spirit: { name: 'Polos Industriales',   daily: { eco: .05, emp: .04 }, money: 0 } },
-  { id: 'e3', b: 'eco', title: 'Proyección Atlántica',    days: 480, req: 'e2', now: { apr: 2 }, cash: 15000, spirit: null },
-  { id: 'e4', b: 'eco', title: 'Marca Marruecos',         days: 540, req: 'e3', now: {},          spirit: { name: 'Hub Logístico',        daily: { eco: .06, apr: .03 }, money: 1200 } },
-  { id: 's1', b: 'soc', title: 'Generalización AMO',      days: 365, now: { apr: 3 },            spirit: { name: 'Cobertura Sanitaria',  daily: { est: .03 },           money: -500 } },
-  { id: 's2', b: 'soc', title: 'Pacto Educativo',         days: 420, req: 's1', now: {},         spirit: { name: 'Capital Humano',       daily: { emp: .04, eco: .02 }, money: -400 } },
-  { id: 's3', b: 'soc', title: 'Villes Sans Bidonvilles', days: 480, req: 's2', now: { apr: 4 }, spirit: { name: 'Vivienda Dignificación', daily: { apr: .05 },        money: -600 } },
-  { id: 's4', b: 'soc', title: 'Estado Social',           days: 540, req: 's3', now: { est: 4 }, spirit: { name: 'Protección Social',    daily: { est: .05, apr: .04 }, money: -900 } },
-  { id: 'g1', b: 'seg', title: 'Modernización DGSN',      days: 365, now: { est: 4 },            spirit: { name: 'Seguridad Ciudadana',  daily: { est: .03 },           money: -300 } },
-  { id: 'g2', b: 'seg', title: 'Ciberseguridad Estatal',  days: 420, req: 'g1', now: {},         spirit: { name: 'Escudo Digital',       daily: { est: .03, eco: .02 }, money: -300 } },
-  { id: 'g3', b: 'seg', title: 'FAR Profesionales',       days: 480, req: 'g2', now: { mil: 6 }, spirit: { name: 'Tropa Operativa',      daily: { mil: .05 },           money: -600 } },
-  { id: 'g4', b: 'seg', title: 'Defensa Estratégica',     days: 540, req: 'g3', now: { mil: 4 }, spirit: { name: 'Escudo Nacional',      daily: { mil: .04, est: .03 }, money: -700 } },
-  { id: 'd1', b: 'dip', title: 'Diplomacia Africana',     days: 365, now: { apr: 2 },            spirit: { name: 'Voz Continental',      daily: { apr: .03 },           money: 0 } },
-  { id: 'd2', b: 'dip', title: 'Eje con la UE',           days: 420, req: 'd1', now: {}, cash: 8000, spirit: { name: 'Socio Estratégico', daily: { eco: .04 },           money: 0 } },
-  { id: 'd3', b: 'dip', title: 'Cumbre de Rabat',         days: 480, req: 'd2', now: { est: 3, mil: 3 }, spirit: null },
-  { id: 'd4', b: 'dip', title: 'Potencia Regional',       days: 540, req: 'd3', now: {},         spirit: { name: 'Liderazgo Norteáfrica', daily: { apr: .05, eco: .04 }, money: 800 } }
+  { id: 'e1', b: 'eco', title: 'Reforma fiscal (Ley marco 69-19)',           days: 365, now: { eco: 4 },            spirit: { name: 'Hacienda Eficiente',           daily: {},                     money: 120 } },
+  { id: 'e2', b: 'eco', title: 'Plan de Aceleración Industrial',             days: 420, req: 'e1', now: { emp: 3 },  spirit: { name: 'Polos Industriales',           daily: { eco: .05, emp: .04 }, money: 0 } },
+  { id: 'e3', b: 'eco', title: 'Fondos europeos y del Golfo',                days: 480, req: 'e2', now: { apr: 2 }, cash: 1500, spirit: null },
+  { id: 'e4', b: 'eco', title: 'Marca «Maroc»',                              days: 540, req: 'e3', now: {},         spirit: { name: 'Marca Marruecos',              daily: { eco: .06, apr: .03 }, money: 150 } },
+  { id: 's1', b: 'soc', title: 'Protección social generalizada',             days: 365, now: { apr: 3 },            spirit: { name: 'Cobertura Universal',          daily: { est: .03 },           money: -80 } },
+  { id: 's2', b: 'soc', title: 'Pacto educativo',                            days: 420, req: 's1', now: {},         spirit: { name: 'Capital Humano',               daily: { emp: .04, eco: .02 }, money: -60 } },
+  { id: 's3', b: 'soc', title: 'Vivienda y ciudades nuevas',                 days: 480, req: 's2', now: { apr: 4 }, spirit: { name: 'Acceso a la Vivienda',         daily: { apr: .05 },           money: -70 } },
+  { id: 's4', b: 'soc', title: 'Estado Social',                              days: 540, req: 's3', now: { est: 4 }, spirit: { name: 'Bienestar Social',             daily: { est: .05, apr: .04 }, money: -110 } },
+  { id: 'g1', b: 'seg', title: 'Modernización policial (DGSN)',              days: 365, now: { est: 4 },            spirit: { name: 'Policía Moderna',              daily: { est: .03 },           money: -50 } },
+  { id: 'g2', b: 'seg', title: 'Ciberseguridad nacional',                    days: 420, req: 'g1', now: {},         spirit: { name: 'Escudo Digital',               daily: { est: .03, eco: .02 }, money: -50 } },
+  { id: 'g3', b: 'seg', title: 'FAR profesionales',                          days: 480, req: 'g2', now: { mil: 6 }, spirit: { name: 'Tropa Profesional',            daily: { mil: .05 },           money: -90 } },
+  { id: 'g4', b: 'seg', title: 'Pacto de defensa con EE. UU. (African Lion)', days: 540, req: 'g3', now: { mil: 4 }, spirit: { name: 'Socio Estratégico de EE. UU.', daily: { mil: .04, est: .03 }, money: -100 } },
+  { id: 'd1', b: 'dip', title: 'Diplomacia africana',                        days: 365, now: { apr: 2 },            spirit: { name: 'Voz en África',                daily: { apr: .03 },           money: 0 } },
+  { id: 'd2', b: 'dip', title: 'Eje con Bruselas y Madrid',                  days: 420, req: 'd1', now: {}, cash: 1000, spirit: { name: 'Socio Fiable',               daily: { eco: .04 },           money: 0 } },
+  { id: 'd3', b: 'dip', title: 'Asociación con EE. UU. y el Golfo',          days: 480, req: 'd2', now: { est: 3, mil: 3 }, spirit: null },
+  { id: 'd4', b: 'dip', title: 'Iniciativa Atlántica y liderazgo africano',  days: 540, req: 'd3', now: {},         spirit: { name: 'Potencia Regional',            daily: { apr: .05, eco: .04 }, money: 100 } }
 ];
 
+
+// =====================================================================
+// 11. FOCUS_LINKS
+// =====================================================================
 const FOCUS_LINKS = [
-  { t: 'Ralentización económica afecta al empleo', on: s => s.eco < 40, fx: { emp: -.08 } },
-  { t: 'Economía sólida genera contrataciones',    on: s => s.eco > 65, fx: { emp: .04 } },
-  { t: 'Desempleo elevado desgasta la aprobación', on: s => s.emp < 40, fx: { apr: -.08, est: -.04 } },
-  { t: 'Pleno empleo refuerza el apoyo popular',   on: s => s.emp > 65, fx: { apr: .04 } },
-  { t: 'Tensiones sociales frenan la inversión',   on: s => s.est < 40, fx: { eco: -.06 } },
-  { t: 'Baja aprobación alimenta el malestar',     on: s => s.apr < 35, fx: { est: -.05 } },
-  { t: 'Descontento en cuarteles afecta a estabilidad', on: s => s.mil < 30, fx: { est: -.04 } },
-  { t: 'Estabilidad institucional atrae inversores', on: s => s.est > 70, fx: { eco: .03 } }
+  { t: 'Economía hundida destruye empleo',   on: s => s.eco < 40, fx: { emp: -.08 } },
+  { t: 'Economía fuerte crea empleo',        on: s => s.eco > 65, fx: { emp: .04 } },
+  { t: 'Paro alto erosiona la aprobación',   on: s => s.emp < 40, fx: { apr: -.08, est: -.04 } },
+  { t: 'Pleno empleo mejora la aprobación',  on: s => s.emp > 65, fx: { apr: .04 } },
+  { t: 'Inestabilidad frena la economía',    on: s => s.est < 40, fx: { eco: -.06 } },
+  { t: 'Impopularidad alimenta el malestar', on: s => s.apr < 35, fx: { est: -.05 } },
+  { t: 'Ejército descontento desestabiliza', on: s => s.mil < 30, fx: { est: -.04 } },
+  { t: 'Estabilidad alta atrae inversión',   on: s => s.est > 70, fx: { eco: .03 } }
 ];
 
-// ==========================================
-// CRISIS Y EVENTOS DE SHOCK
-// ==========================================
+
+// =====================================================================
+// 12. SHOCK_POOL
+//  · Efectos sobre `debt` omitidos (prima de riesgo).
+// =====================================================================
 const SHOCK_POOL = [
-  { cat: 'EMERGENCIA', min: 'interior', title: 'TERREMOTO EN EL ALTO ATLAS', desc: 'Varias provincias sufren daños por un sismo; se requiere respuesta coordinada de emergencia.',
-    options: [ { text: 'Desplegar logística de las FAR y fondo de emergencia', cost: 500, stats: { est: 4, apr: 3 }, news: 'Marruecos despliega al Ejército y recursos de auxilio en el Atlas.' }, { text: 'Dejar la ayuda en manos de corporaciones provinciales', cost: 0, stats: { est: -5, apr: -6 }, news: 'Lentitud en la asistencia genera descontento en las comarcas afectadas.' } ] },
-  { cat: 'LABORAL', min: 'trabajo', title: 'HUELGA GENERAL SECTORIAL', desc: 'Centrales sindicales convocan paros en protesta por la inflación de la cesta alimentaria.',
-    options: [ { text: 'Convocar mesa de diálogo social con mejoras en la AMO', cost: 150, stats: { emp: 3, apr: 3, eco: -2 }, news: 'Acuerdo con sindicatos tras conceder mejoras salariales y médicas.' }, { text: 'Mantener la postura sin ceder en la negociación', cost: 0, stats: { est: -5, apr: -6, eco: -3 }, news: 'La huelga paraliza el transporte y los servicios en grandes ciudades.' } ] },
-  { cat: 'ESCÁNDALO', min: 'justicia', title: 'INVESTIGACIÓN POR CONTRATOS EN LICITACIONES', desc: 'Informes de auditoría detectan irregularidades en la adjudicación de obras públicas.',
-    options: [ { text: 'Cesar de inmediato a los altos cargos investigados', cost: 0, stats: { apr: -2, est: +3 }, news: 'Relevo inmediato de los responsables tras abrir expediente judicial.' }, { text: 'Defender la inocencia de los equipos técnicos', cost: 0, stats: { apr: -8, est: -4 }, news: 'Críticas de la oposición por falta de contundencia ante la corrupción.' } ] },
-  { cat: 'MERCADOS', min: 'economia', title: 'ENCARECIMIENTO DE LA DEUDA EXTERNA', desc: 'Variaciones de tipos internacionales elevan el coste de emisión de bonos soberanos.',
-    options: [ { text: 'Aprobar contención de gasto secundario para calmar inversores', cost: 0, stats: { eco: 4, apr: -5, emp: -2 }, news: 'Hacienda aprueba contención presupuestaria para proteger el rating soberano.' }, { text: 'Mantener las partidas previstas echando mano de reservas de divisas', cost: 0, stats: { eco: -5, emp: -2 }, news: 'Aumento del déficit soberano genera tensión en el mercado de bonos.' } ] },
-  { cat: 'AGUA', min: 'transicion_ecologica', title: 'ESTRÉS HÍDRICO SEVERO EN LA CUENCA DEL UMB ER-RBIA', desc: 'Embalses clave caen por debajo del 12% exigiendo cortar el agua de riego.',
-    options: [ { text: 'Alquilar desaladoras portátiles y activar camiones cisterna', cost: 350, stats: { est: 3, apr: +2 }, news: 'El Gobierno instala desaladoras móviles para garantizar el abastecimiento.' }, { text: 'Dejar que las comunas apliquen racionamiento nocturno', cost: 0, stats: { apr: -6, est: -3 }, news: 'Protestas vecinales por los cortes de agua durante la ola de calor.' } ] }
+  { cat: 'EMERGENCIAS', min: 'interior', title: 'INCENDIOS FORESTALES EN EL RIF', desc: 'Varias provincias del norte arden a la vez y piden ayuda urgente al Estado.',
+    options: [
+      { text: 'Desplegar medios extraordinarios', cost: 250, stats: { est: 3, apr: 2 },  news: 'El Estado despliega medios extraordinarios y controla los incendios del Rif.' },
+      { text: 'Dejar que actúen las provincias',  cost: 0,   stats: { est: -4, apr: -5 }, news: 'Las provincias del norte quedan solas ante las llamas y crece la indignación.' }
+    ] },
+  { cat: 'LABORAL', min: 'trabajo', title: 'HUELGA GENERAL', desc: 'Los sindicatos convocan un paro nacional contra la política laboral.',
+    options: [
+      { text: 'Abrir mesa de negociación', cost: 100, stats: { emp: 3, apr: 2, eco: -2 },  news: 'El Gobierno abre una mesa de negociación y se desconvoca el paro general.' },
+      { text: 'Mantener la postura',       cost: 0,   stats: { est: -5, apr: -6, eco: -3 }, news: 'El paro general paraliza el país mientras el Gobierno mantiene su postura.' }
+    ] },
+  { cat: 'CORRUPCIÓN', min: 'justicia', title: 'ESCÁNDALO DE CORRUPCIÓN', desc: 'Un informe de la Cour des comptes señala a un alto cargo de tu entorno.',
+    options: [
+      { text: 'Cesar al implicado',       cost: 0, stats: { apr: -4 },                 news: 'El Gobierno cesa al alto cargo señalado por la Cour des comptes.' },
+      { text: 'Negar y cerrar filas',     cost: 0, stats: { apr: -9, est: -3, con: -2 }, news: 'El Gobierno cierra filas y el escándalo de corrupción llega hasta el Palacio.' }
+    ] },
+  { cat: 'MERCADOS', min: 'economia', title: 'DISPARO DE LA PRIMA DE RIESGO', desc: 'Los inversores desconfían de la deuda marroquí y exigen intereses más altos.',
+    options: [
+      { text: 'Anunciar recortes',   cost: 0, stats: { eco: 3, apr: -5, emp: -2 }, news: 'El Gobierno anuncia recortes y los mercados respiran, pero la calle protesta.' },
+      { text: 'Aguantar el pulso',   cost: 0, stats: { eco: -6, emp: -2 },          news: 'El Gobierno aguanta el pulso a los mercados y la deuda se encarece.' }
+    ] },
+  { cat: 'CIBERSEGURIDAD', min: 'defensa', title: 'CIBERATAQUE A MINISTERIOS', desc: 'Atacantes desconocidos paralizan sistemas críticos del Estado.',
+    options: [
+      { text: 'Contratar respuesta de emergencia', cost: 80, stats: { est: 2, mil: 1 },  news: 'Una respuesta de emergencia restablece los sistemas de los ministerios atacados.' },
+      { text: 'Resolverlo con medios propios',     cost: 0,  stats: { eco: -5, est: -3 }, news: 'Los ministerios siguen paralizados días después del ciberataque.' }
+    ] },
+  { cat: 'ENERGÍA', min: 'transicion_ecologica', title: 'CRISIS ENERGÉTICA Y DEL BUTANO', desc: 'La energía se dispara y las familias no llegan a fin de mes.',
+    options: [
+      { text: 'Subsidiar la factura', cost: 450, stats: { eco: 2, apr: 3 },         news: 'El Gobierno subsidia la factura energética y alivia a las familias.' },
+      { text: 'Dejar actuar al mercado', cost: 0, stats: { eco: -6, emp: -3, apr: -3 }, news: 'Se dispara el precio del butano y las familias recortan gastos básicos.' }
+    ] },
+  { cat: 'MILITAR', min: 'defensa', title: 'RUIDO DE SABLES', desc: 'Mandos militares critican en privado tu gestión y hay malestar en los cuarteles.',
+    options: [
+      { text: 'Ascensos y mejoras salariales', cost: 200, stats: { mil: 6, apr: -1 },  news: 'El Gobierno aprueba ascensos y mejoras salariales para calmar los cuarteles.' },
+      { text: 'Ignorar el malestar',           cost: 0,   stats: { mil: -8, est: -2 }, news: 'El malestar militar se agranda ante el silencio del Gobierno.' }
+    ] },
+  { cat: 'ECONOMÍA', min: 'exteriores', title: 'REMESAS RÉCORD DE LOS MRE', desc: 'Los marroquíes del exterior envían cifras históricas de divisas.',
+    options: [
+      { text: 'Canalizarlas a inversión',  cost: 100,  stats: { eco: 3, emp: 1 }, news: 'El Gobierno canaliza las remesas récord de los MRE hacia proyectos de inversión.' },
+      { text: 'Gastarlas en consumo',      cost: -200, stats: { apr: 2 },         news: 'Las remesas récord de los MRE alimentan el consumo de las familias.' }
+    ] }
 ];
 
+
+// =====================================================================
+// 13. INTL_ACTIONS — sección «Unión Europea» (efectos sobre métricas
+//     propias y sobre España omitidos). cost < 0 = ingreso.
+// =====================================================================
 const INTL_ACTIONS = [
-  { id: 'visit', title: 'Visita Oficial',   cap: 10, cost: 0,    rel: 12, cd: 40 },
-  { id: 'trade', title: 'Acuerdo Comercial',cap: 0,  cost: 80, rel: 8,  cd: 30 }
+  { id: 'pesca',   title: 'Renovar el acuerdo pesquero UE–Marruecos',   cap: 3, cost: -300, rel: 3, cd: 120 },
+  { id: 'asoc',    title: 'Asociación avanzada con la UE',              cap: 5, cost: 0,    rel: 4, cd: 180 },
+  { id: 'migra',   title: 'Pacto migratorio con Bruselas',              cap: 4, cost: -500, rel: 4, cd: 120 },
+  { id: 'energia', title: 'Corredor de energía verde con Europa',       cap: 5, cost: 400,  rel: 3, cd: 150 },
+  { id: 'visados', title: 'Negociar visados Schengen',                  cap: 3, cost: 0,    rel: 2, cd: 120 },
+  { id: 'cables',  title: 'Conectar los cables eléctricos con España',  cap: 4, cost: 300,  rel: 3, cd: 120 }
 ];
 
-// ==========================================
-// PROYECTOS DE ESTADO (MEGAPROYECTOS)
-// ==========================================
+
+// =====================================================================
+// 14. PROJECTS
+//  · Se omite `done: { ES, rel }` del Mundial y el efecto «Palacio».
+// =====================================================================
 const PROJECTS = [
-  { id: 'ave', icon: 'fa-train', title: 'TGV Kénitra-Marrakech-Agadir', spirit: { name: 'Red Ferroviaria TGV', daily: { eco: .04, emp: .02 }, money: 80 },
-    phases: [{ n: 'Estudios de trazado y expropiación', cost: 1500, days: 30, now: {}, run: {} }, { n: 'Plataforma, túneles y electrificación', cost: 9500, days: 110, now: { emp: 2, eco: 1 }, run: { emp: .02, eco: .01 } }, { n: 'Adquisición de trenes y pruebas de vía', cost: 4000, days: 45, now: { eco: 2, emp: 1 }, run: {} }] },
-  { id: 'hosp', icon: 'fa-hospital', title: 'Red de Complejos Hospitalarios CHU', spirit: { name: 'Red Hospitalaria CHU', daily: { est: .03, apr: .02 }, money: -350 },
-    phases: [{ n: 'Proyecto arquitectónico y suelo', cost: 900, days: 25, now: {}, run: {} }, { n: 'Construcción de los centros regionales', cost: 6000, days: 90, now: { emp: 1 }, run: { emp: .015 } }, { n: 'Equipamiento médico e integración de personal', cost: 2100, days: 40, now: { apr: 4 }, run: {} }] },
-  { id: 'agua', icon: 'fa-droplet', title: 'Estrategia de Desaladoras y Presas', spirit: { name: 'Independencia Hídrica', daily: { est: .03, eco: .02 }, money: -60 },
-    phases: [{ n: 'Estudios hidrológicos e impacto', cost: 1000, days: 35, now: {}, run: {} }, { n: 'Construcción de desaladoras y canalizaciones', cost: 7500, days: 120, now: { emp: 1 }, run: { emp: .012 } }, { n: 'Interconexión de cuencas y puesta en marcha', cost: 2500, days: 45, now: { est: 3 }, run: {} }] },
-  { id: 'renov', icon: 'fa-solar-panel', title: 'Complejos Solares Noor y Hidrógeno', spirit: { name: 'Liderazgo Renovable', daily: { eco: .05 }, money: 250 },
-    phases: [{ n: 'Licitación de parques y terrenos', cost: 1600, days: 40, now: {}, run: {} }, { n: 'Instalación de paneles, espejos y eólica', cost: 9800, days: 130, now: { eco: 1, emp: 1 }, run: { emp: .015, eco: .01 } }, { n: 'Redes de evacuación e hidrógeno verde', cost: 2600, days: 50, now: { eco: 3 }, run: {} }] },
-  { id: 'viv', icon: 'fa-house', title: 'Villes Sans Bidonvilles', spirit: { name: 'Vivienda Social Digna', daily: { apr: .04, est: .02 }, money: -200 },
-    phases: [{ n: 'Censo y cesión de parcelas', cost: 800, days: 30, now: {}, run: {} }, { n: 'Edificación de complejos de realojo', cost: 5600, days: 100, now: { emp: 1 }, run: { emp: .015 } }, { n: 'Adjudicación y urbanización completa', cost: 1600, days: 35, now: { apr: 5 }, run: {} }] },
-  { id: 'digi', icon: 'fa-ship', title: 'Megapuertos Nador West y Tánger Med', spirit: { name: 'Polos Logísticos Marítimos', daily: { eco: .03, emp: .03 }, money: 150 },
-    phases: [{ n: 'Diseño e infraestructura de diques', cost: 700, days: 25, now: {}, run: {} }, { n: 'Terminales de contenedores e hidrocarburos', cost: 5200, days: 80, now: { eco: 1 }, run: { eco: .01 } }, { n: 'Zonas francas y conexión ferroviaria', cost: 2100, days: 40, now: { eco: 2, emp: 2 }, run: {} }] }
+  { id: 'tgv', icon: 'fa-train', title: 'Alta velocidad Kenitra–Marrakech', spirit: { name: 'Red Ferroviaria Al Boraq', daily: { eco: .04, emp: .02 }, money: 60 },
+    phases: [
+      { n: 'Estudios, trazado y licitación',      cost: 300,  days: 30,  now: {},                run: {} },
+      { n: 'Obra civil y vías',                   cost: 2300, days: 120, now: { emp: 2, eco: 1 }, run: { emp: .02, eco: .01 } },
+      { n: 'Material móvil y puesta en servicio', cost: 900,  days: 45,  now: { eco: 2, emp: 1 }, run: {} }
+    ] },
+  { id: 'nador', icon: 'fa-ship', title: 'Puerto Nador West Med', spirit: { name: 'Hub Mediterráneo', daily: { eco: .05, emp: .02 }, money: 90 },
+    phases: [
+      { n: 'Licitación y dragado',          cost: 250, days: 30,  now: {},                run: {} },
+      { n: 'Diques, muelles y terminales',  cost: 850, days: 110, now: { emp: 1, eco: 1 }, run: { emp: .015, eco: .01 } },
+      { n: 'Zona logística y apertura',     cost: 300, days: 40,  now: { eco: 3 },         run: {} }
+    ] },
+  { id: 'agua', icon: 'fa-droplet', title: 'Desaladoras y Plan Nacional del Agua', spirit: { name: 'Seguridad Hídrica', daily: { est: .03, eco: .02, apr: .01 }, money: -40 },
+    phases: [
+      { n: 'Estudios y evaluación ambiental',              cost: 200,  days: 30,  now: {},                 run: {} },
+      { n: 'Plantas y conducciones (Casablanca, Dakhla)',  cost: 1100, days: 100, now: { emp: 1 },          run: { emp: .012 } },
+      { n: 'Interconexión de presas y puesta en marcha',   cost: 350,  days: 45,  now: { est: 3, apr: 2 },  run: {} }
+    ] },
+  { id: 'solar', icon: 'fa-solar-panel', title: 'Complejo solar Noor y red eléctrica', spirit: { name: 'Independencia Energética', daily: { eco: .05 }, money: 120 },
+    phases: [
+      { n: 'Concursos y permisos',              cost: 250,  days: 40,  now: {},                run: {} },
+      { n: 'Parques solares, eólicos y líneas', cost: 1500, days: 130, now: { eco: 1, emp: 1 }, run: { emp: .015, eco: .01 } },
+      { n: 'Almacenamiento y exportación',      cost: 500,  days: 50,  now: { eco: 3 },         run: {} }
+    ] },
+  { id: 'viv', icon: 'fa-house', title: 'Vivienda social y ciudades nuevas', spirit: { name: 'Parque Público', daily: { apr: .04, est: .02 }, money: -60 },
+    phases: [
+      { n: 'Cesión de suelo y proyecto',  cost: 150, days: 30,  now: {},         run: {} },
+      { n: 'Construcción de viviendas',   cost: 900, days: 100, now: { emp: 1 }, run: { emp: .015 } },
+      { n: 'Adjudicación y entrega',      cost: 250, days: 35,  now: { apr: 5 }, run: {} }
+    ] },
+  { id: 'digi', icon: 'fa-microchip', title: 'Maroc Digital 2030', spirit: { name: 'Estado Digital', daily: { eco: .03, emp: .03 }, money: 40 },
+    phases: [
+      { n: 'Diseño y contratación',              cost: 120, days: 25, now: {},                run: {} },
+      { n: 'Redes, centros de datos y sistemas', cost: 800, days: 80, now: { eco: 1 },         run: { eco: .01 } },
+      { n: 'Migración y formación',              cost: 300, days: 40, now: { eco: 2, emp: 2 }, run: {} }
+    ] },
+  { id: 'mundial', icon: 'fa-futbol', title: 'Estadio Hassan II y Mundial 2030', spirit: { name: 'Legado Mundialista', daily: { apr: .04, eco: .03 }, money: 50 },
+    phases: [
+      { n: 'Diseño y licitación',          cost: 120, days: 30,  now: {},                run: {} },
+      { n: 'Obra del estadio y accesos',   cost: 750, days: 120, now: { emp: 1, apr: 1 }, run: { emp: .015 } },
+      { n: 'Pruebas e inauguración',       cost: 200, days: 35,  now: { apr: 5 },         run: {} }
+    ] },
+  { id: 'dakhla', icon: 'fa-anchor', title: 'Puerto Atlántico de Dakhla', spirit: { name: 'Eje Atlántico', daily: { eco: .04 }, money: 70 },
+    phases: [
+      { n: 'Estudios y financiación',          cost: 200, days: 30,  now: {},                run: {} },
+      { n: 'Obras portuarias y zona franca',   cost: 950, days: 110, now: { emp: 1 },         run: { emp: .015, eco: .01 } },
+      { n: 'Conexión viaria y apertura',       cost: 300, days: 40,  now: { eco: 2 },         run: {} }
+    ] }
 ];
 
-// ==========================================
-// LOGROS DEL JUEGO
-// ==========================================
+
+// =====================================================================
+// 15. ACHIEVEMENTS
+//  · «Superviviente» sigue la plantilla (completar una legislatura): la
+//    versión original (sobrevivir a una moción de censura) no tiene
+//    estado equivalente.
+//  · VERIFICAR rutas de estado en 'cred' (banco central) y 'year' (días
+//    en el cargo): no aparecen entre las claves que documenta la plantilla.
+// =====================================================================
 const ACHIEVEMENTS = [
-  { id: 'm1', icon: 'fa-flag', title: 'Primer Mandato', desc: 'Cumple tu primera misión al frente del Gobierno', ok: s => s.goals && s.goals.done >= 1 },
-  { id: 'm5', icon: 'fa-list-check', title: 'Gestor Eficaz', desc: 'Cumple 5 misiones en una legislatura', ok: s => s.goals && s.goals.done >= 5 },
-  { id: 'leg', icon: 'fa-crown', title: 'Legado Histórico', desc: 'Alcanza el Legado Histórico del Reino', ok: s => s.goals && s.goals.legacy },
-  { id: 'f1', icon: 'fa-diagram-project', title: 'Visión de Estado', desc: 'Completa un foco nacional estratégico', ok: s => s.focus && s.focus.done.length >= 1 },
-  { id: 'fb', icon: 'fa-sitemap', title: 'Doctrina Completa', desc: 'Completa una rama entera del árbol de focos', ok: s => s.focus && typeof FOCUS_BRANCHES !== 'undefined' && Object.keys(FOCUS_BRANCHES).some(b => FOCUS_TREE.filter(f => f.b === b).every(f => s.focus.done.includes(f.id))) },
-  { id: 'p3', icon: 'fa-helmet-safety', title: 'Constructor del Reino', desc: 'Termina 3 megaproyectos de Estado', ok: s => s.proj && s.proj.done.length >= 3 },
-  { id: 'dip', icon: 'fa-handshake', title: 'Diplomático', desc: 'Consigue la máxima relación con socios internacionales', ok: s => s.intl && Object.values(s.intl.rel).every(r => r >= 70) },
-  { id: 'rich', icon: 'fa-vault', title: 'Caja Fuerte', desc: 'Llega a 100.000 M€ en Tesorería', ok: s => (Number(s.treasury) || 0) >= 100000 },
-  { id: 'all', icon: 'fa-star', title: 'Potencia Regional', desc: 'Todas las métricas ≥ 70% a la vez', ok: s => s.metrics && ['eco', 'est', 'emp', 'apr', 'mil'].every(k => s.metrics[k] >= 70) },
-  { id: 'abyss', icon: 'fa-skull', title: 'Al Borde del Abismo', desc: 'Emite más de 250.000 M€ de deuda pública', ok: s => s.debt && s.debt.amount >= 250000 },
-  { id: 'surv', icon: 'fa-shield', title: 'Superviviente', desc: 'Completa una legislatura entera', ok: s => s.campaign && s.campaign.history.length >= 1 },
-  { id: 'iron', icon: 'fa-fire', title: 'Veterano de Hierro', desc: 'Llega a la 2.ª legislatura en Crisis Permanente', ok: s => s.campaign && s.campaign.diff === 'extremo' && s.campaign.current >= 2 }
+  { id: 'm1',    icon: 'fa-flag',            title: 'Primer Mandato',          desc: 'Cumple tu primera misión',                  ok: s => s.goals && s.goals.done >= 1 },
+  { id: 'm5',    icon: 'fa-list-check',      title: 'Gestor Eficaz',           desc: 'Cumple 5 misiones',                         ok: s => s.goals && s.goals.done >= 5 },
+  { id: 'f1',    icon: 'fa-diagram-project', title: 'Visión de Estado',        desc: 'Completa un foco nacional',                 ok: s => s.focus && s.focus.done.length >= 1 },
+  { id: 'fb',    icon: 'fa-sitemap',         title: 'Doctrina Completa',       desc: 'Completa una rama entera de focos',         ok: s => s.focus && Object.keys(FOCUS_BRANCHES).some(b => FOCUS_TREE.filter(f => f.b === b).every(f => s.focus.done.includes(f.id))) },
+  { id: 'p3',    icon: 'fa-helmet-safety',   title: 'Constructor de Marruecos', desc: 'Termina 3 proyectos de Estado',            ok: s => s.proj && s.proj.done.length >= 3 },
+  { id: 'rich',  icon: 'fa-vault',           title: 'Caja Fuerte',             desc: 'Llega a 15.000 M€ en Tesorería',            ok: s => (Number(s.treasury) || 0) >= 15000 },
+  { id: 'all',   icon: 'fa-star',            title: 'País de Primera',         desc: 'Todas las métricas ≥ 70% a la vez',         ok: s => s.metrics && ['eco', 'est', 'emp', 'apr', 'mil'].every(k => s.metrics[k] >= 70) },
+  { id: 'abyss', icon: 'fa-skull',           title: 'Al Borde del Abismo',     desc: 'Emite más de 6.000 M€ de deuda nueva',      ok: s => s.debt && s.debt.amount >= 6000 },
+  { id: 'cred',  icon: 'fa-building-columns', title: 'Banco Creíble',          desc: 'Credibilidad de Bank Al-Maghrib ≥ 85%',     ok: s => s.bde && s.bde.cred >= 85 },
+  { id: 'surv',  icon: 'fa-shield',          title: 'Superviviente',           desc: 'Completa una legislatura',                  ok: s => s.campaign && s.campaign.history.length >= 1 },
+  { id: 'year',  icon: 'fa-calendar-check',  title: 'Primer Año de Mandato',   desc: 'Cumple un año en el poder',                 ok: s => (s.daysInOffice || 0) >= 365 }
 ];
 
-// ==========================================
-// BANCO CENTRAL (BANK AL-MAGHRIB)
-// ==========================================
+
+// =====================================================================
+// 16. BDE_GOVS — gobernadores de Bank Al-Maghrib
+//     (IDs de la plantilla: Berrada -> tecnico · Jouahri -> indep)
+// =====================================================================
 const BDE_GOVS = [
-  { id: 'tecnico', name: 'Abdellatif Jouahri', tag: 'Tecnócrata ortodoxo', cred: 18, desc: 'Muy respetado por organismos internacionales y celoso de la estabilidad de precios.' },
-  { id: 'afin', name: 'Karim Zaza', tag: 'Afín al Gobierno', cred: -8, desc: 'Facilita liquidez e informes favorables, aunque los mercados son cautos.' },
-  { id: 'indep', name: 'Omar Kabbaj', tag: 'Independiente crítico', cred: 10, desc: 'Analista independiente, muy estricto con los niveles de endeudamiento.' }
+  { id: 'tecnico', name: 'Salma Berrada',      tag: 'Tecnócrata ortodoxa',  cred: 10,  desc: 'Prioriza la inflación y el equilibrio exterior. Los mercados la adoran, la calle menos.' },
+  { id: 'afin',    name: 'Youssef Tazi',       tag: 'Afín al Gobierno',     cred: -10, desc: 'Informes amables y crédito fácil; los inversores desconfían.' },
+  { id: 'indep',   name: 'Abdellatif Jouahri', tag: 'Wali histórico',       cred: 15,  desc: 'Al frente del banco desde 2003: los mercados y el Palacio le respetan; informes sobrios y poco complacientes.' }
 ];
 
+
+// =====================================================================
+// 17. BDE_ACTIONS — acciones de Bank Al-Maghrib
+//  · El tipo director, la banda del dírham y los meses de reservas del
+//    original no existen en el estado B de la plantilla: se omiten.
+//  · Condiciones `when` originales (rate>1, band<8, res>2, cred>25)
+//    sustituidas por () => true.
+//  · Las acciones que ingresaban liquidez usan registerFinancialTransaction.
+// =====================================================================
 const BDE_ACTIONS = [
-  { id: 'informe', icon: 'fa-file-lines', label: 'Encargar informe de solvencia soberana', desc: 'Auditoría externa de Bank Al-Maghrib que transmite calma a los inversores internacionales.', cost: 150, cd: 60, when: () => true,
-    run: B => { const g = typeof bdeGov === 'function' ? bdeGov() : null; B.cred += g && g.id !== 'afin' ? 5 : 2; B.shock -= 15; } },
-  { id: 'dividendo', icon: 'fa-hand-holding-dollar', label: 'Adelantar remesa de beneficios de Bank Al-Maghrib', desc: 'Ingreso inmediato de liquidez (+3.000 M€) para las arcas públicas.', cost: 0, cd: 180, when: () => true,
-    run: B => { B.cred -= 10; B.shock += 20; if (typeof registerFinancialTransaction === 'function') registerFinancialTransaction('Adelanto de beneficios de Bank Al-Maghrib', 3000, 'economia'); } },
-  { id: 'tpi', icon: 'fa-shield-halved', label: 'Solicitar línea de liquidez y precaución al FMI', desc: 'Acuciada necesidad de divisas para contener presiones sobre el dirham.', cost: 0, cd: 150, when: () => true,
-    run: B => { B.shock -= 100; B.cred += 3; if (typeof focusMetricAdd === 'function') focusMetricAdd('est', -3); } },
-  { id: 'devaluar', icon: 'fa-arrow-trend-down', label: 'Ajustar la banda de flotación del Dirham', desc: 'Mejora la competitividad de las exportaciones (+6 Economía) pero eleva el coste importado (−5 Aprobación).', cost: 0, cd: 180, when: () => true,
-    run: B => { B.cred -= 8; B.shock -= 30; if (typeof focusMetricAdd === 'function') { focusMetricAdd('eco', 6); focusMetricAdd('apr', -5); } } },
-  { id: 'reservas', icon: 'fa-vault', label: 'Utilizar reservas de divisas', desc: 'Utiliza 4.000 M€ de reservas para estabilizar la moneda nacional y la inflación.', cost: 4000, cd: 90, when: () => true,
-    run: B => { B.cred += 6; B.shock -= 50; } },
-  { id: 'imprimir', icon: 'fa-print', label: 'Financiación directa del Tesoro', desc: 'Emisión extraordinaria de dirhams (+6.000 M€). Riesgo de presiones inflacionistas.', cost: 0, cd: 120, when: () => true,
-    run: B => { B.cred -= 15; B.shock += 45; if (typeof focusMetricAdd === 'function') focusMetricAdd('apr', -4); if (typeof registerFinancialTransaction === 'function') registerFinancialTransaction('Financiación monetaria del Banco Central', 6000, 'economia'); } }
+  { id: 'rate_down', icon: 'fa-arrow-trend-down', label: 'Bajar el tipo director (−25 pb)', desc: 'Abarata el crédito: más actividad y empleo, algo más de inflación.', cost: 0, cd: 45, when: () => true,
+    run: B => { B.cred -= 1; focusMetricAdd('eco', 2); focusMetricAdd('emp', 1); } },
+  { id: 'rate_up', icon: 'fa-arrow-trend-up', label: 'Subir el tipo director (+25 pb)', desc: 'Frena la inflación y refuerza la moneda, a costa de la actividad.', cost: 0, cd: 45, when: () => true,
+    run: B => { B.cred += 2; B.shock -= 10; focusMetricAdd('eco', -1); focusMetricAdd('apr', -1); focusMetricAdd('est', 1); } },
+  { id: 'band', icon: 'fa-arrows-left-right', label: 'Flexibilizar la banda del dírham', desc: 'Amplía la banda de fluctuación: más competitividad exterior, algo de volatilidad.', cost: 0, cd: 90, when: () => true,
+    run: B => { B.cred += 1; focusMetricAdd('eco', 2); focusMetricAdd('apr', -2); } },
+  { id: 'interv', icon: 'fa-vault', label: 'Intervenir con las reservas de divisas', desc: 'Defiende el dírham quemando 0,4 meses de reservas (−300 M€).', cost: 300, cd: 60, when: () => true,
+    run: B => { B.cred += 4; B.shock -= 50; focusMetricAdd('est', 2); } },
+  { id: 'pymes', icon: 'fa-store', label: 'Programa de finanzas para pymes', desc: 'Crédito garantizado a las pymes (−350 M€).', cost: 350, cd: 75, when: () => true,
+    run: B => { B.cred += 1; focusMetricAdd('eco', 2); focusMetricAdd('emp', 3); } },
+  { id: 'informe', icon: 'fa-file-lines', label: 'Encargar un informe de solvencia', desc: 'Auditoría externa que calma a los mercados (−150 M€).', cost: 150, cd: 60, when: () => true,
+    run: B => { B.cred += 4; B.shock -= 15; } },
+  { id: 'dividendo', icon: 'fa-hand-holding-dollar', label: 'Adelantar el beneficio de Bank Al-Maghrib', desc: 'Liquidez inmediata (+500 M€), pero huele a presión política.', cost: 0, cd: 180, when: () => true,
+    run: B => { B.cred -= 10; B.shock += 20; registerFinancialTransaction('Adelanto de beneficios de Bank Al-Maghrib', 500, 'economia'); } },
+  { id: 'monetiza', icon: 'fa-print', label: 'Que el banco central financie el déficit', desc: 'Financiación monetaria de +900 M€. Inflación y desconfianza garantizadas.', cost: 0, cd: 150, when: () => true,
+    run: B => { B.cred -= 15; B.shock += 60; focusMetricAdd('apr', -4); focusMetricAdd('eco', -2); registerFinancialTransaction('Financiación monetaria de Bank Al-Maghrib', 900, 'economia'); } }
 ];
