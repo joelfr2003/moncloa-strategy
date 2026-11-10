@@ -4,6 +4,8 @@
 //  Se carga ANTES del script principal. Cada país tendrá su archivo igual.
 // =====================================================================
 
+const CHAMBER = { seats: 350, majority: 176 };
+
 const SCENARIOS = {
 ACTUAL: {
     id: 'ACTUAL',
