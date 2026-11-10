@@ -125,6 +125,14 @@
   const diffName = k => (typeof DIFFICULTY !== 'undefined' && DIFFICULTY[k]) ? DIFFICULTY[k].name : k;
   function applyCfg() { const m = S(); if (m && m.cfg) { gameState.difficulty = m.cfg.diff; gameState.campaignLegs = m.cfg.legs; } }
   const cfgLine = m => 'Dificultad: <b class="text-amber-300">' + esc(diffName(m.cfg && m.cfg.diff)) + '</b> · Modo: <b class="text-amber-300">Sin límite</b> <span class="text-slate-500">(lo decide el anfitrión)</span>';
+  // Al empezar, los dos jugadores van directo al reparto de escaños y coaliciones (sin elegir escenario)
+  function startGame() {
+    if (gameState.step !== 1) { L.on = false; render(); return; }
+    applyCfg(); L.on = false;
+    const all = typeof SCENARIOS !== 'undefined' ? SCENARIOS : {}, ids = Object.keys(all);
+    if (!ids.length) { render(); return; }
+    selectScenario(all.ACTUAL ? 'ACTUAL' : ids[0]);   // pasa al paso 2: reparto de escaños (luego, pactómetro)
+  }
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
   // ---------------- LÓGICA DIPLOMÁTICA ----------------
@@ -183,12 +191,12 @@
     if (d.t === 'sync') {
       if (d.auth && m.role === 'guest') {
         adopt(d);
-        if (d.go && L.on) { L.on = false; }
+        if (d.go && L.on && m.role === 'guest') setTimeout(startGame, 0);
         if (d.cfg && typeof d.cfg.diff === 'string') { m.cfg = { diff: (typeof DIFFICULTY !== 'undefined' && DIFFICULTY[d.cfg.diff]) ? d.cfg.diff : 'normal', legs: FREE }; applyCfg(); }
       }
       render(); return;
     }
-    if (d.t === 'go') { if (m.role === 'guest' && L.on) { L.on = false; applyCfg(); render(); } return; }
+    if (d.t === 'go') { if (m.role === 'guest' && L.on) startGame(); return; }
     const x = ACT(d.id);
     if (d.t === 'prop' && x && x.k === 'prop' && typeof d.uid === 'string') {
       if (m.inbox.some(i => i.uid === d.uid)) return;
@@ -456,7 +464,7 @@
     lobby: v => { L.view = v; L.err = ''; render(); },
     create: () => { if (need()) { L.view = 'settings'; L.err = ''; render(); } },
     diff: k => { if (typeof DIFFICULTY !== 'undefined' && DIFFICULTY[k]) { L.diff = k; render(); } },
-    begin: () => { const m = S(); if (!m || m.role !== 'host' || !m.linked) return; applyCfg(); tx({ t: 'go' }); L.on = false; render(); },
+    begin: () => { const m = S(); if (!m || m.role !== 'host' || !m.linked) return; tx({ t: 'go' }); startGame(); },
     copy: u => { try { navigator.clipboard.writeText(u); goalsToast('Enlace copiado.', '#10b981'); } catch (e) { prompt('Copia el enlace:', u); } },
     rel: () => (S() ? S().rel : null), pacts: () => (S() ? Object.assign({}, S().pacts) : {}), isLinked: () => !!(S() && S().linked),
     tab: () => render(), toast
