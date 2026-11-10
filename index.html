@@ -398,6 +398,31 @@ main#app, footer {
     if (code != null) { exec(sel.url, code); window.CURRENT_COUNTRY = sel; }
     window.countryIsBuiltin = !window.CURRENT_COUNTRY || sel.id === BUILTIN;
 
+    // Datos de CUALQUIER país sin cargarlo como país activo (p. ej. el modo multijugador necesita
+    // los partidos/escaños de Marruecos aunque la partida sea de España). Se evalúa en un ámbito
+    // aislado, así que sus constantes no chocan con las del país activo.
+    var DATA_NAMES = ['SCENARIOS','DYNAMIC_EVENTS','CAMPAIGN_HEADLINES','PRESS_NEWS_BANK','MINISTRY_DECISIONS_BANK','HOUSING_EVENTS','REAL_MINISTERS','GOAL_POOL','GOAL_ACTIONS','FOCUS_TREE','FOCUS_LINKS','SHOCK_POOL','INTL_ACTIONS','PROJECTS','ACHIEVEMENTS','BDE_GOVS','BDE_ACTIONS','COUNTRY_DECISIONS','COUNTRY_MAP'];
+    var dataCache = {};
+    window.getCountryData = function (id) {
+      if (dataCache[id]) return dataCache[id];
+      var entry = (window.COUNTRIES || []).filter(function (c) { return c.id === id; })[0];
+      if (!entry) return null;
+      var out = null;
+      if (window.CURRENT_COUNTRY && window.CURRENT_COUNTRY.id === id) {
+        out = {};   // el país activo ya está cargado: se devuelven sus constantes reales
+        DATA_NAMES.forEach(function (n) { try { out[n] = (0, eval)('typeof ' + n + ' === "undefined" ? undefined : ' + n); } catch (e) {} });
+      } else {
+        var code = get(entry.url);
+        if (code == null) { console.warn('[Countries] getCountryData: no se pudo cargar ' + entry.url); return null; }
+        try {
+          out = new Function(code + '\n;return {' + DATA_NAMES.map(function (n) { return n + ': typeof ' + n + ' === "undefined" ? undefined : ' + n; }).join(',') + '};')();
+        } catch (e) { console.error('[Countries] getCountryData(' + id + ') falló:', e); return null; }
+      }
+      out.country = entry;
+      dataCache[id] = out;
+      return out;
+    };
+
     if (typeof SCENARIOS === 'undefined' || !Object.keys(SCENARIOS).length)
       banner('⚠ No se ha cargado ningún país. Comprueba que existe Countries/index.json y el fichero de "' + sel.id + '" (ejecuta node Countries/generate-index.js) y recarga con Ctrl+F5.');
   })();
