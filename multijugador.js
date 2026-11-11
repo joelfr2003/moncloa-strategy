@@ -18,7 +18,7 @@
   // ---------------- PAÍSES ----------------
   // Para añadir un país: su fichero en Countries/ y, si quieres, su bandera y clave INTL aquí.
   const FLAGS = { espana: '🇪🇸', marruecos: '🇲🇦' };
-  const INTL_KEY = { espana: 'es', marruecos: 'ma' };   // clave de la relación bilateral en gameState.intl.rel (si existe)
+  const INTL_KEY = { espana: 'es', marruecos: 'ma', eeuu: 'us' };   // clave de la relación bilateral en gameState.intl.rel (si existe)
   const myC = () => window.CURRENT_COUNTRY || { id: 'espana', name: 'España' };
   const flagOf = id => FLAGS[id] || '🏳️';
   const nameOf = id => { const c = (window.COUNTRIES || []).filter(x => x.id === id)[0]; return c ? c.name : id; };
@@ -275,7 +275,7 @@
   // Si atacas desde el mapa de Guerra al país del otro jugador: la relación se desploma, se rompen los pactos,
   // y el otro recibe el aviso, inicia una guerra defensiva en su partida y puede resistir con sus operaciones.
   // Cada 5 días los dos frentes se empujan entre sí; quien gana o pide paz lo comunica al otro.
-  const WISO = { espana: 724, marruecos: 504 };   // código del país en el mapa de Guerra (añade aquí los países nuevos)
+  const WISO = { espana: 724, marruecos: 504, eeuu: 840 };   // código del país en el mapa de Guerra (añade aquí los países nuevos)
   const wiso = id => WISO[id] || ((window.COUNTRIES || []).filter(c => c.id === id)[0] || {}).iso;
   const WAR = () => gameState.wr && gameState.wr.war;
   const pvpTarget = id => { const m = S(); return !!(m && m.linked && m.other && wiso(m.other.id) === id); };
