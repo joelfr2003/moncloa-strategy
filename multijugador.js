@@ -261,6 +261,7 @@
     try { pvpDaily(); } catch (e) { console.error(e); }
     try { bindRel(); } catch (e) { /* sin mapa */ }
     try { debtDaily(m, d); } catch (e) { console.error(e); }
+    try { aftermath(m, d); } catch (e) { console.error(e); }
     if (m.pacts.trade && d % 30 === 0) cash(150, 'Pacto comercial con ' + oname());
     if (m.linked && X.day0 != null) {
       const e = elapsed(); if (e % 2 === 0) tx({ t: 'day', n: e });
@@ -375,6 +376,48 @@
       const amt = Math.max(0, Math.min(1e6, Number(d.amt) || 0)); if (amt) { cash(amt, 'Pago de la deuda de ' + oname()); if (m.debtIn) m.debtIn.left = Math.max(0, m.debtIn.left - amt); log(oname() + ' te paga ' + fmt(amt) + ' M€ de su deuda.'); }
     }
     render();
+  }
+
+  // ================= REPERCUSIONES DE LA GUERRA E INTERVENCIÓN EXTERIOR =================
+  // Efectos diarios sobre el país (también si el atacante te bombardea y no tienes guerra local) + titulares.
+  function aftermath(m, d) {
+    const w = WAR(), id = m.other && wiso(m.other.id), live = m.pvp && w && w.id === id;
+    const f = live ? w.prog : 0, nm = oname();
+    if (m.pvp) {
+      fx({ eco: -0.02, est: -0.02 });                       // economía de guerra
+      if (f <= -50) fx({ eco: -0.04, est: -0.05, apr: -0.03 });   // territorio ocupado y ciudades bajo ataque
+      else if (f >= 50) fx({ apr: 0.03, mil: 0.02 });             // euforia de las victorias
+      if (d % 6 === 0) {
+        const pos = ['Las tropas avanzan sobre ' + nm + ' y el país celebra los avances en el frente.', 'Mercados y bolsa respiran: el frente contra ' + nm + ' favorece al Gobierno.'],
+              neg = ['Ciudades bajo los ataques de ' + nm + ': colas, apagones y protestas pidiendo la paz.', 'Los refugiados del frente colapsan los servicios y crece el miedo al desabastecimiento.'],
+              mid = ['La guerra con ' + nm + ' se estanca: el gasto militar dispara el déficit.', 'Las familias sufren la subida de precios por la economía de guerra.'];
+        const a = f >= 25 ? pos : f <= -25 ? neg : mid;
+        try { addNewsToTicker(a[Math.floor(Math.random() * a.length)], 'Guerra'); } catch (e) { /* sin ticker */ }
+        if (f >= 25) fx({ apr: 1 }); else if (f <= -25) fx({ apr: -1.5, est: -1 });
+        if (f <= -60) fx({ eco: -1.5 });
+      }
+    }
+    if (m.puppet) fx({ est: -0.02, apr: -0.03 });           // resentimiento por el presidente impuesto
+    if (m.debt && m.debt.left > 0) fx({ apr: -0.01 });      // la deuda con el vencedor pesa en la opinión pública
+    if (d % 2 === 0) statusBadge();
+  }
+  // Cuadro fijo en el menú lateral: guerra, intervención exterior, deuda y tutela sobre el otro país
+  function statusBadge() {
+    const host = document.querySelector('header .sidebar-nav-list'); if (!host) return;
+    const m = S(), rows = [];
+    if (m && gameState.step === 4) {
+      const w = WAR();
+      if (m.pvp) rows.push(['fa-person-rifle', 'EN GUERRA con ' + oname() + (w && m.pvp.local ? ' · frente ' + Math.round(w.prog) : ''), '#ef4444']);
+      if (m.peaceOut) rows.push(['fa-dove', 'Paz propuesta a ' + oname() + ': esperando respuesta', '#d9a726']);
+      if (m.puppet) rows.push(['fa-user-lock', 'PAÍS INTERVENIDO por ' + m.puppet.by + ' · presidente impuesto: ' + m.puppet.name, '#ef4444']);
+      if (m.debt && m.debt.left > 0) rows.push(['fa-coins', 'Deuda con ' + m.debt.to + ': ' + fmt(m.debt.left) + ' M€', '#d9a726']);
+      if (m.debtIn && m.debtIn.left > 0) rows.push(['fa-hand-holding-dollar', 'Tutelas a ' + oname() + (m.puppetOther ? ' (presidente: ' + m.puppetOther + ')' : '') + ' · te debe ' + fmt(m.debtIn.left) + ' M€', '#10b981']);
+      if (m.annexIncome) rows.push(['fa-flag', 'Has anexionado ' + oname() + ': +' + fmt(m.annexIncome) + ' M€/mes', '#10b981']);
+    }
+    let b = document.getElementById('mp-status');
+    if (!rows.length) { if (b) b.remove(); return; }
+    if (!b) { b = document.createElement('div'); b.id = 'mp-status'; b.style.cssText = 'margin:8px 0;padding:8px;border:1px solid #475569;border-radius:6px;background:rgba(15,23,42,.85);font-size:10px;line-height:1.35;cursor:pointer'; b.onclick = () => { try { switchTab('mp'); } catch (e) { /* sin pestaña */ } }; host.parentNode.insertBefore(b, host); }
+    b.innerHTML = rows.map(r => '<div style="color:' + r[2] + ';margin:2px 0"><i class="fa-solid ' + r[0] + '" style="width:14px;text-align:center"></i> ' + esc(r[1]) + '</div>').join('');
   }
   window.MPW = {
     terms: k => applyTerms(k),
@@ -752,6 +795,7 @@
     const mm = S(); if (mm && mm.linked && !(link && link.open)) mm.linked = false;   // partida cargada: sin conexión viva
     if (mm && mm.linked && inGame() !== X.sent) { sendReady(); checkStart(); }
     const r = _r.apply(this, arguments);
+    try { statusBadge(); } catch (e) { /* sin menú */ }
     const b = document.getElementById('tab-btn-mp');
     if (b) {
       b.style.display = gameState.step === 4 ? '' : 'none';
