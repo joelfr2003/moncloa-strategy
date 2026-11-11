@@ -884,8 +884,9 @@ const BDE_ACTIONS = [
 //  LF 2026: Educación 97,1 mil M MAD · Defensa 157,2 · Inversión 114,8 · Salud 42,4 · intereses 41,6.
 // =====================================================================
 const COUNTRY_ECON = {
+  currency: 'DH',                // el motor muestra DH (dírham) en lugar de €
   // Términos que el motor usa en titulares y textos (Moncloa / Banco de España en España)
-  terms: { gov: 'Rabat', place: 'el Palacio Real', cabinet: 'Gabinete de Gobierno', bank: 'Bank Al-Maghrib', nation: 'Marruecos', adj: 'marroquí', firms: 'marroquíes', capital: 'Rabat' },
+  terms: { gov: 'Rabat', place: 'el Palacio Real', cabinet: 'Gabinete de Gobierno', bank: 'Bank Al-Maghrib', nation: 'Marruecos', adj: 'marroquí', firms: 'marroquíes', capital: 'Rabat', curName: 'Dírham marroquí', sovereign: true },
   k: 0.10,                       // escala respecto a España (PIB 176.000 / 1.700.000)
   budget: 10000, budgetStep: 100, // PGE a repartir (M€)
   pib: 176000, debt: 123000,      // PIB y deuda pública heredada (≈ 70 % del PIB)
