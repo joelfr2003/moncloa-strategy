@@ -90,7 +90,7 @@
       try { Object.defineProperty(o, k, { get: g, set: v => { if (S()) setRel(v); }, enumerable: true, configurable: true }); } catch (e) { /* propiedad bloqueada */ }
     };
     try { const k = INTL_KEY[m.other.id], I = intlInit(); if (k && I.rel) hook(I.rel, k); } catch (e) { /* sin INTL */ }
-    try { const id = wiso(m.other.id), W = gameState.wr; if (W && id != null) { W.rel = W.rel || {}; hook(W.rel, id); } } catch (e) { /* sin mapa de Guerra */ }
+    try { const id = wiso(m.other.id), W = gameState.wr || (gameState.wr = {}); if (id != null) { W.rel = W.rel || {}; hook(W.rel, id); } } catch (e) { /* sin mapa de Guerra */ }
   }
   function log(t) {
     const m = S(); if (!m) return;
@@ -267,7 +267,10 @@
       const e = elapsed(); if (e % 2 === 0) tx({ t: 'day', n: e });
       if (X.day != null && gameState.gameSpeed > 0 && e > X.day + 3 && !X.waiting) { X.waiting = true; X.waitSpd = gameState.gameSpeed; localSpeed(0); toast('Reloj compartido: esperando al otro jugador…', '#d9a726'); }
     }
-    if (m.role === 'host' && m.linked && pk.length) { setRel(m.rel + 0.05 * pk.length); if (d % 10 === 0) tx({ t: 'sync', auth: true }); }
+    if (m.role === 'host' && m.linked) {
+      if (pk.length) setRel(m.rel + 0.05 * pk.length);
+      if (!m._s || d % 5 === 0) { tx({ t: 'sync', auth: true }); m._s = true; }   // el anfitrión fija el valor exacto de la relación al empezar y cada 5 días
+    }
   }
 
 
@@ -279,6 +282,12 @@
   const wiso = id => WISO[id] || ((window.COUNTRIES || []).filter(c => c.id === id)[0] || {}).iso;
   const WAR = () => gameState.wr && gameState.wr.war;
   const pvpTarget = id => { const m = S(); return !!(m && m.linked && m.other && wiso(m.other.id) === id); };
+  // Cualquier cambio de relación con el otro jugador (Relaciones exteriores, Guerra, eventos) pasa por el valor compartido
+  const _is0 = window.intlShift;
+  window.intlShift = function (c) {
+    try { const m = S(); if (m && m.linked && m.other && INTL_KEY[m.other.id] === c) bindRel(); } catch (e) { /* sin enlace */ }
+    return _is0.apply(this, arguments);
+  };
   const _wp = window.warPact, _wsn = window.warSanction;
   window.warPact = function (id) {
     const m = S(); if (!pvpTarget(id)) return _wp.apply(this, arguments);
