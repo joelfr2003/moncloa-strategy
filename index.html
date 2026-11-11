@@ -406,8 +406,8 @@ main#app, footer {
         preset: e.preset || null, hint: e.hint || '', labels: e.labels || {}, pct: e.pct || null, names: e.names || {}, descs: e.descs || {}, war: e.war || null, cur: e.currency || '€',
         decrees: (!b && typeof COUNTRY_DECREES !== 'undefined') ? COUNTRY_DECREES : null,
         // Términos que usa el motor en titulares y textos (cada país los redefine en COUNTRY_ECON.terms)
-        t: Object.assign(b ? { gov: 'El Gobierno', place: 'la Moncloa', cabinet: 'Consejo de Ministros', bank: 'Banco de España', nation: 'España', adj: 'español', firms: 'españolas', capital: 'Madrid' }
-                           : { gov: 'El Gobierno', place: 'la sede del Gobierno', cabinet: 'Gabinete de Gobierno', bank: 'Banco Central', nation: 'tu país', adj: 'nacional', firms: 'nacionales', capital: 'la capital' }, e.terms || {}),
+        t: Object.assign(b ? { gov: 'El Gobierno', place: 'la Moncloa', cabinet: 'Consejo de Ministros', bank: 'Banco de España', nation: 'España', adj: 'español', firms: 'españolas', capital: 'Madrid', curName: 'Euro', sovereign: false }
+                           : { gov: 'El Gobierno', place: 'la sede del Gobierno', cabinet: 'Gabinete de Gobierno', bank: 'Banco Central', nation: 'tu país', adj: 'nacional', firms: 'nacionales', capital: 'la capital', curName: 'Moneda nacional', sovereign: true }, e.terms || {}),
         // Socios exteriores del país (COUNTRY_INTL). Si no existe, un país no español no muestra socios españoles.
         intl: (!b && typeof COUNTRY_INTL !== 'undefined') ? COUNTRY_INTL : (!b ? { partners: {}, base: {}, links: {}, actions: {}, map: {}, monthly: [], pop: [] } : null) };
     })();
@@ -416,8 +416,9 @@ main#app, footer {
     try { if (MC.decrees && MC.decrees.tab) { var _nb = document.getElementById('nav-boe-label'); if (_nb) _nb.textContent = MC.decrees.tab; } } catch (e) {}
     // Moneda del país: muestra su símbolo en todos los textos (M€ -> M$) sin tocar el resto del motor
     if (MC.cur && MC.cur !== '€') (function (cur) {
+      var sep = cur.length > 1 ? ' ' : '';
       var fix = function (n) {
-        if (n.nodeType === 3) { if (n.nodeValue.indexOf('€') >= 0) n.nodeValue = n.nodeValue.replace(/M€/g, 'M' + cur).replace(/€/g, cur); }
+        if (n.nodeType === 3) { if (n.nodeValue.indexOf('€') >= 0) n.nodeValue = n.nodeValue.replace(/M€/g, 'M' + sep + cur).replace(/€/g, cur); }
         else if (n.nodeType === 1 && n.tagName !== 'SCRIPT' && n.tagName !== 'STYLE') { var w = document.createTreeWalker(n, NodeFilter.SHOW_TEXT), t; while ((t = w.nextNode())) fix(t); }
       };
       new MutationObserver(function (ms) { for (var i = 0; i < ms.length; i++) { var m = ms[i]; if (m.type === 'characterData') fix(m.target); m.addedNodes.forEach(fix); } })
@@ -6987,8 +6988,8 @@ function renderBdeTab() {
   }).join('');
   return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech">
     <div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-amber-400"><i class="fa-solid fa-building-columns mr-2"></i>${MC.t.bank.toUpperCase()} Y MONEDA</h3>
-    <p class="text-xs text-slate-400 font-sans">${pes ? 'Con soberanía monetaria, la peseta es tu arma y tu riesgo.' : 'Dentro del euro no controlas la moneda, pero el ' + MC.t.bank + ' y la prima de riesgo sí te marcan las cuentas.'} Cada punto de prima sobre 60 pb encarece la deuda, y por encima de 400 pb la economía se resiente.</p></div>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">${box('MONEDA', pes ? 'Peseta' : 'Euro')}${box('PRIMA DE RIESGO', p + ' pb', pc)}${box('CREDIBILIDAD', cred + '%', cred < 35 ? 'text-red-400' : 'text-slate-100')}${box('GOBERNADOR', g ? g.name : 'Vacante', g ? '' : 'text-red-300')}</div>
+    <p class="text-xs text-slate-400 font-sans">${pes ? 'Con soberanía monetaria, la peseta es tu arma y tu riesgo.' : (MC.t.sovereign ? 'Tienes soberanía monetaria sobre ' + (/^[AEIOU]/i.test(MC.t.curName) ? 'el ' : 'el ') + MC.t.curName.toLowerCase() + ': la ' + MC.t.bank + ' fija los tipos y la prima de riesgo marca tus cuentas.' : 'Dentro del euro no controlas la moneda, pero el ' + MC.t.bank + ' y la prima de riesgo sí te marcan las cuentas.')} Cada punto de prima sobre 60 pb encarece la deuda, y por encima de 400 pb la economía se resiente.</p></div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">${box('MONEDA', pes ? 'Peseta' : MC.t.curName)}${box('PRIMA DE RIESGO', p + ' pb', pc)}${box('CREDIBILIDAD', cred + '%', cred < 35 ? 'text-red-400' : 'text-slate-100')}${box('GOBERNADOR', g ? g.name : 'Vacante', g ? '' : 'text-red-300')}</div>
     <div><h4 class="text-xs text-slate-300 mb-2">NOMBRAR GOBERNADOR ${(B.cd.gov || 0) > 0 ? `<span class="text-slate-500">(próximo cambio en ${B.cd.gov} días)</span>` : ''}</h4><div class="grid md:grid-cols-3 gap-2">${govCards}</div></div>
     <div><h4 class="text-xs text-slate-300 mb-2">INSTRUMENTOS</h4><div class="grid md:grid-cols-2 gap-2">${acts}</div></div></div>`;
 }
@@ -7084,7 +7085,7 @@ function bdeAmortizeFromEvent(o) {
   const _fin = renderFinTab;
   renderFinTab = function () {
     const h = _fin(), p = bdePrima(), extra = +(Math.max(0, p - 60) / 100 * 0.5).toFixed(2);
-    const note = `<div class="mb-3 text-[11px] font-sans bg-slate-950 border border-slate-800 rounded p-2 text-slate-300"><i class="fa-solid fa-building-columns text-yellow-300 mr-1"></i>Prima de riesgo <b>${p} pb</b> (${bdePeseta() ? 'peseta' : 'euro'}): el exceso sobre los 60 pb normales (${Math.max(0, p - 60)} pb) se traslada a la mitad al coste medio de la deuda (vencimiento medio ≈ 8 años): <b>+${extra.toString().replace('.', ',')} puntos</b>. <a href="#" onclick="switchTab('bde');return false" class="text-amber-400 underline">${MC.t.bank}</a></div>`;
+    const note = `<div class="mb-3 text-[11px] font-sans bg-slate-950 border border-slate-800 rounded p-2 text-slate-300"><i class="fa-solid fa-building-columns text-yellow-300 mr-1"></i>Prima de riesgo <b>${p} pb</b> (${bdePeseta() ? 'peseta' : MC.t.curName.toLowerCase()}): el exceso sobre los 60 pb normales (${Math.max(0, p - 60)} pb) se traslada a la mitad al coste medio de la deuda (vencimiento medio ≈ 8 años): <b>+${extra.toString().replace('.', ',')} puntos</b>. <a href="#" onclick="switchTab('bde');return false" class="text-amber-400 underline">${MC.t.bank}</a></div>`;
     return h.replace(/(<div class="grid grid-cols-2 md:grid-cols-4)/, note + '$1');
   };
   // 6) HUD superior
