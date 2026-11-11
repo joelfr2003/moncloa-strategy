@@ -265,7 +265,7 @@ const BDE_ACTIONS = [
 const COUNTRY_ECON = {
   currency: '$',                 // el motor muestra $ en lugar de €
   terms: { gov: 'La Casa Blanca', place: 'la Casa Blanca', cabinet: 'Gabinete presidencial', bank: 'Reserva Federal',
-           nation: 'Estados Unidos', adj: 'estadounidense', firms: 'estadounidenses', capital: 'Washington' },
+           nation: 'Estados Unidos', adj: 'estadounidense', firms: 'estadounidenses', capital: 'Washington', curName: 'Dólar estadounidense', sovereign: true },
   k: 15,
   budget: 1500000, budgetStep: 15000,
   pib: 27000000, debt: 33000000, macroPib: 1504500, revPct: 0.30, pensPct: 0.09, otherPct: 0.15,
