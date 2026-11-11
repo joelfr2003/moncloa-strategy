@@ -252,7 +252,7 @@ main#app, footer {
 
   <button onclick="switchTab('boe')" id="tab-btn-boe" class="nav-tab-btn">
     <i class="fa-solid fa-scroll text-sky-400 w-4 text-center"></i>
-    <span>Decretos (BOE)</span>
+    <span id="nav-boe-label">Decretos (BOE)</span>
   </button>
 
   <button onclick="switchTab('cabinet')" id="tab-btn-cabinet" class="nav-tab-btn">
@@ -403,7 +403,8 @@ main#app, footer {
       return { builtin: b, k: e.k || 1, budget: e.budget || 100000, step: e.budgetStep || 1000, pib: e.pib || 1700000,
         debt: e.debt != null ? e.debt : 1695000, macroPib: e.macroPib || 100300, revPct: e.revPct || 0.42, pensPct: e.pensPct || 0.12,
         otherPct: e.otherPct || 0.225, baseRate: e.baseRate || 1.9, debtMax: e.debtMax || 300000, cashCap: e.cashCap || 90000,
-        preset: e.preset || null, hint: e.hint || '', labels: e.labels || {}, pct: e.pct || null, names: e.names || {}, descs: e.descs || {}, war: e.war || null,
+        preset: e.preset || null, hint: e.hint || '', labels: e.labels || {}, pct: e.pct || null, names: e.names || {}, descs: e.descs || {}, war: e.war || null, cur: e.currency || '€',
+        decrees: (!b && typeof COUNTRY_DECREES !== 'undefined') ? COUNTRY_DECREES : null,
         // Términos que usa el motor en titulares y textos (cada país los redefine en COUNTRY_ECON.terms)
         t: Object.assign(b ? { gov: 'El Gobierno', place: 'la Moncloa', cabinet: 'Consejo de Ministros', bank: 'Banco de España', nation: 'España', adj: 'español', firms: 'españolas', capital: 'Madrid' }
                            : { gov: 'El Gobierno', place: 'la sede del Gobierno', cabinet: 'Gabinete de Gobierno', bank: 'Banco Central', nation: 'tu país', adj: 'nacional', firms: 'nacionales', capital: 'la capital' }, e.terms || {}),
@@ -411,10 +412,23 @@ main#app, footer {
         intl: (!b && typeof COUNTRY_INTL !== 'undefined') ? COUNTRY_INTL : (!b ? { partners: {}, base: {}, links: {}, actions: {}, map: {}, monthly: [], pop: [] } : null) };
     })();
 
+    // Nombre de la pestaña de decretos según el país (EE. UU.: Órdenes ejecutivas)
+    try { if (MC.decrees && MC.decrees.tab) { var _nb = document.getElementById('nav-boe-label'); if (_nb) _nb.textContent = MC.decrees.tab; } } catch (e) {}
+    // Moneda del país: muestra su símbolo en todos los textos (M€ -> M$) sin tocar el resto del motor
+    if (MC.cur && MC.cur !== '€') (function (cur) {
+      var fix = function (n) {
+        if (n.nodeType === 3) { if (n.nodeValue.indexOf('€') >= 0) n.nodeValue = n.nodeValue.replace(/M€/g, 'M' + cur).replace(/€/g, cur); }
+        else if (n.nodeType === 1 && n.tagName !== 'SCRIPT' && n.tagName !== 'STYLE') { var w = document.createTreeWalker(n, NodeFilter.SHOW_TEXT), t; while ((t = w.nextNode())) fix(t); }
+      };
+      new MutationObserver(function (ms) { for (var i = 0; i < ms.length; i++) { var m = ms[i]; if (m.type === 'characterData') fix(m.target); m.addedNodes.forEach(fix); } })
+        .observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+      if (document.body) fix(document.body); else document.addEventListener('DOMContentLoaded', function () { fix(document.body); });
+    })(MC.cur);
+
     // Datos de CUALQUIER país sin cargarlo como país activo (p. ej. el modo multijugador necesita
     // los partidos/escaños de Marruecos aunque la partida sea de España). Se evalúa en un ámbito
     // aislado, así que sus constantes no chocan con las del país activo.
-    var DATA_NAMES = ['CHAMBER','SCENARIOS','DYNAMIC_EVENTS','CAMPAIGN_HEADLINES','PRESS_NEWS_BANK','MINISTRY_DECISIONS_BANK','HOUSING_EVENTS','REAL_MINISTERS','GOAL_POOL','GOAL_ACTIONS','FOCUS_TREE','FOCUS_LINKS','SHOCK_POOL','INTL_ACTIONS','PROJECTS','ACHIEVEMENTS','BDE_GOVS','BDE_ACTIONS','COUNTRY_DECISIONS','COUNTRY_MAP'];
+    var DATA_NAMES = ['CHAMBER','SCENARIOS','DYNAMIC_EVENTS','CAMPAIGN_HEADLINES','PRESS_NEWS_BANK','MINISTRY_DECISIONS_BANK','HOUSING_EVENTS','REAL_MINISTERS','GOAL_POOL','GOAL_ACTIONS','FOCUS_TREE','FOCUS_LINKS','SHOCK_POOL','INTL_ACTIONS','PROJECTS','ACHIEVEMENTS','BDE_GOVS','BDE_ACTIONS','COUNTRY_DECISIONS','COUNTRY_MAP','COUNTRY_DECREES'];
     var dataCache = {};
     window.getCountryData = function (id) {
       if (dataCache[id]) return dataCache[id];
@@ -1985,7 +1999,7 @@ checkPGETrigger();
         });
         if (!gameState.policyCooldowns) gameState.policyCooldowns = {};
         gameState.policyCooldowns[p.id] = p.cooldown;
-        gameState.lastNews = `¡PUBLICADO EN EL BOE! Entra en vigor el decreto: ${p.title}.`;
+        gameState.lastNews = `${(MC.decrees && MC.decrees.pub) || '¡PUBLICADO EN EL BOE! Entra en vigor el decreto'}: ${p.title}.`;
       }
     });
     gameState.pendingPolicies = gameState.pendingPolicies.filter(p => p.daysLeft > 0);
@@ -2124,7 +2138,7 @@ function renderBOETab() {
   if (!gameState.policyCooldowns) gameState.policyCooldowns = {};
   if (!gameState.pendingPolicies) gameState.pendingPolicies = [];
 
-  const policies = [
+  const _dec0 = [
     // --- Decretos base ---
     { id: 'REFORMA_FISCAL', title: 'Decreto de Alivio Fiscal', cost: 1500, desc: '+0.3% Economía/día durante 30 días.', cooldown: 60, statsPerDay: { eco: +0.3, apr: +0.1 } },
     { id: 'PLAN_EMPLEO', title: 'Plan de Choque de Empleo Joven', cost: 2000, desc: '+0.4% Empleo/día durante 30 días.', cooldown: 90, statsPerDay: { emp: +0.4, est: +0.2 } },
@@ -2147,6 +2161,11 @@ function renderBOETab() {
     { id: 'EXENCION_PYMES', title: 'Bonificación Fiscal PYMEs', cost: 2100, desc: '+0.5% Economía y +0.2% Empleo/día durante 30 días.', cooldown: 85, statsPerDay: { eco: +0.5, emp: +0.2 } },
     { id: 'PLAN_TURISMO', title: 'Campaña de Promoción Turística', cost: 150, desc: '+0.4% Economía/día durante 25 días.', cooldown: 50, statsPerDay: { eco: +0.4 } }
   ];
+  const D = MC.decrees || {};
+  const TXT = Object.assign({ title: 'BOLETÍN OFICIAL DEL ESTADO — DECRETOS PROACTIVOS', sub: 'Las leyes aprobadas entran en tramitación durante 7 días de reloj antes de surtir efecto.',
+    pending: 'LEYES EN TRAMITACIÓN PARLAMENTARIA (ENTRADA EN VIGOR EN CURSO)', btn: 'PROMULGAR DECRETO' }, D);
+  const _kk = (MC.builtin ? 1 : MC.k) || 1;   // los precios de la lista de España se escalan a la economía del país
+  const policies = (D.list && D.list.length) ? D.list : _dec0.map(p => _kk === 1 ? p : Object.assign({}, p, { cost: Math.max(1, Math.round(p.cost * _kk)) }));
 
   const isPaused = gameState.gameSpeed === 0;
 
@@ -2154,8 +2173,8 @@ function renderBOETab() {
     <div class="hoi-box p-4 rounded space-y-4 font-hoi-tech">
       <div class="border-b border-slate-800 pb-2 flex justify-between items-center">
         <div>
-          <h3 class="font-hoi-header text-2xl text-amber-400">BOLETÍN OFICIAL DEL ESTADO — DECRETOS PROACTIVOS</h3>
-          <p class="text-[11px] text-slate-400">Las leyes aprobadas entran en tramitación durante 7 días de reloj antes de surtir efecto.</p>
+          <h3 class="font-hoi-header text-2xl text-amber-400">${TXT.title}</h3>
+          <p class="text-[11px] text-slate-400">${TXT.sub}</p>
         </div>
         ${isPaused ? `<span class="bg-red-600/20 text-red-400 border border-red-500/40 px-2.5 py-1 rounded text-xs font-bold animate-pulse"><i class="fa-solid fa-pause mr-1"></i> TIEMPO EN PAUSA</span>` : ''}
       </div>
@@ -2164,7 +2183,7 @@ function renderBOETab() {
       ${gameState.pendingPolicies.length > 0 ? `
         <div class="bg-amber-500/10 border border-amber-500/30 p-3 rounded space-y-2">
           <h4 class="text-amber-400 text-xs font-bold flex items-center gap-1.5">
-            <i class="fa-solid fa-spinner animate-spin"></i> LEYES EN TRAMITACIÓN PARLAMENTARIA (ENTRADA EN VIGOR EN CURSO)
+            <i class="fa-solid fa-spinner animate-spin"></i> ${TXT.pending}
           </h4>
           <div class="space-y-1.5">
             ${gameState.pendingPolicies.map(p => `
@@ -2185,7 +2204,7 @@ function renderBOETab() {
           const canAfford = gameState.treasury >= p.cost;
           const isReady = cd === 0 && canAfford && !isPending && !isPaused;
 
-          let btnText = 'PROMULGAR DECRETO';
+          let btnText = TXT.btn;
           if (isPaused) btnText = 'REANUDA (▶) PARA APROBAR';
           else if (isPending) btnText = 'EN TRAMITACIÓN...';
           else if (cd > 0) btnText = `EN RECARGA (${cd}d)`;
@@ -2196,7 +2215,7 @@ function renderBOETab() {
               <div>
                 <h4 class="font-bold text-amber-400 text-xs">${p.title}</h4>
                 <p class="text-[10px] text-slate-300 font-sans mt-1">${p.desc}</p>
-                <span class="text-[10px] text-red-400 font-bold block mt-1">Coste: ${p.cost} M€</span>
+                <span class="text-[10px] text-red-400 font-bold block mt-1">Coste: ${Number(p.cost).toLocaleString('es-ES')} M€</span>
               </div>
               <button onclick="enactPolicy('${p.id}', '${p.title}', ${p.cost}, ${p.cooldown}, ${JSON.stringify(p.statsPerDay).replace(/"/g, '&quot;')})" 
                       ${!isReady ? 'disabled' : ''} 
@@ -2244,7 +2263,7 @@ function enactPolicy(id, title, cost, cooldown, statsPerDay) {
   const dateStr = gameState.currentDate ? gameState.currentDate.toLocaleDateString('es-ES') : '';
   gameState.expenseLog.unshift({
     date: dateStr,
-    concept: `Presentación a trámite del Decreto: ${title}`,
+    concept: `${(MC.decrees && MC.decrees.logPrefix) || 'Presentación a trámite del Decreto'}: ${title}`,
     amount: -cost,
     type: 'expense',
     ministryKey: 'general'
@@ -7117,7 +7136,7 @@ const MANUAL = [
     <p><b>Peseta (1977):</b> tienes soberanía monetaria: devaluar, defender la peseta con reservas o imprimir dinero. Todo tiene coste en inflación y confianza.</p>` },
   { icon: 'fa-gavel', title: 'Gobierno y leyes', html: `
     <p><b>Ministros:</b> reparte las carteras entre tu partido y tus socios. Cada ministerio cuesta dinero al mes y premia a quien lo gestiona.</p>
-    <p><b>Decretos (BOE):</b> leyes que promulgas con efecto sostenido en los indicadores. Pasan por tramitación parlamentaria y tienen tiempo de espera antes de repetirse.</p>
+    <p><b>${(MC.decrees && MC.decrees.tab) || 'Decretos (BOE)'}:</b> leyes que promulgas con efecto sostenido en los indicadores. Pasan por tramitación parlamentaria y tienen tiempo de espera antes de repetirse.</p>
     <p><b>Prensa:</b> destinar dinero a los medios suaviza escándalos y titulares adversos. Los titulares históricos quedan archivados.</p>` },
   { icon: 'fa-star', title: 'Capital político y proyectos', html: `
     <p>El <b>capital político</b> crece cada día según tu aprobación y se gasta en acciones presidenciales y relaciones exteriores. Se gana cumpliendo objetivos.</p>
