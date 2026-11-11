@@ -803,6 +803,7 @@
     document.body.classList.toggle('mp-lobby', gameState.step === 1 && L.on);
     const mm = S(); if (mm && mm.linked && !(link && link.open)) mm.linked = false;   // partida cargada: sin conexión viva
     if (mm && mm.linked && inGame() !== X.sent) { sendReady(); checkStart(); }
+    try { if (mm && mm.linked && inGame()) bindRel(); } catch (e) { /* sin enlace */ }   // la relación compartida se ve igual desde el primer día
     const r = _r.apply(this, arguments);
     try { statusBadge(); } catch (e) { /* sin menú */ }
     const b = document.getElementById('tab-btn-mp');
