@@ -405,7 +405,7 @@ main#app, footer {
         otherPct: e.otherPct || 0.225, baseRate: e.baseRate || 1.9, debtMax: e.debtMax || 300000, cashCap: e.cashCap || 90000,
         preset: e.preset || null, hint: e.hint || '', labels: e.labels || {}, pct: e.pct || null, names: e.names || {}, descs: e.descs || {}, war: e.war || null,
         // Términos que usa el motor en titulares y textos (cada país los redefine en COUNTRY_ECON.terms)
-        t: Object.assign(b ? { gov: '' + MC.t.gov + '', place: '' + MC.t.gov + '', cabinet: '' + MC.t.cabinet + '', bank: '' + MC.t.bank + '', nation: 'España', adj: 'español', firms: 'españolas', capital: 'Madrid' }
+        t: Object.assign(b ? { gov: 'El Gobierno', place: 'la Moncloa', cabinet: 'Consejo de Ministros', bank: 'Banco de España', nation: 'España', adj: 'español', firms: 'españolas', capital: 'Madrid' }
                            : { gov: 'El Gobierno', place: 'la sede del Gobierno', cabinet: 'Gabinete de Gobierno', bank: 'Banco Central', nation: 'tu país', adj: 'nacional', firms: 'nacionales', capital: 'la capital' }, e.terms || {}),
         // Socios exteriores del país (COUNTRY_INTL). Si no existe, un país no español no muestra socios españoles.
         intl: (!b && typeof COUNTRY_INTL !== 'undefined') ? COUNTRY_INTL : (!b ? { partners: {}, base: {}, links: {}, actions: {}, map: {}, monthly: [], pop: [] } : null) };
