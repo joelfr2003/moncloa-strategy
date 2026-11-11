@@ -76,6 +76,7 @@
   function setRel(v) {
     const m = S(); if (!m) return; m.rel = clamp(Number(v) || 0);
     try { const k = m.other && INTL_KEY[m.other.id], I = intlInit(); if (k && I.rel && I.rel[k] != null) I.rel[k] = m.rel; } catch (e) { /* sin INTL */ }
+    try { const id = m.other && wiso(m.other.id), W = gameState.wr; if (W && id != null) { W.rel = W.rel || {}; W.rel[id] = m.rel; } } catch (e) { /* sin mapa de Guerra */ }
   }
   function log(t) {
     const m = S(); if (!m) return;
@@ -201,6 +202,16 @@
     }
     if (d.t === 'go') { if (m.role === 'guest' && L.on) startGame(); return; }
     if (d.t === 'wdec' || d.t === 'wst' || d.t === 'wend') { onWar(d); return; }
+    if (d.t === 'wpact') {   // el otro jugador te paga un pacto de cooperación: el dinero llega a tu tesorería
+      const amt = Math.max(0, Math.min(400, Number(d.amt) || 0));
+      if (amt) cash(amt, 'Pacto de cooperación con ' + oname());
+      adopt(d); log(oname() + ' firma un pacto de cooperación contigo (+' + amt + ' M€).');
+      toast(oflag() + ' ' + esc(oname()) + ' te envía <b>' + amt + ' M€</b> por un pacto de cooperación', '#10b981'); render(); return;
+    }
+    if (d.t === 'wsanc') {   // sanciones del otro jugador: tu relación con él también baja
+      adopt(d); log(oname() + ' te impone sanciones.');
+      toast(oflag() + ' ' + esc(oname()) + ' te ha impuesto <b>sanciones</b>: la relación empeora'); render(); return;
+    }
     const x = ACT(d.id);
     if (d.t === 'prop' && x && x.k === 'prop' && typeof d.uid === 'string') {
       if (m.inbox.some(i => i.uid === d.uid)) return;
@@ -232,6 +243,7 @@
     Object.keys(m.cd).forEach(k => { if (m.cd[k] > 0) m.cd[k]--; });
     pk.forEach(k => fx({ [PACT_FX[k][0]]: PACT_FX[k][1] }));
     try { pvpDaily(); } catch (e) { console.error(e); }
+    try { const oid = m.linked && m.other && wiso(m.other.id), W = gameState.wr; if (oid != null && W && (!W.rel || W.rel[oid] == null)) setRel(m.rel); } catch (e) { /* sin mapa */ }
     if (m.pacts.trade && d % 30 === 0) cash(150, 'Pacto comercial con ' + oname());
     if (m.linked && X.day0 != null) {
       const e = elapsed(); if (e % 2 === 0) tx({ t: 'day', n: e });
@@ -249,16 +261,29 @@
   const wiso = id => WISO[id] || ((window.COUNTRIES || []).filter(c => c.id === id)[0] || {}).iso;
   const WAR = () => gameState.wr && gameState.wr.war;
   const pvpTarget = id => { const m = S(); return !!(m && m.linked && m.other && wiso(m.other.id) === id); };
+  const _wp = window.warPact, _wsn = window.warSanction;
+  window.warPact = function (id) {
+    const m = S(); if (!pvpTarget(id)) return _wp.apply(this, arguments);
+    if (treas() < 400) return toast('Fondos insuficientes (400 M€).');
+    cash(-400, 'Pacto de cooperación con ' + oname()); setRel(m.rel + 15);
+    tx({ t: 'wpact', amt: 400 }); log('Pacto de cooperación con ' + oname() + ' (−400 M€, enviados a su tesorería).');
+    toast(oflag() + ' Pacto con ' + esc(oname()) + ': <b>400 M€</b> enviados a su tesorería', '#10b981'); render();
+  };
+  window.warSanction = function (id) {
+    const m = S(); if (!pvpTarget(id)) return _wsn.apply(this, arguments);
+    const r = _wsn.apply(this, arguments); setRel(m.rel - 15);
+    tx({ t: 'wsanc' }); log('Sanciones contra ' + oname() + '.'); render(); return r;
+  };
   const _wg = window.warGo;
   window.warGo = function (id, goal) {
     const m = S(), pv = goal !== 'def' && pvpTarget(id);
     if (pv && m.pvp) return toast('Ya estás en guerra con ' + oname() + '.');
     const had = WAR(), r = _wg.apply(this, arguments), w = WAR();
     if (pv && !had && w && w.id === id) {
-      m.pvp = { role: 'att', goal, since: gameState.daysInOffice || 0, local: true };
+      m.pvp = { role: 'att', goal, since: gameState.daysInOffice || 0, local: true, base: w.prog };
       Object.keys(m.pacts).forEach(k => { m.pacts[k] = false; });
       setRel(m.rel - 35);
-      tx({ t: 'wdec', goal });
+      tx({ t: 'wdec', goal, since: elapsed(), prog: Math.round(w.prog * 100) / 100 });
       log('Declaras la guerra a ' + oname() + '.');
       toast(oflag() + ' <b>GUERRA contra ' + esc(oname()) + '</b><br><span class="text-xs">La relación se desploma y se rompen los pactos.</span>');
     }
@@ -276,12 +301,20 @@
       adopt(d);
       m.pvp = { role: 'def', goal: d.goal, since: gameState.daysInOffice || 0, local: false };
       fx({ apr: 3, est: -2 });
-      try { if (id && !w) { _wg.call(window, id, 'def'); m.pvp.local = !!(WAR() && WAR().id === id); } } catch (e) { console.error(e); }
+      try { if (id && !w) { _wg.call(window, id, 'def'); m.pvp.local = !!(WAR() && WAR().id === id);
+        const nw = WAR();   // el frente del defensor es el espejo del atacante y los días de guerra coinciden
+        if (m.pvp.local && nw) {
+          nw.prog = Math.max(-100, Math.min(100, -(Number(d.prog) || 0))); m.pvp.base = nw.prog;
+          if (typeof d.since === 'number' && X.day0 != null) nw.start = (gameState.daysInOffice || 0) - (elapsed() - d.since);
+        } } } catch (e) { console.error(e); }
       log(oname() + ' te declara la guerra.');
       toast(oflag() + ' <b>¡' + esc(oname()).toUpperCase() + ' TE HA DECLARADO LA GUERRA!</b><br><span class="text-xs">' + (m.pvp.local ? 'Defiéndete desde Militar y Guerra: tus operaciones empujan el frente contra el atacante.' : 'Ya estás en otra guerra: no puedes abrir el frente contra el atacante.') + '</span>');
       try { fxPlay('guerra'); } catch (e) { /* sin audio */ }
     } else if (d.t === 'wst') {
-      if (m.pvp && m.pvp.local && w && w.id === id && typeof d.p === 'number') w.prog = Math.max(-100, Math.min(100, w.prog - Math.max(0, d.p) * 0.05));
+      if (m.pvp && m.pvp.local && w && w.id === id && typeof d.dp === 'number' && isFinite(d.dp)) {
+        const before = w.prog; w.prog = Math.max(-100, Math.min(100, w.prog - d.dp));
+        m.pvp.base = (m.pvp.base == null ? before : m.pvp.base) - (before - w.prog);
+      }
     } else if (d.t === 'wend') {
       adopt(d);
       if (m.pvp && m.pvp.local && w && w.id === id) {
@@ -295,7 +328,11 @@
   function pvpDaily() {
     const m = S(); if (!m || !m.pvp) return;
     const id = m.other && wiso(m.other.id), w = WAR(), d = gameState.daysInOffice || 0;
-    if (w && w.id === id) { if (m.linked && d % 5 === 0) tx({ t: 'wst', p: Math.round(w.prog) }); return; }
+    if (w && w.id === id) {
+      if (m.pvp.base == null) m.pvp.base = w.prog;
+      if (m.linked && d % 2 === 0) { const dp = w.prog - m.pvp.base; if (Math.abs(dp) >= 0.01) { tx({ t: 'wst', dp: Math.round(dp * 100) / 100 }); m.pvp.base = w.prog; } }
+      return;
+    }
     if (!m.pvp.local || !m.linked) return;
     const W = gameState.wr || {}, h = (W.hist || [])[0] || '';
     endPvp(W.pend === id ? 'win' : /DERROTA/.test(h) ? 'lose' : 'peace', true);
