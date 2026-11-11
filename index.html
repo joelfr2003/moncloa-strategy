@@ -403,7 +403,12 @@ main#app, footer {
       return { builtin: b, k: e.k || 1, budget: e.budget || 100000, step: e.budgetStep || 1000, pib: e.pib || 1700000,
         debt: e.debt != null ? e.debt : 1695000, macroPib: e.macroPib || 100300, revPct: e.revPct || 0.42, pensPct: e.pensPct || 0.12,
         otherPct: e.otherPct || 0.225, baseRate: e.baseRate || 1.9, debtMax: e.debtMax || 300000, cashCap: e.cashCap || 90000,
-        preset: e.preset || null, hint: e.hint || '', labels: e.labels || {}, pct: e.pct || null, names: e.names || {}, descs: e.descs || {}, war: e.war || null };
+        preset: e.preset || null, hint: e.hint || '', labels: e.labels || {}, pct: e.pct || null, names: e.names || {}, descs: e.descs || {}, war: e.war || null,
+        // Términos que usa el motor en titulares y textos (cada país los redefine en COUNTRY_ECON.terms)
+        t: Object.assign(b ? { gov: '' + MC.t.gov + '', place: '' + MC.t.gov + '', cabinet: '' + MC.t.cabinet + '', bank: '' + MC.t.bank + '', nation: 'España', adj: 'español', firms: 'españolas', capital: 'Madrid' }
+                           : { gov: 'El Gobierno', place: 'la sede del Gobierno', cabinet: 'Gabinete de Gobierno', bank: 'Banco Central', nation: 'tu país', adj: 'nacional', firms: 'nacionales', capital: 'la capital' }, e.terms || {}),
+        // Socios exteriores del país (COUNTRY_INTL). Si no existe, un país no español no muestra socios españoles.
+        intl: (!b && typeof COUNTRY_INTL !== 'undefined') ? COUNTRY_INTL : (!b ? { partners: {}, base: {}, links: {}, actions: {}, map: {}, monthly: [], pop: [] } : null) };
     })();
 
     // Datos de CUALQUIER país sin cargarlo como país activo (p. ej. el modo multijugador necesita
@@ -486,7 +491,7 @@ function checkAndTriggerDynamicEvent() {
           id: 101, category: 'TERRITORIO', title: 'FINANCIACIÓN SINGULAR Y CONCORDATO FISCAL CON CATALUÑA',
           desc: 'Exigencia de las fuerzas soberanistas catalanas para gestionar el 100% de los impuestos recaudados en su territorio a cambio del apoyo a los Presupuestos.',
           options: [
-            { text: 'Conceder el modelo de concierto fiscal singular para Cataluña', stats: { eco: -4, est: +6, emp: 0, con: -5, apr: +3, mil: -3 }, loyaltyImpact: { JUNTS: +25, ERC: +25, PNV: +15, PP: -20, VOX: -30 }, news: 'Moncloa firma el concierto fiscal singular con las fuerzas catalanas desatando la indignación de la oposición.' },
+            { text: 'Conceder el modelo de concierto fiscal singular para Cataluña', stats: { eco: -4, est: +6, emp: 0, con: -5, apr: +3, mil: -3 }, loyaltyImpact: { JUNTS: +25, ERC: +25, PNV: +15, PP: -20, VOX: -30 }, news: '' + MC.t.gov + ' firma el concierto fiscal singular con las fuerzas catalanas desatando la indignación de la oposición.' },
             { text: 'Rechazar la singularidad e imponer un modelo multilateral autonómico', stats: { eco: +3, est: -10, emp: 0, con: +4, apr: -4, mil: +2 }, loyaltyImpact: { JUNTS: -35, ERC: -30, PP: +15, VOX: +20 }, news: 'Junts y ERC anuncian la congelación inmediata de su apoyo presupuestario al Ejecutivo.' }
           ]
         },
@@ -534,7 +539,7 @@ function checkAndTriggerDynamicEvent() {
           id: 107, category: 'JUSTICIA', title: 'REFORMA DE LA ELECCIÓN DEL CGPJ EN EL CONGRESO',
           desc: 'Bloqueo en la renovación del órgano de gobierno de los jueces y propuesta para rebajar mayorías.',
           options: [
-            { text: 'Rebajar la mayoría a absoluta para desbloquear la elección judicial', stats: { eco: 0, est: -8, emp: 0, con: +4, apr: -4, mil: -2 }, loyaltyImpact: { SUMAR: +18, PODEMOS: +22, PP: -30, VOX: -30 }, news: 'La oposición acusa a Moncloa de atentado contra la independencia del Poder Judicial.' },
+            { text: 'Rebajar la mayoría a absoluta para desbloquear la elección judicial', stats: { eco: 0, est: -8, emp: 0, con: +4, apr: -4, mil: -2 }, loyaltyImpact: { SUMAR: +18, PODEMOS: +22, PP: -30, VOX: -30 }, news: 'La oposición acusa a ' + MC.t.gov + ' de atentado contra la independencia del Poder Judicial.' },
             { text: 'Mantener la mayoría de tres quintos forzando pactos constitucionales', stats: { eco: 0, est: +5, emp: 0, con: -3, apr: +4, mil: +2 }, loyaltyImpact: { SUMAR: -15, PODEMOS: -20, PP: +20, VOX: -10 }, news: 'El sector judicial valora la preservación de las mayorías parlamentarias reforzadas.' }
           ]
         },
@@ -679,7 +684,7 @@ function checkAndTriggerDynamicEvent() {
           desc: 'Petición del independentismo para levantar de oficio las órdenes de detención a encausados del Procés.',
           options: [
             { text: 'Instar a la Fiscalía a agilizar el borrado de antecedentes y sobreseimientos', stats: { eco: 0, est: +5, emp: 0, con: -8, apr: -8, mil: -8 }, loyaltyImpact: { JUNTS: +35, ERC: +30, BILDU: +18, PP: -35, VOX: -45 }, news: 'El ritmo de aplicación de la amnistía desata una guerra de comunicados en el ámbito judicial.' },
-            { text: 'Respetar los tiempos del Supremo y las cuestiones de inconstitucionalidad presentadas', stats: { eco: 0, est: -7, emp: 0, con: +6, apr: +5, mil: +5 }, loyaltyImpact: { JUNTS: -45, ERC: -35, PP: +22, VOX: +25 }, news: 'Junts acusa a Moncloa de pasividad ante el boicot de la cúpula judicial a la amnistía.' }
+            { text: 'Respetar los tiempos del Supremo y las cuestiones de inconstitucionalidad presentadas', stats: { eco: 0, est: -7, emp: 0, con: +6, apr: +5, mil: +5 }, loyaltyImpact: { JUNTS: -45, ERC: -35, PP: +22, VOX: +25 }, news: 'Junts acusa a ' + MC.t.gov + ' de pasividad ante el boicot de la cúpula judicial a la amnistía.' }
           ]
         },
         {
@@ -839,7 +844,7 @@ function checkAndTriggerDynamicEvent() {
           desc: 'Exigencia soberanista para conmutar las condenas por desvío de fondos en causas políticas.',
           options: [
             { text: 'Conceder indultos y suavizar las penas por malversación sin enriquecimiento personal', stats: { eco: 0, est: -14, emp: 0, con: -12, apr: -18 }, cost: 0, loyaltyImpact: { JUNTS: +60, ERC: +50, PP: -80, VOX: -90, SUMAR: -20 }, news: 'Indignación en las asociaciones judiciales tras la rebaja de penas por malversación.' },
-            { text: 'Vetar categóricamente cualquier medida de gracia o reforma penal a la carta', stats: { eco: 0, est: -10, emp: 0, con: +10, apr: +8 }, cost: 0, loyaltyImpact: { JUNTS: -90, ERC: -75, PP: +45, VOX: +50 }, news: 'Los partidos catalanes rompen definitivamente la disciplina de voto con Moncloa.' }
+            { text: 'Vetar categóricamente cualquier medida de gracia o reforma penal a la carta', stats: { eco: 0, est: -10, emp: 0, con: +10, apr: +8 }, cost: 0, loyaltyImpact: { JUNTS: -90, ERC: -75, PP: +45, VOX: +50 }, news: 'Los partidos catalanes rompen definitivamente la disciplina de voto con ' + MC.t.gov + '.' }
           ]
         },
         {
@@ -2099,7 +2104,7 @@ function checkDynamicTriggers() {
           cost: 0,
           stats: { eco: 8, apr: -8 }, 
           oppLoyaltyImpact: { pp: 6, vox: 4 },
-          news: 'Moncloa aprueba alivios fiscales para retener inversiones extranjeras.' 
+          news: '' + MC.t.gov + ' aprueba alivios fiscales para retener inversiones extranjeras.' 
         },
         { 
           text: 'Aumentar la inversión pública mediante deuda estatal', 
@@ -2408,7 +2413,7 @@ function resolveMilitaryCoup(action) {
   if (action === 'PACTAR') {
     gameState.metrics.mil = Math.min(100, gameState.metrics.mil + 30);
     gameState.metrics.apr = Math.max(0, gameState.metrics.apr - 20);
-    gameState.lastNews = 'Moncloa cede ante la cúpula militar nombrando mandos conservadores para aplacar el ruido de sables.';
+    gameState.lastNews = '' + MC.t.gov + ' cede ante la cúpula militar nombrando mandos conservadores para aplacar el ruido de sables.';
   } else if (action === 'RESISTIR') {
     gameState.metrics.apr = Math.min(100, gameState.metrics.apr + 20);
     gameState.metrics.est = Math.max(0, gameState.metrics.est - 15);
@@ -2470,7 +2475,7 @@ function resolveEuIntervention(action) {
     gameState.metrics.eco = Math.min(100, gameState.metrics.eco + 30);
     gameState.metrics.apr = Math.max(0, gameState.metrics.apr - 20);
     gameState.metrics.emp = Math.max(0, gameState.metrics.emp - 10);
-    gameState.lastNews = 'Moncloa aprueba el memorándum de rescate financiero bajo la supervisión europea.';
+    gameState.lastNews = '' + MC.t.gov + ' aprueba el memorándum de rescate financiero bajo la supervisión europea.';
   } else if (action === 'AUTARQUIA') {
     gameState.metrics.apr = Math.min(100, gameState.metrics.apr + 10);
     gameState.metrics.est = Math.max(0, gameState.metrics.est - 15);
@@ -3177,7 +3182,7 @@ function renderMediaTab() {
         });
         gameState.metrics.eco = Math.max(0, gameState.metrics.eco - 2);
         gameState.metrics.apr = Math.min(100, gameState.metrics.apr + 8);
-        gameState.lastNews = `Moncloa pacifica los disturbios en ${provId} inyectando 2.000 M€ de fondos públicos.`;
+        gameState.lastNews = `${MC.t.gov} pacifica los disturbios en ${provId} inyectando 2.000 M€ de fondos públicos.`;
       }
 
       delete gameState.provincesStatus[provId];
@@ -3342,7 +3347,7 @@ function negotiateWithOpposition() {
   if (gameState.metrics) {
     gameState.metrics.est = Math.min(100, gameState.metrics.est + 5);
   }
-  gameState.lastNews = 'Moncloa llega a un acuerdo de Estado puntual con la oposición a cambio de cesiones presupuestarias.';
+  gameState.lastNews = '' + MC.t.gov + ' llega a un acuerdo de Estado puntual con la oposición a cambio de cesiones presupuestarias.';
   render();
 }
 
@@ -3476,7 +3481,7 @@ function makeDecision(optionIdx) {
   // 5. Inyectar la noticia inmediatamente en el Teletipo EFE
   if (!gameState.newsTicker) gameState.newsTicker = [];
   gameState.newsTicker.unshift({
-    source: 'GABINETE DE MONCLOA',
+    source: '' + MC.t.cabinet.toUpperCase() + '',
     text: headlineText,
     date: dateStr
   });
@@ -3695,7 +3700,7 @@ function makeDecision(optionIdx) {
         gameState.lastNews = 'El Presidente cede ante el ultimátum e inyecta fondos en Defensa.';
       } else {
         gameState.metrics.mil = Math.max(0, gameState.metrics.mil - 15);
-        gameState.lastNews = 'Moncloa desoye al General Albiol; crece el descontento militar.';
+        gameState.lastNews = '' + MC.t.gov + ' desoye al General Albiol; crece el descontento militar.';
       }
 
       if (gameState.metrics.mil < 15) triggerCoupDetat();
@@ -3717,7 +3722,7 @@ function makeDecision(optionIdx) {
           </div>
           <h3 class="font-hoi-header text-3xl text-red-500 tracking-wider">¡GOLPE DE ESTADO MILITAR!</h3>
           <p class="text-xs text-slate-200 font-sans leading-relaxed">
-            La lealtad militar ha caído por debajo del 15%. Las Fuerzas Armadas bajo el mando del General García Albiol han rodeado Moncloa y suspendido la Constitución. Se instaura una Junta Militar Dictatorial.
+            La lealtad militar ha caído por debajo del 15%. Las Fuerzas Armadas bajo el mando del General García Albiol han rodeado ${MC.t.place} y suspendido la Constitución. Se instaura una Junta Militar Dictatorial.
           </p>
           <button onclick="render()" class="hoi-button bg-red-700 hover:bg-red-600 text-white font-hoi-tech w-full py-2.5 text-xs rounded uppercase font-bold tracking-wider">
             ASUMIR EL MANDO BAJO EL RÉGIMEN MILITAR
@@ -4953,7 +4958,7 @@ function renderExpenseHistoryPanel() {
     
     // Detecta la clave del ministerio sin importar el parámetro utilizado
     const minKey = item.ministryId || item.ministryKey || 'presidencia';
-    const minName = ministryNames[minKey] || 'Gabinete de Moncloa';
+    const minName = ministryNames[minKey] || '' + MC.t.cabinet + '';
 
     return `
       <tr class="border-b border-slate-800/80 hover:bg-slate-800/40 transition-colors">
@@ -6044,10 +6049,10 @@ function showEpilogue(lost) {
   const avg = total / c.history.length;
   const survived = c.history.filter(h => !h.lost).length;
   let title, text, icon, color;
-  if (lost) { title = gameState.endTitle || 'FIN DE LA CARRERA POLÍTICA'; icon = 'fa-door-open'; color = '#ef4444'; text = gameState.endReason || 'Las urnas te han retirado el liderazgo del Congreso. Dejas Moncloa y la historia te juzgará por lo hecho hasta hoy.'; }
+  if (lost) { title = gameState.endTitle || 'FIN DE LA CARRERA POLÍTICA'; icon = 'fa-door-open'; color = '#ef4444'; text = gameState.endReason || 'Las urnas te han retirado el liderazgo del Congreso. Dejas ' + MC.t.place + ' y la historia te juzgará por lo hecho hasta hoy.'; }
   else if (avg >= 600) { title = 'LEYENDA DE LA DEMOCRACIA'; icon = 'fa-crown'; color = '#d9a726'; text = 'Completaste tu carrera con éxito rotundo. Calles, plazas y manuales llevarán tu nombre.'; }
   else if (avg >= 350) { title = 'GRAN ESTADISTA'; icon = 'fa-medal'; color = '#10b981'; text = 'Gobernaste con firmeza y dejaste un país mejor del que encontraste.'; }
-  else if (avg >= 150) { title = 'POLÍTICO DE CARRERA'; icon = 'fa-landmark'; color = '#60a5fa'; text = 'Un paso digno por Moncloa: ni gloria ni desastre.'; }
+  else if (avg >= 150) { title = 'POLÍTICO DE CARRERA'; icon = 'fa-landmark'; color = '#60a5fa'; text = 'Un paso digno por ' + MC.t.place + ': ni gloria ni desastre.'; }
   else { title = 'PRESIDENTE OLVIDADO'; icon = 'fa-ghost'; color = '#94a3b8'; text = 'Terminaste tu mandato sin pena ni gloria. Pocos recordarán tu nombre.'; }
 
   const rows = c.history.map(h => `<div class="flex justify-between text-xs bg-slate-900 px-3 py-1.5 rounded"><span>Legislatura ${h.n}${h.lost ? ' <span class="text-red-400">(derrota)</span>' : ''}</span><span class="text-slate-400">${h.done} misiones · <b class="text-amber-400">${h.score} pts</b></span></div>`).join('');
@@ -6667,7 +6672,7 @@ SHOCK_POOL.push(
   { cat: 'OPORTUNIDAD', min: 'economia', title: 'INVERSIÓN EXTRANJERA MILLONARIA', desc: 'Un gigante industrial quiere instalar una gigafactoría en España si el Gobierno acompaña con incentivos.',
     options: [ { text: 'Ofrecer incentivos fiscales', cost: 1200, stats: { eco: 6, emp: 5 }, news: 'Llega una gigafactoría que creará miles de empleos.' }, { text: 'Rechazar las condiciones', cost: 0, stats: { apr: 1 }, news: 'El Gobierno rechaza las condiciones de la inversión.' } ] },
   { cat: 'OPORTUNIDAD', min: 'cultura', title: 'ÉXITO DEPORTIVO HISTÓRICO', desc: 'La selección española conquista un título mundial y el país está en la calle.',
-    options: [ { text: 'Organizar un homenaje nacional', cost: 5, stats: { apr: 7, est: 2 }, news: 'Miles de personas celebran el título junto al Presidente.' }, { text: 'Felicitar sin más', cost: 0, stats: { apr: 3 }, news: 'Moncloa felicita a los campeones.' } ] },
+    options: [ { text: 'Organizar un homenaje nacional', cost: 5, stats: { apr: 7, est: 2 }, news: 'Miles de personas celebran el título junto al Presidente.' }, { text: 'Felicitar sin más', cost: 0, stats: { apr: 3 }, news: '' + MC.t.gov + ' felicita a los campeones.' } ] },
   { cat: 'OPORTUNIDAD', min: 'exteriores', title: 'CUMBRE INTERNACIONAL EN MADRID', desc: 'Madrid puede acoger una cumbre de líderes mundiales que proyectaría la imagen del país.',
     options: [ { text: 'Acoger la cumbre', cost: 120, stats: { apr: 6, eco: 3 }, news: 'Madrid recibe a los líderes mundiales con gran despliegue.' }, { text: 'Declinar por el coste', cost: 0, stats: { apr: -1 }, news: 'España declina acoger la cumbre.' } ] },
   { cat: 'OPORTUNIDAD', min: 'economia', title: 'FONDOS EUROPEOS EXTRA', desc: 'Bruselas ofrece fondos adicionales a quien presente proyectos listos para ejecutar.',
@@ -6836,7 +6841,7 @@ GOAL_ACTIONS.push(
     fn: () => { if (gameState.goals) gameState.goals.active.forEach(m => { m.daysLeft += 60; }); },
     news: 'Remodelación del Gobierno: caras nuevas y más margen para tus misiones (+60 días).' },
   { id: 'cumbre', icon: 'fa-handshake-angle', title: 'Cumbre Bilateral Histórica', cap: 50, cost: 3000, cd: 150, fx: { apr: 3 },
-    fn: () => { if (gameState.intl) { gameState.intl.rel.ue = Math.min(100, gameState.intl.rel.ue + 15); gameState.intl.rel.us = Math.min(100, gameState.intl.rel.us + 15); } },
+    fn: () => { if (gameState.intl && gameState.intl.rel.ue != null && gameState.intl.rel.us != null) { gameState.intl.rel.ue = Math.min(100, gameState.intl.rel.ue + 15); gameState.intl.rel.us = Math.min(100, gameState.intl.rel.us + 15); } },
     news: 'Cumbre histórica con Bruselas y Washington: las relaciones exteriores se disparan.' },
   { id: 'reforma', icon: 'fa-scroll', title: 'Reforma Constitucional', cap: 70, cost: 5000, cd: 365, fx: { est: 8, apr: 8, eco: 3 },
     news: 'El Gobierno impulsa una reforma constitucional de calado que marcará la legislatura.' }
@@ -6850,13 +6855,13 @@ SHOCK_POOL.push(
     options: [ { text: 'Acompañarle en el viaje de Estado', cost: 5, stats: { eco: 4, apr: 3 }, news: 'El Rey y el Presidente cierran acuerdos comerciales en su gira.' }, { text: 'Delegar en el ministro de Exteriores', cost: 0, stats: { apr: -1 }, news: 'El Gobierno delega la gira del Rey en Exteriores.' } ] },
   { cat: 'CASA REAL', min: 'defensa', title: 'EL REY, PREOCUPADO POR LAS FUERZAS ARMADAS', desc: 'Su Majestad, jefe supremo de los Ejércitos, te traslada su inquietud por el malestar en los cuarteles.',
     when: s => s.metrics.mil < 45,
-    options: [ { text: 'Reunirte con la cúpula militar', cost: 5, stats: { mil: 6, apr: 1 }, news: 'El Gobierno atiende las inquietudes de los mandos tras hablar con el Rey.' }, { text: 'Quitar hierro al asunto', cost: 0, stats: { mil: -4, est: -1 }, news: 'Moncloa resta importancia al malestar militar.' } ] },
+    options: [ { text: 'Reunirte con la cúpula militar', cost: 5, stats: { mil: 6, apr: 1 }, news: 'El Gobierno atiende las inquietudes de los mandos tras hablar con el Rey.' }, { text: 'Quitar hierro al asunto', cost: 0, stats: { mil: -4, est: -1 }, news: '' + MC.t.gov + ' resta importancia al malestar militar.' } ] },
   { cat: 'SEGURIDAD', min: 'interior', title: 'ATENTADO TERRORISTA', desc: 'Un atentado golpea una gran ciudad y las calles se llenan de miedo. La inestabilidad del país ha sido aprovechada.',
     when: s => s.metrics.est < 35,
     options: [ { text: 'Nivel máximo de alerta y refuerzo de inteligencia', cost: 300, stats: { est: 6, apr: 3, mil: 2 }, news: 'El Gobierno decreta la máxima alerta y refuerza los servicios de inteligencia.' }, { text: 'Respuesta contenida, sin medidas extraordinarias', cost: 0, stats: { est: -5, apr: -7 }, news: 'Críticas por una respuesta tibia tras el atentado.' } ] },
   { cat: 'SEGURIDAD', min: 'interior', title: 'INTENTO DE ATENTADO CONTRA EL PRESIDENTE', desc: 'Los servicios de seguridad frustran en el último momento un plan para atentar contra ti. El país contiene el aliento.',
     when: s => s.metrics.est < 40,
-    options: [ { text: 'Reforzar tu escolta y mantener la agenda pública', cost: 5, stats: { apr: 6, est: 2 }, news: 'El Presidente reaparece en público tras el intento de atentado.' }, { text: 'Encerrarte en Moncloa unos días', cost: 0, stats: { apr: -8, est: -2 }, news: 'El Presidente se aísla en Moncloa tras el intento de atentado.' } ] },
+    options: [ { text: 'Reforzar tu escolta y mantener la agenda pública', cost: 5, stats: { apr: 6, est: 2 }, news: 'El Presidente reaparece en público tras el intento de atentado.' }, { text: 'Encerrarte en ' + MC.t.place + ' unos días', cost: 0, stats: { apr: -8, est: -2 }, news: 'El Presidente se aísla en ' + MC.t.place + ' tras el intento de atentado.' } ] },
   { cat: 'ECONOMÍA', min: 'economia', title: 'QUIEBRA DE UN GRAN BANCO', desc: 'Un banco sistémico se tambalea y los ahorradores hacen cola en las sucursales.',
     when: s => s.metrics.eco < 35,
     options: [ { text: 'Rescate con dinero público', cost: 4000, stats: { eco: 5, apr: -5 }, news: 'El Estado rescata al banco con dinero público.' }, { text: 'Dejar caer la entidad', cost: 0, stats: { eco: -7, emp: -4, est: -3 }, news: 'La caída del banco arrastra a cientos de empresas.' } ] },
@@ -6865,7 +6870,7 @@ SHOCK_POOL.push(
     options: [ { text: 'Comparecer y dar explicaciones', cost: 0, stats: { apr: -2 }, news: 'El Presidente comparece para dar explicaciones por las grabaciones.' }, { text: 'Denunciar una conspiración', cost: 0, stats: { apr: -6, est: -3 }, news: 'El Presidente habla de una conspiración y la polémica crece.' } ] },
   { cat: 'MERCADOS', min: 'economia', title: 'AVISO DE LAS AGENCIAS DE RATING', desc: 'Las agencias de calificación amenazan con rebajar la nota de España por el nivel de deuda.',
     when: s => s.debt && s.debt.amount >= 200000,
-    options: [ { text: 'Plan de consolidación fiscal', cost: 0, stats: { eco: 2, apr: -4 }, news: 'Moncloa anuncia un plan de consolidación fiscal ante las agencias.' }, { text: 'Ignorar el aviso', cost: 0, stats: { eco: -5, apr: -1 }, news: 'Las agencias rebajan la nota de España.' } ] },
+    options: [ { text: 'Plan de consolidación fiscal', cost: 0, stats: { eco: 2, apr: -4 }, news: '' + MC.t.gov + ' anuncia un plan de consolidación fiscal ante las agencias.' }, { text: 'Ignorar el aviso', cost: 0, stats: { eco: -5, apr: -1 }, news: 'Las agencias rebajan la nota de ' + MC.t.nation + '.' } ] },
   { cat: 'POLÍTICA', min: 'territorio', title: 'LA OPOSICIÓN OFRECE UN PACTO', desc: 'El líder de la oposición te propone un pacto de legislatura sobre un asunto clave para el país.',
     options: [ { text: 'Aceptar el pacto', cost: 0, stats: { est: 3, apr: -1 }, news: 'Gobierno y oposición anuncian un pacto de legislatura.' }, { text: 'Rechazarlo', cost: 0, stats: { apr: 1, est: -2 }, news: 'El Gobierno rechaza la mano tendida de la oposición.' } ] },
   { cat: 'POLÍTICA', min: 'territorio', title: 'ELECCIONES AUTONÓMICAS ANTICIPADAS', desc: 'Una comunidad convoca elecciones y se convierten en un test de tu Gobierno.',
@@ -6909,7 +6914,7 @@ function bdeAct(id) {
 function bdeSetGov(id) {
   const B = bdeInit(), g = BDE_GOVS.find(x => x.id === id); if (!g || (B.cd.gov || 0) > 0) return;
   B.gov = id; B.cd.gov = 365;
-  goalsToast(`<i class="fa-solid fa-user-tie text-amber-400"></i> Nuevo gobernador del ${MC.builtin ? 'Banco de España' : 'Bank Al-Maghrib'}: <b>${g.name}</b>`, '#d9a726'); render();
+  goalsToast(`<i class="fa-solid fa-user-tie text-amber-400"></i> Nuevo gobernador del ${MC.t.bank}: <b>${g.name}</b>`, '#d9a726'); render();
 }
 
 function bdeFire(ev) {
@@ -6917,12 +6922,12 @@ function bdeFire(ev) {
 }
 function bdeReport() {
   const g = bdeGov(), D = debtInit().amount, p = bdePrima();
-  const intro = !g ? 'Sin gobernador nombrado, el Banco de España publica un informe áspero' : g.id === 'afin' ? 'El gobernador, afín al Ejecutivo, suaviza el informe y los analistas lo notan' : g.id === 'indep' ? 'El gobernador independiente publica un informe sin concesiones' : 'La gobernadora presenta un informe técnico y exigente';
-  return { id: 'BDE_INFORME_' + gameState.daysInOffice, category: 'BANCO DE ESPAÑA', title: 'INFORME ANUAL DEL BANCO DE ESPAÑA',
+  const intro = !g ? 'Sin gobernador nombrado, el ' + MC.t.bank + ' publica un informe áspero' : g.id === 'afin' ? 'El gobernador, afín al Ejecutivo, suaviza el informe y los analistas lo notan' : g.id === 'indep' ? 'El gobernador independiente publica un informe sin concesiones' : 'La gobernadora presenta un informe técnico y exigente';
+  return { id: 'BDE_INFORME_' + gameState.daysInOffice, category: '' + MC.t.bank.toUpperCase() + '', title: 'INFORME ANUAL DEL ' + MC.t.bank.toUpperCase() + '',
     desc: `${intro}: deuda de ${fmt(D)} M€ y prima de riesgo en ${p} pb. Pide consolidar las cuentas públicas.`,
     options: [
-      { text: 'Acatar las recomendaciones y presentar un plan de ajuste', stats: { eco: +4, apr: -4 }, cost: 0, loyaltyImpact: {}, bde: { cred: 8, shock: -20 }, news: 'Moncloa asume el diagnóstico del Banco de España y prepara un plan de ajuste.' },
-      { text: 'Restar importancia al informe y atacar al supervisor', stats: { apr: +3, est: -3 }, cost: 0, loyaltyImpact: {}, bde: { cred: -8, shock: 25 }, news: 'El Gobierno descalifica el informe del Banco de España y los mercados toman nota.' }
+      { text: 'Acatar las recomendaciones y presentar un plan de ajuste', stats: { eco: +4, apr: -4 }, cost: 0, loyaltyImpact: {}, bde: { cred: 8, shock: -20 }, news: '' + MC.t.gov + ' asume el diagnóstico del ' + MC.t.bank + ' y prepara un plan de ajuste.' },
+      { text: 'Restar importancia al informe y atacar al supervisor', stats: { apr: +3, est: -3 }, cost: 0, loyaltyImpact: {}, bde: { cred: -8, shock: 25 }, news: 'El Gobierno descalifica el informe del ' + MC.t.bank + ' y los mercados toman nota.' }
     ] };
 }
 function bdeAttack() {
@@ -6930,7 +6935,7 @@ function bdeAttack() {
   return { id: 'BDE_ATAQUE_' + gameState.daysInOffice, category: p ? 'MONEDA' : 'MERCADOS', title: p ? 'FUGA DE CAPITALES Y PRESIÓN SOBRE LA PESETA' : 'ATAQUE ESPECULATIVO A LA DEUDA ESPAÑOLA',
     desc: `La prima de riesgo se dispara hasta los ${pr} pb y los intereses de la deuda se encarecen mes a mes.`,
     options: p ? [
-      { text: 'Defender la peseta con las reservas del Banco de España', stats: { eco: +2 }, cost: 4000, loyaltyImpact: {}, bde: { cred: 5, shock: -140 }, news: 'El Banco de España quema reservas para sostener la peseta.' },
+      { text: 'Defender la peseta con las reservas del ' + MC.t.bank + '', stats: { eco: +2 }, cost: 4000, loyaltyImpact: {}, bde: { cred: 5, shock: -140 }, news: 'El ' + MC.t.bank + ' quema reservas para sostener la peseta.' },
       { text: 'Devaluar la peseta un 20% (como en julio de 1977)', stats: { eco: +6, apr: -6 }, cost: 0, loyaltyImpact: {}, bde: { cred: -5, shock: -80 }, news: 'Devaluación de la peseta: las exportaciones respiran, los precios se disparan.' }
     ] : [
       { text: 'Pedir el escudo del BCE y aceptar sus condiciones', stats: { eco: +3, est: -4, apr: -5 }, cost: 0, loyaltyImpact: {}, bde: { cred: 3, shock: -150 }, news: 'El BCE activa su escudo antifragmentación con condiciones para España.' },
@@ -6962,8 +6967,8 @@ function renderBdeTab() {
     return `<button onclick="bdeAct('${a.id}')" ${cd > 0 ? 'disabled' : ''} class="hoi-button text-left p-3 rounded cursor-pointer disabled:opacity-40"><p class="text-xs font-bold text-slate-100"><i class="fa-solid ${a.icon} text-amber-400 mr-1.5"></i>${a.label}${a.cost ? ` <span class="text-red-300">(−${fmt(a.cost)} M€)</span>` : ''}</p><p class="text-[11px] text-slate-400 font-sans mt-0.5">${cd > 0 ? 'Disponible en ' + cd + ' días' : a.desc}</p></button>`;
   }).join('');
   return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech">
-    <div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-amber-400"><i class="fa-solid fa-building-columns mr-2"></i>BANCO DE ESPAÑA Y MONEDA</h3>
-    <p class="text-xs text-slate-400 font-sans">${pes ? 'Con soberanía monetaria, la peseta es tu arma y tu riesgo.' : 'Dentro del euro no controlas la moneda, pero el Banco de España y la prima de riesgo sí te marcan las cuentas.'} Cada punto de prima sobre 60 pb encarece la deuda, y por encima de 400 pb la economía se resiente.</p></div>
+    <div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-amber-400"><i class="fa-solid fa-building-columns mr-2"></i>${MC.t.bank.toUpperCase()} Y MONEDA</h3>
+    <p class="text-xs text-slate-400 font-sans">${pes ? 'Con soberanía monetaria, la peseta es tu arma y tu riesgo.' : 'Dentro del euro no controlas la moneda, pero el ' + MC.t.bank + ' y la prima de riesgo sí te marcan las cuentas.'} Cada punto de prima sobre 60 pb encarece la deuda, y por encima de 400 pb la economía se resiente.</p></div>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">${box('MONEDA', pes ? 'Peseta' : 'Euro')}${box('PRIMA DE RIESGO', p + ' pb', pc)}${box('CREDIBILIDAD', cred + '%', cred < 35 ? 'text-red-400' : 'text-slate-100')}${box('GOBERNADOR', g ? g.name : 'Vacante', g ? '' : 'text-red-300')}</div>
     <div><h4 class="text-xs text-slate-300 mb-2">NOMBRAR GOBERNADOR ${(B.cd.gov || 0) > 0 ? `<span class="text-slate-500">(próximo cambio en ${B.cd.gov} días)</span>` : ''}</h4><div class="grid md:grid-cols-3 gap-2">${govCards}</div></div>
     <div><h4 class="text-xs text-slate-300 mb-2">INSTRUMENTOS</h4><div class="grid md:grid-cols-2 gap-2">${acts}</div></div></div>`;
@@ -6974,7 +6979,7 @@ function renderBdeTab() {
   if (goalsBtn && !document.getElementById('tab-btn-bde')) {
     const b = document.createElement('button');
     b.id = 'tab-btn-bde'; b.className = 'nav-tab-btn'; b.setAttribute('onclick', "switchTab('bde')");
-    b.innerHTML = '<i class="fa-solid fa-building-columns text-yellow-300 w-4 text-center"></i><span>' + (MC.builtin ? 'Banco de España' : 'Bank Al-Maghrib') + '</span>';
+    b.innerHTML = '<i class="fa-solid fa-building-columns text-yellow-300 w-4 text-center"></i><span>' + MC.t.bank + '</span>';
     goalsBtn.parentNode.insertBefore(b, goalsBtn);
   }
   const _rtc = renderTabContent;
@@ -6993,7 +6998,7 @@ function renderBdeTab() {
   };
   const _eu = resolveEuIntervention;
   resolveEuIntervention = function (a) {
-    if (a === 'AUTARQUIA') { const B = bdeInit(); B.cred = Math.max(0, B.cred - 20); B.shock += 120; goalsToast('<i class="fa-solid fa-coins text-red-400"></i> Devaluar la moneda hunde la credibilidad del Banco de España.', '#ef4444'); }
+    if (a === 'AUTARQUIA') { const B = bdeInit(); B.cred = Math.max(0, B.cred - 20); B.shock += 120; goalsToast('<i class="fa-solid fa-coins text-red-400"></i> Devaluar la moneda hunde la credibilidad del ' + MC.t.bank + '.', '#ef4444'); }
     return _eu.apply(this, arguments);
   };
 })();
@@ -7060,7 +7065,7 @@ function bdeAmortizeFromEvent(o) {
   const _fin = renderFinTab;
   renderFinTab = function () {
     const h = _fin(), p = bdePrima(), extra = +(Math.max(0, p - 60) / 100 * 0.5).toFixed(2);
-    const note = `<div class="mb-3 text-[11px] font-sans bg-slate-950 border border-slate-800 rounded p-2 text-slate-300"><i class="fa-solid fa-building-columns text-yellow-300 mr-1"></i>Prima de riesgo <b>${p} pb</b> (${bdePeseta() ? 'peseta' : 'euro'}): el exceso sobre los 60 pb normales (${Math.max(0, p - 60)} pb) se traslada a la mitad al coste medio de la deuda (vencimiento medio ≈ 8 años): <b>+${extra.toString().replace('.', ',')} puntos</b>. <a href="#" onclick="switchTab('bde');return false" class="text-amber-400 underline">Banco de España</a></div>`;
+    const note = `<div class="mb-3 text-[11px] font-sans bg-slate-950 border border-slate-800 rounded p-2 text-slate-300"><i class="fa-solid fa-building-columns text-yellow-300 mr-1"></i>Prima de riesgo <b>${p} pb</b> (${bdePeseta() ? 'peseta' : 'euro'}): el exceso sobre los 60 pb normales (${Math.max(0, p - 60)} pb) se traslada a la mitad al coste medio de la deuda (vencimiento medio ≈ 8 años): <b>+${extra.toString().replace('.', ',')} puntos</b>. <a href="#" onclick="switchTab('bde');return false" class="text-amber-400 underline">${MC.t.bank}</a></div>`;
     return h.replace(/(<div class="grid grid-cols-2 md:grid-cols-4)/, note + '$1');
   };
   // 6) HUD superior
@@ -7081,7 +7086,7 @@ const MANUAL = [
   { icon: 'fa-flag', title: 'Objetivo', html: `
     <p>Eres el presidente del Gobierno. Tu meta es <b>completar los 4 años de legislatura (1.460 días)</b> sin caer antes y, si puedes, ganar las siguientes elecciones.</p>
     <p>Puedes caer por una <b>moción de censura</b> (tu coalición se rompe), una <b>intervención de la UE</b> (economía hundida) o un <b>golpe de Estado</b> (el Ejército pierde la paciencia).</p>
-    <p>Tras unas elecciones el país sigue siendo el mismo: <b>economía, estabilidad, deuda, Tesorería y Banco de España se mantienen</b>; solo cambia el Congreso y tu coalición.</p>` },
+    <p>Tras unas elecciones el país sigue siendo el mismo: <b>economía, estabilidad, deuda, Tesorería y ${MC.t.bank} se mantienen</b>; solo cambia el Congreso y tu coalición.</p>` },
   { icon: 'fa-clock', title: 'Cómo se juega', html: `
     <p>El tiempo avanza día a día. Con los controles de velocidad (pausa, x1, x2, x3) decides el ritmo. El juego se pausa solo cuando salta un evento importante.</p>
     <p>En <b>Decisiones</b> te llegan dilemas con 2 o 3 opciones. Cada opción cambia indicadores, cuesta (o no) dinero de la Tesorería y gusta o enfada a tus socios y a la oposición. Hay un <b>máximo de 10 decisiones por semana</b>.</p>
@@ -7105,8 +7110,8 @@ const MANUAL = [
     <p>Los <b>PGE</b> reparten ${MC.budget.toLocaleString('es-ES')} M€ entre Sanidad, Educación, Defensa, Vivienda, Infraestructuras y <b>Amortización de deuda</b>. Esa última partida reduce de verdad tu deuda y sale de la caja. Solo se amortiza lo que debas y lo que tengas en caja.</p>
     <p>En <b>Finanzas y Deuda</b> puedes emitir deuda para tener liquidez hoy o amortizarla. Cada mes pagas <b>intereses</b> y el coste de los ministerios. Por encima de 50.000 M€ de deuda nueva la deuda lastra la economía.</p>
     <p>Endeudarte mucho y de golpe sube la prima de riesgo; amortizar la baja.</p>` },
-  { icon: 'fa-building-columns', title: 'Banco de España y moneda', html: `
-    <p>La <b>prima de riesgo</b> (en puntos básicos) mide lo que exigen los mercados por prestarte dinero. Sube con la deuda, con una economía débil y con la poca credibilidad del Banco de España. Cada punto sobre 60 encarece el tipo de tu deuda, y por encima de 400 la economía y tu aprobación se resienten.</p>
+  { icon: 'fa-building-columns', title: '' + MC.t.bank + ' y moneda', html: `
+    <p>La <b>prima de riesgo</b> (en puntos básicos) mide lo que exigen los mercados por prestarte dinero. Sube con la deuda, con una economía débil y con la poca credibilidad del ${MC.t.bank}. Cada punto sobre 60 encarece el tipo de tu deuda, y por encima de 400 la economía y tu aprobación se resienten.</p>
     <p>Nombra un <b>gobernador</b> (tecnócrata, afín o independiente crítico): cambia la credibilidad y el tono de sus informes. Cada ~150 días publica un <b>informe</b> al que responder, y si la prima se dispara hay un <b>ataque especulativo</b>.</p>
     <p><b>Euro (2023):</b> no controlas la moneda. Puedes pedir al BCE su escudo antifragmentación o adelantar el beneficio del Banco al Tesoro.</p>
     <p><b>Peseta (1977):</b> tienes soberanía monetaria: devaluar, defender la peseta con reservas o imprimir dinero. Todo tiene coste en inflación y confianza.</p>` },
@@ -7349,7 +7354,7 @@ function playSound(n) {
     ]),
     D(1006, 'TERRORISMO', 'ESCALADA DE ATENTADOS DE ETA', 'ETA multiplica los atentados contra policías y militares y exige negociar.', [
       ['Reforzar la seguridad en Euskadi y no negociar', { est: -2, con: +6, apr: -4, mil: +9 }, { AP: +25, UCD: +8, PNV_77: -15, PCE: -10 }, 'El Gobierno rechaza negociar con ETA y refuerza el despliegue policial.', 500],
-      ['Abrir una vía política con el PNV y la sociedad vasca', { est: +3, con: -6, apr: +4, mil: -9 }, { PNV_77: +25, PSOE_77: +10, AP: -25, UCD: -3 }, 'Moncloa busca una salida política al conflicto vasco y los cuarteles rugen.']
+      ['Abrir una vía política con el PNV y la sociedad vasca', { est: +3, con: -6, apr: +4, mil: -9 }, { PNV_77: +25, PSOE_77: +10, AP: -25, UCD: -3 }, '' + MC.t.gov + ' busca una salida política al conflicto vasco y los cuarteles rugen.']
     ]),
     D(1007, 'CONSTITUCIÓN', 'REDACCIÓN DE LA CONSTITUCIÓN: ¿ESTADO CONFESIONAL?', 'La ponencia constitucional debate el papel de la Iglesia católica en el nuevo Estado.', [
       ['Consagrar la aconfesionalidad del Estado', { est: +3, con: -8, apr: +4 }, { PSOE_77: +20, PCE: +25, AP: -30, UCD: -5, PNV_77: +5 }, 'La Constitución proclama que ninguna confesión tendrá carácter estatal.'],
@@ -7365,7 +7370,7 @@ function playSound(n) {
     ]),
     D(1010, 'ECONOMÍA', 'DEVALUACIÓN DE LA PESETA', 'La balanza de pagos se hunde y las reservas caen. Los técnicos recomiendan actuar sobre el tipo de cambio.', [
       ['Devaluar la peseta un 20%', { eco: +7, emp: +3, apr: -6, est: -2 }, { UCD: +5, AP: -5, PSOE_77: -5, PCE: -10 }, 'La peseta se devalúa: respiran las exportaciones, suben los precios.'],
-      ['Defender la paridad gastando las reservas', { eco: -5, est: +2, apr: +3 }, { UCD: -3, AP: +8, PSOE_77: +5 }, 'El Banco de España vende reservas para sostener la peseta.', 3000]
+      ['Defender la paridad gastando las reservas', { eco: -5, est: +2, apr: +3 }, { UCD: -3, AP: +8, PSOE_77: +5 }, 'El ' + MC.t.bank + ' vende reservas para sostener la peseta.', 3000]
     ]),
     D(1011, 'FISCALIDAD', 'REFORMA FISCAL Y NUEVO IRPF', 'España necesita un sistema tributario moderno basado en el impuesto sobre la renta personal.', [
       ['Aprobar el IRPF con tipos progresivos y declaraciones obligatorias', { eco: +6, est: +3, apr: -5 }, { PSOE_77: +20, PCE: +25, UCD: -3, AP: -25 }, 'La reforma fiscal crea el IRPF moderno y destapa el fraude.'],
@@ -7377,7 +7382,7 @@ function playSound(n) {
     ]),
     D(1013, 'RECONVERSIÓN', 'CRISIS DE LA SIDERURGIA Y LOS ASTILLEROS', 'Los sectores heredados del régimen anterior pierden competitividad y amenazan con despidos masivos.', [
       ['Iniciar una reconversión industrial pactada con los sindicatos', { eco: +5, emp: -6, est: -2, apr: -4 }, { UCD: +10, PSOE_77: -5, PCE: -15 }, 'Arranca la reconversión industrial entre protestas obreras.'],
-      ['Rescatar con dinero público para evitar los despidos', { eco: -6, emp: +6, apr: +7, est: +3 }, { PSOE_77: +15, PCE: +20, AP: -10, UCD: -3 }, 'Moncloa rescata las empresas en crisis para salvar empleo.', 3500]
+      ['Rescatar con dinero público para evitar los despidos', { eco: -6, emp: +6, apr: +7, est: +3 }, { PSOE_77: +15, PCE: +20, AP: -10, UCD: -3 }, '' + MC.t.gov + ' rescata las empresas en crisis para salvar empleo.', 3500]
     ]),
     D(1014, 'LIBERTADES', 'FIN DE LA CENSURA Y LEY DE PRENSA', 'La prensa pide libertad de expresión plena y el cierre del aparato censor franquista.', [
       ['Abolir la censura previa y proteger la libertad de prensa', { est: +3, con: -6, apr: +7, mil: -3 }, { PSOE_77: +15, PCE: +20, UCD: +8, AP: -25 }, 'Cae la censura previa. Aparecen nuevas cabeceras y programas de debate.'],
@@ -7389,7 +7394,7 @@ function playSound(n) {
     ]),
     D(1016, 'EUROPA', 'SOLICITUD DE INGRESO EN LA COMUNIDAD EUROPEA', 'España quiere sellar su regreso a Europa y pide abrir negociaciones de adhesión.', [
       ['Solicitar formalmente el ingreso en la CEE', { eco: +5, est: +3, apr: +6, mil: -2 }, { UCD: +15, PSOE_77: +15, PCE: +10, AP: -3, PNV_77: +8 }, 'España pide ingresar en la CEE: «Europa es la meta».'],
-      ['Condicionar la solicitud a un acuerdo comercial previo', { eco: +1, est: -2, apr: -2, mil: +2 }, { AP: +8, UCD: -3, PSOE_77: -10 }, 'Moncloa aplaza la solicitud para negociar antes un acuerdo comercial.']
+      ['Condicionar la solicitud a un acuerdo comercial previo', { eco: +1, est: -2, apr: -2, mil: +2 }, { AP: +8, UCD: -3, PSOE_77: -10 }, '' + MC.t.gov + ' aplaza la solicitud para negociar antes un acuerdo comercial.']
     ]),
     D(1017, 'EUSKADI', 'ESTATUTO DE AUTONOMÍA VASCO', 'El PNV reclama un régimen de autogobierno con concierto económico para Euskadi.', [
       ['Negociar el Estatuto de Guernica con concierto económico', { eco: -2, est: +7, con: -5, apr: +3, mil: -5 }, { PNV_77: +30, PSOE_77: +8, AP: -30, UCD: -5 }, 'El Estatuto vasco con concierto económico encarrila el conflicto territorial.'],
@@ -7400,12 +7405,12 @@ function playSound(n) {
       ['Mantener el modelo mutualista con ajustes', { eco: +3, emp: -2, apr: -4 }, { AP: +12, UCD: +6, PSOE_77: -12, PCE: -20 }, 'La reforma de la Seguridad Social se queda en un ajuste de cuentas.']
     ]),
     D(1019, 'EDUCACIÓN', 'ESCOLARIZACIÓN Y REFORMA EDUCATIVA', 'Faltan colegios y la enseñanza arrastra el modelo ideológico del régimen anterior.', [
-      ['Lanzar un plan masivo de escuelas públicas', { eco: -3, emp: +2, est: +3, apr: +8, con: -3 }, { PSOE_77: +15, PCE: +15, AP: -15, UCD: +3 }, 'Moncloa aprueba un plan de choque para construir escuelas públicas.', 1500],
+      ['Lanzar un plan masivo de escuelas públicas', { eco: -3, emp: +2, est: +3, apr: +8, con: -3 }, { PSOE_77: +15, PCE: +15, AP: -15, UCD: +3 }, '' + MC.t.gov + ' aprueba un plan de choque para construir escuelas públicas.', 1500],
       ['Apoyar a la enseñanza concertada con financiación pública', { eco: -1, est: +1, apr: +3, con: +6 }, { UCD: +10, AP: +20, PSOE_77: -15, PCE: -20 }, 'El Estado financia la enseñanza privada concertada.', 800]
     ]),
     D(1020, 'DEFENSA', 'ALIANZA CON ESTADOS UNIDOS Y LA OTAN', 'Washington propone renovar los acuerdos de bases a cambio de ayudas, y se abre el debate sobre la OTAN.', [
       ['Renovar los convenios de bases con Estados Unidos', { eco: +4, est: +1, apr: -3, mil: +6 }, { UCD: +12, AP: +15, PSOE_77: -15, PCE: -30 }, 'España renueva los acuerdos con EE. UU. a cambio de compensaciones.'],
-      ['Mantener una política exterior no alineada', { eco: -3, est: +2, apr: +3, mil: -6 }, { PCE: +20, PSOE_77: +10, AP: -25, UCD: -8 }, 'Moncloa opta por una política exterior de no alineamiento.']
+      ['Mantener una política exterior no alineada', { eco: -3, est: +2, apr: +3, mil: -6 }, { PCE: +20, PSOE_77: +10, AP: -25, UCD: -8 }, '' + MC.t.gov + ' opta por una política exterior de no alineamiento.']
     ]),
     D(1021, 'REFERÉNDUM', 'CÓMO CONVOCAR EL REFERÉNDUM CONSTITUCIONAL', 'Hay que decidir cómo someter la Constitución a la ciudadanía.', [
       ['Campaña institucional amplia con todos los partidos', { est: +6, con: -3, apr: +6 }, { UCD: +12, PSOE_77: +15, PCE: +12, AP: +5, PNV_77: -3 }, 'Una gran campaña invita a votar el texto constitucional.', 600],
@@ -7428,7 +7433,7 @@ function playSound(n) {
       ['Esperar a un acuerdo con el principal partido de la oposición', { est: -4, apr: -3, con: +4 }, { PP: +15, SUMAR: -15, PODEMOS: -20, ERC: -8 }, 'El bloqueo del CGPJ continúa mientras se negocia con la oposición.']
     ]),
     D(203, 'SALUD MENTAL', 'PLAN NACIONAL DE SALUD MENTAL', 'Las listas de espera en psicología pública superan los seis meses.', [
-      ['Contratar miles de psicólogos en la sanidad pública', { eco: -4, emp: +3, est: +2, apr: +10 }, { SUMAR: +20, PODEMOS: +20, PNV: +8, PP: -5 }, 'Moncloa aprueba un plan para llevar la salud mental a todos los centros de salud.', 1800],
+      ['Contratar miles de psicólogos en la sanidad pública', { eco: -4, emp: +3, est: +2, apr: +10 }, { SUMAR: +20, PODEMOS: +20, PNV: +8, PP: -5 }, '' + MC.t.gov + ' aprueba un plan para llevar la salud mental a todos los centros de salud.', 1800],
       ['Subvencionar la atención privada a través de bonos', { eco: -2, emp: +1, apr: +3 }, { PP: +15, JUNTS: +8, SUMAR: -15, PODEMOS: -20 }, 'El Gobierno financia bonos para psicólogos privados.', 900]
     ]),
     D(204, 'ENERGÍA', 'GIGAFACTORÍAS DE BATERÍAS Y COCHE ELÉCTRICO', 'Varias comunidades compiten por atraer inversión extranjera con subvenciones millonarias.', [
@@ -7436,16 +7441,16 @@ function playSound(n) {
       ['Dejar que el mercado decida con incentivos fiscales mínimos', { eco: -1, emp: -1, apr: -3 }, { PP: +10, JUNTS: +8, SUMAR: -12 }, 'Sin ayudas, la fábrica de baterías se instala en otro país europeo.']
     ]),
     D(205, 'FISCALIDAD', 'IMPUESTO TEMPORAL A GRANDES FORTUNAS', 'Los socios de izquierda piden extender el gravamen a patrimonios superiores a tres millones de euros.', [
-      ['Convertir el gravamen en un impuesto permanente a grandes fortunas', { eco: -3, est: +2, apr: +8 }, { SUMAR: +25, PODEMOS: +30, BILDU: +15, PP: -30, VOX: -25 }, 'Moncloa hace permanente el impuesto a las grandes fortunas.'],
+      ['Convertir el gravamen en un impuesto permanente a grandes fortunas', { eco: -3, est: +2, apr: +8 }, { SUMAR: +25, PODEMOS: +30, BILDU: +15, PP: -30, VOX: -25 }, '' + MC.t.gov + ' hace permanente el impuesto a las grandes fortunas.'],
       ['Dejar que el gravamen expire y bajar la presión fiscal', { eco: +4, est: -4, apr: -6 }, { PP: +20, JUNTS: +12, SUMAR: -25, PODEMOS: -35 }, 'El gravamen a grandes fortunas se deja caducar y la izquierda protesta.']
     ]),
     D(206, 'MIGRACIÓN', 'REPARTO DE MENORES MIGRANTES NO ACOMPAÑADOS', 'Canarias y Ceuta están desbordadas y exigen reparto obligatorio entre las comunidades.', [
-      ['Imponer un reparto obligatorio con financiación estatal', { eco: -3, est: +3, apr: +3, con: -4 }, { SUMAR: +20, PODEMOS: +20, PNV: +10, PP: -25, VOX: -35, JUNTS: -15 }, 'Moncloa impone el reparto de menores migrantes con fondos del Estado.', 800],
+      ['Imponer un reparto obligatorio con financiación estatal', { eco: -3, est: +3, apr: +3, con: -4 }, { SUMAR: +20, PODEMOS: +20, PNV: +10, PP: -25, VOX: -35, JUNTS: -15 }, '' + MC.t.gov + ' impone el reparto de menores migrantes con fondos del Estado.', 800],
       ['Mantener el reparto voluntario y reforzar la acogida en Canarias', { eco: -1, est: -3, apr: -4, con: +3 }, { PP: +10, VOX: +10, SUMAR: -20, PODEMOS: -25 }, 'El reparto sigue siendo voluntario y Canarias lamenta el abandono.', 400]
     ]),
     D(207, 'TRANSPORTES', 'GRATUIDAD DEL TRANSPORTE PÚBLICO', 'Los jóvenes y las ciudades piden abonos gratuitos para combatir el coste de la vida y la contaminación.', [
       ['Gratuidad del transporte público para menores de 30 y rentas bajas', { eco: -3, emp: +1, apr: +10, est: +2 }, { SUMAR: +20, PODEMOS: +20, PNV: +5, PP: -8 }, 'Viajar en tren y bus público será gratis para jóvenes y rentas bajas.', 1600],
-      ['Mantener bonificaciones parciales y sujetas a objetivos', { eco: +1, apr: -1 }, { PP: +8, SUMAR: -8, PODEMOS: -10 }, 'Moncloa conserva descuentos limitados en el transporte público.', 400]
+      ['Mantener bonificaciones parciales y sujetas a objetivos', { eco: +1, apr: -1 }, { PP: +8, SUMAR: -8, PODEMOS: -10 }, '' + MC.t.gov + ' conserva descuentos limitados en el transporte público.', 400]
     ]),
     D(208, 'TURISMO', 'TASA TURÍSTICA NACIONAL', 'Varias comunidades turísticas se saturan y los vecinos exigen que el turismo pague por el impacto que genera.', [
       ['Crear una tasa turística estatal y repartirla a los municipios', { eco: -2, est: +2, apr: +5, emp: -1 }, { SUMAR: +15, PODEMOS: +15, BNG: +10, PP: -20, JUNTS: -10 }, 'Se aprueba una tasa turística estatal con parte de lo recaudado para los ayuntamientos.'],
@@ -7468,15 +7473,15 @@ function playSound(n) {
       ['Aprobar una ley propia con mayoría de izquierdas', { est: -4, apr: +3, con: -3 }, { SUMAR: +15, PODEMOS: +15, PP: -25, VOX: -20 }, 'El Gobierno aprueba su ley educativa sin el apoyo de la oposición.']
     ]),
     D(213, 'AGRICULTURA', 'PROTESTAS DE AGRICULTORES Y GANADEROS', 'Los tractores toman las carreteras contra los costes, los precios de origen y la burocracia europea.', [
-      ['Aprobar un paquete de ayudas y una ley de la cadena alimentaria más dura', { eco: -3, emp: +2, est: +3, apr: +7 }, { PP: +8, PNV: +8, SUMAR: +8, VOX: +8 }, 'Moncloa aprueba ayudas para el campo y endurece las reglas de precios.', 1500],
+      ['Aprobar un paquete de ayudas y una ley de la cadena alimentaria más dura', { eco: -3, emp: +2, est: +3, apr: +7 }, { PP: +8, PNV: +8, SUMAR: +8, VOX: +8 }, '' + MC.t.gov + ' aprueba ayudas para el campo y endurece las reglas de precios.', 1500],
       ['Remitir las demandas a Bruselas y mantener las normas', { eco: +1, est: -5, apr: -6 }, { PP: -8, VOX: -20, SUMAR: +5 }, 'El Gobierno remite las protestas a Bruselas y el campo se enfurece.']
     ]),
     D(214, 'CULTURA', 'BONO CULTURAL Y APOYO AL CINE ESPAÑOL', 'El sector cultural pide mantener las ayudas y cuotas de pantalla para producciones españolas.', [
       ['Ampliar el bono cultural y las cuotas de pantalla', { eco: -2, emp: +1, apr: +5, con: -2 }, { SUMAR: +15, PODEMOS: +15, ERC: +8, PP: -8, VOX: -15 }, 'El Gobierno amplía el bono cultural y las cuotas para el cine español.', 500],
-      ['Reducir las ayudas culturales y centrar el gasto en otras áreas', { eco: +2, apr: -5, con: +3 }, { PP: +8, VOX: +12, SUMAR: -15, PODEMOS: -20 }, 'Moncloa recorta las ayudas a la cultura para reducir gasto.']
+      ['Reducir las ayudas culturales y centrar el gasto en otras áreas', { eco: +2, apr: -5, con: +3 }, { PP: +8, VOX: +12, SUMAR: -15, PODEMOS: -20 }, '' + MC.t.gov + ' recorta las ayudas a la cultura para reducir gasto.']
     ]),
     D(215, 'VIVIENDA', 'PARQUE PÚBLICO DE VIVIENDA EN ALQUILER ASEQUIBLE', 'La falta de vivienda asequible expulsa a jóvenes y familias de las grandes ciudades.', [
-      ['Crear una empresa pública que construya vivienda de alquiler asequible', { eco: -4, emp: +4, est: +4, apr: +10 }, { SUMAR: +20, PODEMOS: +25, BILDU: +10, PP: -15, VOX: -10 }, 'Moncloa crea una entidad pública que construirá vivienda en alquiler asequible.', 3000],
+      ['Crear una empresa pública que construya vivienda de alquiler asequible', { eco: -4, emp: +4, est: +4, apr: +10 }, { SUMAR: +20, PODEMOS: +25, BILDU: +10, PP: -15, VOX: -10 }, '' + MC.t.gov + ' crea una entidad pública que construirá vivienda en alquiler asequible.', 3000],
       ['Ceder suelo público a promotores privados con precios limitados', { eco: +2, emp: +2, apr: +3 }, { PP: +12, JUNTS: +8, PNV: +6, SUMAR: -10, PODEMOS: -15 }, 'El Gobierno cede suelo a promotores para construir vivienda con precios tasados.']
     ])
   ];
@@ -7559,7 +7564,15 @@ function playSound(n) {
     uk: [{ id: 'gib', title: 'Acuerdo sobre Gibraltar', cap: 12, cd: 90, fx: { uk: 12, ue: 2 }, now: { apr: -2 } }, { id: 'tur', title: 'Promoción turística', cost: 30, cd: 45, fx: { uk: 9 }, now: { eco: 1 } }],
     la: [{ id: 'cum', title: 'Cumbre Iberoamericana', cap: 8, cd: 60, fx: { la: 12, us: -2 } }, { id: 'coo', title: 'Fondo de cooperación', cost: 40, cd: 60, fx: { la: 10 }, now: { apr: 1 } }]
   };
-  const actionsFor = c => INTL_ACTIONS.map(a => ({ id: a.id, title: a.title, cap: a.cap, cost: a.cost, cd: a.cd, fx: { [c]: a.rel } })).concat(SP[c] || []);
+  // País no español: sustituye por completo los socios, bloques y acciones por los de COUNTRY_INTL
+  if (MC.intl) {
+    const X = MC.intl, wipe = o => Object.keys(o).forEach(k => delete o[k]);
+    wipe(INTL); Object.assign(INTL, X.partners || {});
+    wipe(BASE); Object.assign(BASE, X.base || {});
+    wipe(LINKS); Object.assign(LINKS, X.links || {});
+    wipe(SP); Object.assign(SP, X.actions || {});
+  }
+  const actionsFor = c => MC.intl ? (SP[c] || []) : INTL_ACTIONS.map(a => ({ id: a.id, title: a.title, cap: a.cap, cost: a.cost, cd: a.cd, fx: { [c]: a.rel } })).concat(SP[c] || []);
 
   window.intlAct = function (cid, aid) {
     const I = intlInit(), a = actionsFor(cid).find(x => x.id === aid), key = cid + aid;
@@ -7637,6 +7650,10 @@ function playSound(n) {
     espinosa_ext_vox: { us: 1.5, ma: -1, la: -1, ue: -1 }
   };
   function monthly(I, m) {
+    if (MC.intl) {
+      (MC.intl.monthly || []).forEach(r => { const v = m[r.m]; if ((r.gt != null && v > r.gt) || (r.lt != null && v < r.lt)) Object.keys(r.fx).forEach(c => intlShift(c, r.fx[c], r.why, true)); });
+      return;
+    }
     const mid = gameState.ministers && gameState.ministers.exteriores, b = MINBON[mid];
     if (b) Object.keys(b).forEach(c => intlShift(c, b[c], 'Diplomacia del ministro de Exteriores', true));
     const co = gameState.coalitionIds || [];
@@ -7648,27 +7665,27 @@ function playSound(n) {
     if (m.eco < 30) { intlShift('ue', -1, 'Economía débil ante los socios', true); intlShift('de', -.8, 'Economía débil ante los socios', true); }
     if (m.est < 30) intlShift('ue', -.8, 'Inestabilidad interna', true);
   }
-  const UP = ['{n} respalda a España en un foro multilateral', '{n} firma un acuerdo con grandes empresas españolas', 'Una delegación empresarial de {n} visita Madrid'];
-  const DN = ['{n} critica la política exterior del Gobierno', 'Incidente diplomático con {n} por unas declaraciones', '{n} congela una negociación bilateral con España'];
+  const UP = ['{n} respalda a ' + MC.t.nation + ' en un foro multilateral', '{n} firma un acuerdo con grandes empresas ' + MC.t.firms, 'Una delegación empresarial de {n} visita ' + MC.t.capital];
+  const DN = ['{n} critica la política exterior del Gobierno', 'Incidente diplomático con {n} por unas declaraciones', '{n} congela una negociación bilateral con ' + MC.t.nation];
   function worldEvent() {
     const I = intlInit(), ks = Object.keys(INTL), c = ks[Math.floor(Math.random() * ks.length)], n = INTL[c].name;
     const up = Math.random() < 0.5 + (50 - I.rel[c]) / 200, big = Math.random() < .25, v = (big ? 9 : 4) + Math.floor(Math.random() * 3);
     const pool = up ? UP : DN;
-    const txt = (big ? (up ? 'Cambio de gobierno en {n}: giro favorable hacia España' : 'Cambio de gobierno en {n}: giro hostil hacia España') : pool[Math.floor(Math.random() * pool.length)]).replace('{n}', n);
+    const txt = (big ? (up ? 'Cambio de gobierno en {n}: giro favorable hacia ' + MC.t.nation : 'Cambio de gobierno en {n}: giro hostil hacia ' + MC.t.nation) : pool[Math.floor(Math.random() * pool.length)]).replace('{n}', n);
     intlShift(c, up ? v : -v, txt);
     gameState.lastNews = txt; gameState.latestNews = txt;
     try { addNewsToTicker(txt, 'EFE EXTERIOR'); } catch (e) {}
   }
   const O = (text, intl, o) => Object.assign({ text, intl }, o || {});
   const POP = [
-    { id: 'usb', cond: r => r.us >= 65, title: 'WASHINGTON PIDE AMPLIAR LAS BASES DE ROTA Y MORÓN', desc: 'Su aliado preferente pide más presencia militar en suelo español. La izquierda amenaza con movilizarse.', options: [O('Aceptar el despliegue adicional', { us: 10, cn: -3 }, { stats: { mil: 3, apr: -3 }, news: 'España acepta más tropas estadounidenses en Rota y Morón.' }), O('Negarse y reivindicar la autonomía estratégica', { us: -9, ue: 3 }, { stats: { apr: 3, mil: -2 }, news: 'Moncloa rechaza ampliar las bases americanas.' })] },
+    { id: 'usb', cond: r => r.us >= 65, title: 'WASHINGTON PIDE AMPLIAR LAS BASES DE ROTA Y MORÓN', desc: 'Su aliado preferente pide más presencia militar en suelo español. La izquierda amenaza con movilizarse.', options: [O('Aceptar el despliegue adicional', { us: 10, cn: -3 }, { stats: { mil: 3, apr: -3 }, news: 'España acepta más tropas estadounidenses en Rota y Morón.' }), O('Negarse y reivindicar la autonomía estratégica', { us: -9, ue: 3 }, { stats: { apr: 3, mil: -2 }, news: '' + MC.t.gov + ' rechaza ampliar las bases americanas.' })] },
     { id: 'ust', cond: r => r.us <= 35, title: 'WASHINGTON AMENAZA CON NUEVOS ARANCELES', desc: 'La Casa Blanca acusa a España de ser un socio poco fiable y prepara aranceles a sus exportaciones.', options: [O('Negociar con compra de gas y armamento', { us: 10 }, { cost: 600, stats: { eco: 2 }, news: 'España compra gas y material militar para evitar aranceles.' }), O('Responder con represalias a través de la UE', { us: -8, ue: 5 }, { stats: { eco: -3, apr: 2 }, news: 'Bruselas y Madrid responden con represalias comerciales.' })] },
     { id: 'cni', cond: r => r.cn >= 55, title: 'PEKÍN OFRECE UNA MEGAFÁBRICA DE BATERÍAS', desc: 'Un gigante chino quiere instalar una planta en España. Washington y Bruselas miran con recelo.', options: [O('Aceptar la inversión china', { cn: 10, us: -5, ue: -2 }, { stats: { eco: 4, emp: 3 }, news: 'España atrae una gran fábrica china de baterías.' }), O('Declinar por presión de los aliados', { cn: -8, us: 4, ue: 2 }, { stats: { eco: -1 }, news: 'El Gobierno rechaza la inversión china bajo presión aliada.' })] },
     { id: 'mam', cond: r => r.ma <= 38, title: 'RABAT RELAJA EL CONTROL MIGRATORIO', desc: 'Aumentan las salidas hacia Ceuta y Canarias mientras Marruecos mira hacia otro lado.', options: [O('Pagar un paquete de cooperación', { ma: 14, dz: -3 }, { cost: 400, stats: { est: 2 }, news: 'España paga a Rabat por reforzar el control fronterizo.' }), O('Presionar a través de Bruselas', { ma: -6, ue: 4 }, { stats: { est: -4, apr: -3 }, news: 'Madrid pide a Bruselas presionar a Marruecos.' })] },
     { id: 'dzg', cond: r => r.dz <= 38, title: 'ARGEL ENCARECE EL GAS Y EXIGE REVISAR EL PACTO', desc: 'Argelia usa el gas como palanca diplomática y amenaza con reducir el suministro.', options: [O('Aceptar la subida de precio', { dz: 10, ma: -3 }, { cost: 900, stats: { eco: 1 }, news: 'España acepta un gas argelino más caro.' }), O('Diversificar con GNL americano', { dz: -8, us: 6 }, { stats: { eco: -2 }, news: 'España se apoya en el GNL de EEUU frente a Argelia.' })] },
-    { id: 'dzo', cond: r => r.dz >= 65, title: 'ARGELIA OFRECE GAS A PRECIO PREFERENTE', desc: 'Argel premia la buena relación con un contrato largo a precio reducido.', options: [O('Firmar el contrato a diez años', { dz: 8, ma: -3 }, { stats: { eco: 3 }, news: 'España firma un contrato de gas argelino a diez años.' }), O('Mantener el mix de proveedores', { dz: -5, us: 2 }, { stats: { eco: 1 }, news: 'Moncloa prefiere no depender de un solo proveedor.' })] },
+    { id: 'dzo', cond: r => r.dz >= 65, title: 'ARGELIA OFRECE GAS A PRECIO PREFERENTE', desc: 'Argel premia la buena relación con un contrato largo a precio reducido.', options: [O('Firmar el contrato a diez años', { dz: 8, ma: -3 }, { stats: { eco: 3 }, news: 'España firma un contrato de gas argelino a diez años.' }), O('Mantener el mix de proveedores', { dz: -5, us: 2 }, { stats: { eco: 1 }, news: '' + MC.t.gov + ' prefiere no depender de un solo proveedor.' })] },
     { id: 'uef', cond: r => r.ue >= 65, title: 'BRUSELAS OFRECE FONDOS ADICIONALES A CAMBIO DE REFORMAS', desc: 'La buena imagen de España abre la puerta a más financiación europea, con condiciones.', options: [O('Aceptar las condiciones', { ue: 6 }, { income: 2500, stats: { apr: -4, est: -2 }, news: 'España recibe fondos extra de la UE a cambio de reformas.' }), O('Rechazar la condicionalidad', { ue: -8 }, { stats: { apr: 3 }, news: 'El Gobierno rechaza las condiciones de Bruselas.' })] },
-    { id: 'ues', cond: r => r.ue <= 32, title: 'LA COMISIÓN AMENAZA CON CONGELAR FONDOS', desc: 'El distanciamiento con los socios europeos pone en riesgo los fondos comunitarios.', options: [O('Convocar una cumbre de reconciliación', { ue: 12 }, { cost: 600, news: 'Moncloa reconduce la relación con Bruselas.' }), O('Plantar cara a la Comisión', { ue: -8, de: -4 }, { stats: { eco: -3, apr: 3 }, news: 'España desafía a la Comisión Europea.' })] },
+    { id: 'ues', cond: r => r.ue <= 32, title: 'LA COMISIÓN AMENAZA CON CONGELAR FONDOS', desc: 'El distanciamiento con los socios europeos pone en riesgo los fondos comunitarios.', options: [O('Convocar una cumbre de reconciliación', { ue: 12 }, { cost: 600, news: '' + MC.t.gov + ' reconduce la relación con Bruselas.' }), O('Plantar cara a la Comisión', { ue: -8, de: -4 }, { stats: { eco: -3, apr: 3 }, news: 'España desafía a la Comisión Europea.' })] },
     { id: 'frb', cond: r => r.fr <= 38, title: 'FRANCIA BLOQUEA CAMIONES EN LA FRONTERA', desc: 'Los transportistas españoles denuncian bloqueos continuos en los Pirineos.', options: [O('Negociar un corredor ferroviario conjunto', { fr: 12 }, { cost: 300, stats: { eco: 1 }, news: 'España y Francia pactan un corredor de mercancías.' }), O('Protestar ante la Comisión', { fr: -8, ue: 3 }, { stats: { eco: -3 }, news: 'Madrid denuncia a París ante Bruselas.' })] },
     { id: 'deP', cond: r => r.de >= 60, title: 'BERLÍN PROPONE UN PACTO INDUSTRIAL Y ENERGÉTICO', desc: 'Alemania quiere una alianza para reforzar la industria europea.', options: [O('Aceptar el pacto', { de: 10, fr: -3 }, { stats: { eco: 3, emp: 2 }, news: 'España y Alemania sellan un pacto industrial.' }), O('Priorizar el eje con París', { fr: 8, de: -6 }, { stats: { eco: 1 }, news: 'Madrid apuesta por el eje franco-español.' })] },
     { id: 'ukg', cond: r => r.uk <= 40 || r.uk >= 60, title: 'LONDRES REABRE EL DEBATE SOBRE GIBRALTAR', desc: 'El Reino Unido propone una nueva fórmula para el Peñón.', options: [O('Pactar una unión aduanera', { uk: 12, ue: -3 }, { stats: { eco: 2, apr: -3 }, news: 'España y Reino Unido pactan una fórmula para Gibraltar.' }), O('Mantener la reivindicación histórica', { uk: -9, ue: 3 }, { stats: { apr: 3 }, news: 'Madrid mantiene su posición sobre Gibraltar.' })] },
@@ -7678,7 +7695,7 @@ function playSound(n) {
   function popupChance(I, day) {
     if (gameState.activeDynamicEvent || gameState.activeNewsPopup || Math.random() > .012) return;
     if (!popupGapOk() || (typeof canTriggerPopup === 'function' && !canTriggerPopup())) return;
-    const ok = POP.filter(e => e.cond(I.rel) && (I.evCd[e.id] || 0) <= day);
+    const ok = (MC.intl ? (MC.intl.pop || []) : POP).filter(e => e.cond(I.rel) && (I.evCd[e.id] || 0) <= day);
     if (!ok.length) return;
     const e = ok[Math.floor(Math.random() * ok.length)];
     I.evCd[e.id] = day + 240;
@@ -7719,7 +7736,7 @@ function playSound(n) {
     const log = I.log.length ? I.log.map(x => `<div class="flex justify-between gap-3 text-[11px] border-b border-slate-900 py-1"><span class="text-slate-400">Día ${x.d} · <b class="text-slate-200">${INTL[x.c].name}</b> · ${x.why}</span><b class="${x.v > 0 ? 'text-emerald-400' : 'text-red-400'}">${sg(x.v)}</b></div>`).join('') : '<div class="text-[11px] text-slate-500">Todavía no hay movimientos diplomáticos.</div>';
     return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech">
       <div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-amber-400"><i class="fa-solid fa-globe mr-2"></i>RELACIONES INTERNACIONALES</h3>
-      <p class="text-xs text-slate-400 font-sans">Las relaciones se enfrían hacia la neutralidad. Cambian por tus decisiones y crisis, tus acciones diplomáticas, el ministro de Exteriores${mn ? ' (<b class="text-slate-200">' + mn.name + '</b>)' : ''}, la ideología de tu coalición, el estado de tu economía y ejército, y sucesos mundiales aleatorios. Acercarte a un país puede enfriar a otro: EEUU↔China, Marruecos↔Argelia, Francia↔Alemania. Con ≥88 o ≤12 los efectos se multiplican.</p></div>
+      <p class="text-xs text-slate-400 font-sans">Las relaciones se enfrían hacia la neutralidad. Cambian por tus decisiones y crisis, tus acciones diplomáticas, el ministro de Exteriores${mn ? ' (<b class="text-slate-200">' + mn.name + '</b>)' : ''}, la ideología de tu coalición, el estado de tu economía y ejército, y sucesos mundiales aleatorios. Acercarte a un país puede enfriar a otro: ${MC.intl ? (MC.intl.blocksText || 'según los bloques de cada región') : 'EEUU↔China, Marruecos↔Argelia, Francia↔Alemania'}. Con ≥88 o ≤12 los efectos se multiplican.</p></div>
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">${cards}</div>
       <div class="bg-slate-950 border border-slate-800 rounded-lg p-3"><b class="text-sm text-slate-100"><i class="fa-solid fa-clock-rotate-left text-sky-400 mr-1.5"></i>Registro diplomático</b><div class="mt-2">${log}</div></div></div>`;
   };
@@ -8098,25 +8115,25 @@ function playSound(n) {
   // ---------- 3. Noticias de prensa: temáticas, ponderadas y con efectos cruzados ----------
   const NEWS = [
     { id: 'LNK_1', c: 'ue', newspaper: 'THE ECONOMIST', headline: 'EL ECONOMIST DEDICA SU PORTADA A LA ECONOMÍA ESPAÑOLA', desc: 'El semanario británico analiza las cuentas del Gobierno y las compara con las del resto de la zona euro.',
-      options: [{ text: 'Difundir el reportaje y lucirse ante Bruselas', stats: { eco: 2, apr: 2 }, rel: { ue: 4, P: 3 }, news: 'Moncloa presume de portada en The Economist.' }, { text: 'Restarle importancia y no entrar al trapo', stats: {}, rel: { ue: -1 }, news: 'El Gobierno rehúye comentar el reportaje.' }] },
+      options: [{ text: 'Difundir el reportaje y lucirse ante Bruselas', stats: { eco: 2, apr: 2 }, rel: { ue: 4, P: 3 }, news: '' + MC.t.gov + ' presume de portada en The Economist.' }, { text: 'Restarle importancia y no entrar al trapo', stats: {}, rel: { ue: -1 }, news: 'El Gobierno rehúye comentar el reportaje.' }] },
     { id: 'LNK_2', c: 'fr', newspaper: 'LE MONDE', headline: 'ROCE CON PARÍS POR LA INTERCONEXIÓN ENERGÉTICA', desc: 'Le Monde acusa a Madrid de frenar el corredor energético de los Pirineos.',
       options: [{ text: 'Ceder y acelerar las obras (coste 800 M€)', cost: 800, stats: { eco: 2 }, rel: { fr: 6, de: 1, P: 1 }, news: 'España acelera la interconexión con Francia.' }, { text: 'Defender el interés nacional', stats: { apr: 2 }, rel: { fr: -5, P: 1 }, news: 'Madrid planta cara a París.' }] },
     { id: 'LNK_3', c: 'us', newspaper: 'THE WASHINGTON POST', headline: 'WASHINGTON PRESIONA PARA REFORZAR EL GASTO EN DEFENSA', desc: 'Fuentes de la Casa Blanca reclaman a España más compromiso con la Alianza.',
-      options: [{ text: 'Anunciar un aumento gradual del gasto militar', cost: 5, stats: { mil: 4, apr: -2 }, rel: { us: 7, P: -1 }, news: 'España promete más gasto en Defensa.' }, { text: 'Responder que la prioridad es el gasto social', stats: { apr: 3, mil: -2 }, rel: { us: -6, la: 2, P: 2 }, news: 'Moncloa antepone el gasto social a las exigencias de EEUU.' }] },
+      options: [{ text: 'Anunciar un aumento gradual del gasto militar', cost: 5, stats: { mil: 4, apr: -2 }, rel: { us: 7, P: -1 }, news: 'España promete más gasto en Defensa.' }, { text: 'Responder que la prioridad es el gasto social', stats: { apr: 3, mil: -2 }, rel: { us: -6, la: 2, P: 2 }, news: '' + MC.t.gov + ' antepone el gasto social a las exigencias de EEUU.' }] },
     { id: 'LNK_4', c: 'ue', newspaper: 'FINANCIAL TIMES', headline: 'EL FT ADVIERTE DEL RIESGO FISCAL ESPAÑOL', desc: 'Los analistas dudan de que España cumpla sus objetivos de déficit. La prima de riesgo se tensa.',
-      options: [{ text: 'Anunciar un plan de consolidación fiscal', stats: { eco: 3, apr: -3 }, rel: { ue: 5, de: 3, P: -1 }, bde: -12, news: 'El Gobierno presenta un plan de ajuste ante la presión de los mercados.' }, { text: 'Acusar a los mercados de especular', stats: { apr: 2 }, rel: { ue: -4, de: -3, P: 1 }, bde: 15, news: 'Moncloa culpa a los mercados.' }] },
+      options: [{ text: 'Anunciar un plan de consolidación fiscal', stats: { eco: 3, apr: -3 }, rel: { ue: 5, de: 3, P: -1 }, bde: -12, news: 'El Gobierno presenta un plan de ajuste ante la presión de los mercados.' }, { text: 'Acusar a los mercados de especular', stats: { apr: 2 }, rel: { ue: -4, de: -3, P: 1 }, bde: 15, news: '' + MC.t.gov + ' culpa a los mercados.' }] },
     { id: 'LNK_5', c: 'ma', newspaper: 'EL PAÍS', headline: 'REPUNTE DE LLEGADAS DE PATERAS DESDE EL MAGREB', desc: 'Delegaciones del Gobierno piden una respuesta coordinada con Rabat.',
       options: [{ text: 'Reunión de urgencia con Marruecos', stats: { est: 3 }, rel: { ma: 7, dz: -2, P: 1 }, news: 'Madrid y Rabat acuerdan reforzar el control fronterizo.' }, { text: 'Reforzar el vallado unilateralmente', cost: 250, stats: { est: 2, mil: 2 }, rel: { ma: -6, P: 1 }, news: 'España refuerza el vallado sin consultar a Rabat.' }] },
     { id: 'LNK_6', c: 'dz', newspaper: 'ABC', headline: 'ARGELIA AMENAZA CON REVISAR EL PRECIO DEL GAS', desc: 'La prensa se hace eco de la tensión con Argel y avisa de un invierno caro.',
       options: [{ text: 'Enviar una delegación a Argel', stats: { eco: 2 }, rel: { dz: 7, ma: -3, P: 1 }, news: 'Una delegación española viaja a Argel para salvar el gas.' }, { text: 'Diversificar proveedores (coste 1.000 M€)', cost: 15, stats: { eco: 1 }, rel: { dz: -5, us: 2, P: 1 }, news: 'España diversifica su suministro de gas.' }] },
     { id: 'LNK_7', c: 'de', newspaper: 'DIE WELT', headline: 'BERLÍN ELOGIA — O CRITICA — LAS REFORMAS ESPAÑOLAS', desc: 'La prensa alemana sigue de cerca la política económica de Madrid.',
-      options: [{ text: 'Invitar a empresarios alemanes a invertir', stats: { emp: 3, eco: 2 }, rel: { de: 6, P: 2 }, news: 'Madrid busca inversión industrial alemana.' }, { text: 'Ignorar la polémica', stats: {}, rel: { de: -2 }, news: 'Silencio en Moncloa ante la prensa alemana.' }] },
+      options: [{ text: 'Invitar a empresarios alemanes a invertir', stats: { emp: 3, eco: 2 }, rel: { de: 6, P: 2 }, news: 'Madrid busca inversión industrial alemana.' }, { text: 'Ignorar la polémica', stats: {}, rel: { de: -2 }, news: 'Silencio en ' + MC.t.place + ' ante la prensa alemana.' }] },
     { id: 'LNK_8', c: 'la', newspaper: 'LA VANGUARDIA', headline: 'EMPRESAS ESPAÑOLAS Y LATINOAMÉRICA: ¿OPORTUNIDAD O CONFLICTO?', desc: 'Varios gobiernos iberoamericanos cuestionan la presencia de multinacionales españolas.',
       options: [{ text: 'Mediar y ofrecer cooperación', stats: { apr: 1 }, rel: { la: 7, P: 1 }, news: 'España media entre sus empresas y Latinoamérica.' }, { text: 'Respaldar sin matices a las empresas', stats: { eco: 3 }, rel: { la: -6, P: 0 }, news: 'El Gobierno respalda a las multinacionales en Latinoamérica.' }] },
     { id: 'LNK_9', c: null, newspaper: 'EL MUNDO', headline: 'BALANCE DE PROMESAS: ¿CUMPLE EL GOBIERNO SU MANDATO?', desc: 'El diario repasa los objetivos del mandato y pone nota al Ejecutivo.',
-      options: [{ text: 'Defender el balance con datos', stats: { apr: 2 }, cap: 4, rel: { P: 3 }, news: 'Moncloa defiende su balance de legislatura.' }, { text: 'Prometer nuevos compromisos', stats: { apr: 3 }, cap: -6, rel: { P: 4 }, news: 'El Presidente se compromete a nuevas metas.' }] }
+      options: [{ text: 'Defender el balance con datos', stats: { apr: 2 }, cap: 4, rel: { P: 3 }, news: '' + MC.t.gov + ' defiende su balance de legislatura.' }, { text: 'Prometer nuevos compromisos', stats: { apr: 3 }, cap: -6, rel: { P: 4 }, news: 'El Presidente se compromete a nuevas metas.' }] }
   ];
-  NEWS.forEach(n => { if (typeof PRESS_NEWS_BANK !== 'undefined' && !PRESS_NEWS_BANK.some(x => x.id === n.id)) PRESS_NEWS_BANK.push(n); });
+  if (MC.builtin) NEWS.forEach(n => { if (typeof PRESS_NEWS_BANK !== 'undefined' && !PRESS_NEWS_BANK.some(x => x.id === n.id)) PRESS_NEWS_BANK.push(n); });
 
   // Elección ponderada: salen más las noticias de países en crisis o aliados, y balance cuando el mandato va mal
   window.triggerPressNews = function () {
@@ -8220,7 +8237,7 @@ function playSound(n) {
     g.capital -= a.cap; l.cd[id] = a.cd;
     if (a.cost) registerFinancialTransaction('Comunicación: ' + a.title, -a.cost);
     applyFx(ACT_FX[id], a.title);
-    ticker('MONCLOA', a.title + ': el Gobierno intenta mejorar su imagen.');
+    ticker('' + MC.t.gov.toUpperCase() + '', a.title + ': el Gobierno intenta mejorar su imagen.');
     render();
   };
 
@@ -8466,10 +8483,10 @@ function playSound(n) {
   SHOCK_POOL.push(
     { cat: 'MERCADOS', min: 'economia', title: 'LAS AGENCIAS ADVIERTEN: LA DEUDA SUPERA EL 105 % DEL PIB', desc: 'Las agencias de calificación avisan de que el endeudamiento total —heredado más el nuevo— compromete la nota de España.',
       when: s => applies() && MC.builtin && ratio() >= 105,
-      options: [ { text: 'Anunciar un plan creíble de reducción de deuda', cost: 0, stats: { eco: 2, apr: -3 }, news: 'Moncloa presenta un plan para reducir la deuda por debajo del 100 % del PIB.' }, { text: 'Confiar en que el crecimiento lo resolverá solo', cost: 0, stats: { eco: -4, apr: -1 }, news: 'Las agencias castigan la falta de plan con una rebaja de perspectiva.' } ] },
+      options: [ { text: 'Anunciar un plan creíble de reducción de deuda', cost: 0, stats: { eco: 2, apr: -3 }, news: '' + MC.t.gov + ' presenta un plan para reducir la deuda por debajo del 100 % del PIB.' }, { text: 'Confiar en que el crecimiento lo resolverá solo', cost: 0, stats: { eco: -4, apr: -1 }, news: 'Las agencias castigan la falta de plan con una rebaja de perspectiva.' } ] },
     { cat: 'UNIÓN EUROPEA', min: 'economia', title: 'BRUSELAS ABRE UN PROCEDIMIENTO POR DEUDA Y DÉFICIT EXCESIVOS', desc: 'La Comisión Europea considera que la trayectoria de la deuda incumple las reglas fiscales y exige un plan de ajuste.',
       when: s => applies() && MC.builtin && member() && ratio() >= 102 && ((s.metrics || {}).eco || 50) < 45,
-      options: [ { text: 'Aceptar el plan de ajuste de Bruselas', cost: 0, stats: { eco: 3, apr: -5, est: -2 }, news: 'El Gobierno acepta el plan de ajuste exigido por la Comisión Europea.' }, { text: 'Plantar cara a la Comisión y desafiar las reglas fiscales', cost: 0, stats: { apr: 4, eco: -3 }, news: 'Moncloa desafía las reglas fiscales europeas y se arriesga a sanciones.' } ] }
+      options: [ { text: 'Aceptar el plan de ajuste de Bruselas', cost: 0, stats: { eco: 3, apr: -5, est: -2 }, news: 'El Gobierno acepta el plan de ajuste exigido por la Comisión Europea.' }, { text: 'Plantar cara a la Comisión y desafiar las reglas fiscales', cost: 0, stats: { apr: 4, eco: -3 }, news: '' + MC.t.gov + ' desafía las reglas fiscales europeas y se arriesga a sanciones.' } ] }
   );
 
   // ---------- Eventos de la UE: se retiran al salir ----------
@@ -8539,7 +8556,7 @@ function playSound(n) {
       else if (U().ccy === 'peseta') U().fx = clampFx(U().fx * 0.85);
     }
     const r = _reu.apply(this, arguments);
-    if (out && a === 'RESCATE') gameState.lastNews = 'Moncloa acepta el programa de rescate del FMI y aplica un duro ajuste.';
+    if (out && a === 'RESCATE') gameState.lastNews = '' + MC.t.gov + ' acepta el programa de rescate del FMI y aplica un duro ajuste.';
     if (out && a === 'AUTARQUIA') gameState.lastNews = 'El Ejecutivo rechaza el programa del FMI y recurre a medidas extraordinarias.';
     return r;
   };
@@ -8629,9 +8646,9 @@ function playSound(n) {
   }
   function evHeritage() {
     return { id: 'UE_HERENCIA', category: 'HACIENDA · EMPALME', title: 'INFORME DE EMPALME: LA DEUDA QUE HEREDAS',
-      desc: 'Hacienda te entrega las cuentas: la deuda pública asciende a ' + bn(total()) + ' (' + pc(ratio()) + ' del PIB), según el último dato del Banco de España. Servirla te cuesta unos ' + fmt(legacyInterest()) + ' M€ al mes y lastra el crecimiento cada día mientras no baje. Bruselas vigila el límite del 60 % y los mercados vigilan tu primera decisión.',
+      desc: 'Hacienda te entrega las cuentas: la deuda pública asciende a ' + bn(total()) + ' (' + pc(ratio()) + ' del PIB), según el último dato del ' + MC.t.bank + '. Servirla te cuesta unos ' + fmt(legacyInterest()) + ' M€ al mes y lastra el crecimiento cada día mientras no baje. Bruselas vigila el límite del 60 % y los mercados vigilan tu primera decisión.',
       options: [
-        { text: 'Asumir la herencia: plan de consolidación gradual y auditoría del gasto', stats: { eco: +2, apr: -3, est: +1 }, cost: 0, loyaltyImpact: {}, bde: { cred: 6, shock: -25 }, news: 'Moncloa presenta un plan de consolidación para encauzar la deuda heredada.' },
+        { text: 'Asumir la herencia: plan de consolidación gradual y auditoría del gasto', stats: { eco: +2, apr: -3, est: +1 }, cost: 0, loyaltyImpact: {}, bde: { cred: 6, shock: -25 }, news: '' + MC.t.gov + ' presenta un plan de consolidación para encauzar la deuda heredada.' },
         { text: 'Restar dramatismo y seguir con la agenda de gasto', stats: { apr: +2, eco: -1 }, cost: 0, loyaltyImpact: {}, bde: { cred: -6, shock: 25 }, news: 'El Gobierno resta importancia a la deuda y los analistas toman nota.' },
         { text: 'Vía soberanista: preparar la salida de la UE y recuperar la moneda propia', stats: { apr: -1, est: -4 }, cost: 0, loyaltyImpact: EXIT_LOYALTY, bde: { cred: -5, shock: 35 }, ue: 'start', news: 'El Gobierno abre la puerta a abandonar la UE para recuperar soberanía fiscal y monetaria.' }
       ] };
@@ -8676,7 +8693,7 @@ function playSound(n) {
       desc: 'La peseta cotiza a ' + fmt(ptsPerEuro()) + ' por euro. Las importaciones, la energía y la cesta de la compra se disparan y los salarios no alcanzan.',
       options: [
         { text: 'Controlar precios y capitales', stats: { apr: +2, eco: -4, est: -2 }, cost: 0, loyaltyImpact: {}, bde: { cred: -4, shock: -30 }, fx: 6, news: 'El Gobierno congela precios y limita la salida de capitales.' },
-        { text: 'Subir tipos y recortar gasto para defender la peseta', stats: { eco: -3, apr: -4 }, cost: 0, loyaltyImpact: {}, bde: { cred: 8, shock: -60 }, fx: 8, news: 'Moncloa recorta gasto y sube tipos para defender la peseta.' },
+        { text: 'Subir tipos y recortar gasto para defender la peseta', stats: { eco: -3, apr: -4 }, cost: 0, loyaltyImpact: {}, bde: { cred: 8, shock: -60 }, fx: 8, news: '' + MC.t.gov + ' recorta gasto y sube tipos para defender la peseta.' },
         { text: 'Dejar flotar la moneda y confiar en las exportaciones', stats: { apr: -6, eco: +2 }, cost: 0, loyaltyImpact: {}, bde: { cred: -3, shock: 20 }, fx: -4, news: 'El Gobierno deja flotar la peseta y la inflación sigue subiendo.' }
       ] };
   }
@@ -8793,7 +8810,7 @@ function playSound(n) {
       '<div class="font-hoi-header text-lg text-amber-400"><i class="fa-solid fa-scale-unbalanced mr-2"></i>DEUDA HEREDADA (REAL)</div>' +
       '<div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">' + cell('DEUDA HEREDADA', bn(legacy())) + cell('DEUDA TOTAL / PIB', pc(r), r > 100 ? 'text-red-400' : 'text-amber-400') + cell('INTERESES HEREDADOS / MES', '−' + fmt(i) + ' M€', 'text-red-300') + cell('LASTRE EN ECONOMÍA', '−' + dragYear().toFixed(1).replace('.', ',') + ' pts/año', 'text-red-300') + '</div>' +
       '<div class="relative w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800"><div class="h-full ' + col + '" style="width:' + pct + '%"></div><div class="absolute top-0 h-full w-px bg-sky-400" style="left:' + (60 / 140 * 100) + '%"></div><div class="absolute top-0 h-full w-px bg-white/60" style="left:' + (100 / 140 * 100) + '%"></div></div>' +
-      '<p class="text-[11px] text-slate-400 font-sans">Proporción real del Banco de España (agosto de 2026), a escala de juego: 100.000 M€ y 99,7 % del PIB. Marcas: 60 % (límite de la UE) y 100 %. Se carga a tu Tesorería el ' + Math.round(LEGACY_SERVICE * 100) + ' % del coste real de intereses (escala de juego) y la deuda lastra la Economía cada día. Amortizar —con los botones de abajo o con la partida de deuda de los PGE— la reduce de verdad.' + (fxF() !== 1 ? ' <b class="text-red-300">Tu deuda está en euros y la peseta se ha depreciado: pagas ×' + fxF().toFixed(2).replace('.', ',') + '.</b>' : '') + '</p></div>';
+      '<p class="text-[11px] text-slate-400 font-sans">Proporción real del ' + MC.t.bank + ' (agosto de 2026), a escala de juego: 100.000 M€ y 99,7 % del PIB. Marcas: 60 % (límite de la UE) y 100 %. Se carga a tu Tesorería el ' + Math.round(LEGACY_SERVICE * 100) + ' % del coste real de intereses (escala de juego) y la deuda lastra la Economía cada día. Amortizar —con los botones de abajo o con la partida de deuda de los PGE— la reduce de verdad.' + (fxF() !== 1 ? ' <b class="text-red-300">Tu deuda está en euros y la peseta se ha depreciado: pagas ×' + fxF().toFixed(2).replace('.', ',') + '.</b>' : '') + '</p></div>';
     return h.replace(/<div class="grid grid-cols-2 md:grid-cols-4/, m => panel + m);
   };
 
@@ -8846,7 +8863,7 @@ function playSound(n) {
         li('Pérdida de fondos PAC y cohesión: −' + FUNDS_LOSS + ' M€ al mes.', 'text-red-300') +
         li('Aranceles y trabas comerciales: −' + (0.02 * k * 365).toFixed(1).replace('.', ',') + ' pts de Economía al año' + (u.trade ? ' (aliviados por el acuerdo comercial)' : '') + ', menos con el tiempo.', 'text-red-300') +
         li('Si la economía se hunde, quien interviene es el FMI.', 'text-slate-300') +
-        (u.ccy === 'peseta' ? li('Peseta: si cae, exportas más pero importas inflación (−Aprobación) y tu deuda en euros se encarece. Tu palanca está en la pestaña Banco de España.', 'text-slate-300') : li('Euro unilateral: sin BCE, sin escudo antiprima y sin soberanía monetaria.', 'text-slate-300')) +
+        (u.ccy === 'peseta' ? li('Peseta: si cae, exportas más pero importas inflación (−Aprobación) y tu deuda en euros se encarece. Tu palanca está en la pestaña ' + MC.t.bank + '.', 'text-slate-300') : li('Euro unilateral: sin BCE, sin escudo antiprima y sin soberanía monetaria.', 'text-slate-300')) +
         '</ul><div>' + (u.trade ? '<span class="text-[11px] text-emerald-400"><i class="fa-solid fa-handshake mr-1"></i>Acuerdo comercial firmado</span>' : btn('ueTrade', '<i class="fa-solid fa-handshake mr-1"></i>Negociar acuerdo comercial con la UE (' + TRADE_CAPITAL + ' capital · 800 M€)', 'text-emerald-300', !canTrade)) + '</div></div>';
     }
     const debt = '<div class="bg-slate-950 border border-slate-800 rounded-lg p-3 text-[11px] text-slate-400 font-sans"><b class="text-slate-200">Deuda heredada:</b> ' + bn(legacy()) + ' (' + pc(r) + ' del PIB con la deuda nueva). Intereses: <b class="text-red-300">−' + fmt(legacyInterest()) + ' M€/mes</b>' + (u.ccy === 'peseta' && !mem ? ' · denominada en <b class="text-slate-200">' + (u.debtCcy === 'EUR' ? 'euros' : 'pesetas') + '</b>' : '') + '.</div>';
@@ -10263,15 +10280,15 @@ function playSound(n) {
     o('Ceder a la subida salarial', 1800, { emp: 2, apr: 3, eco: -2 }, 'El Gobierno cierra la huelga con una subida salarial.'),
     o('Imponer servicios mínimos del 100 %', 0, { est: -5, apr: -4, eco: 1 }, 'Servicios mínimos abusivos: los sindicatos amenazan con más paros.')]);
   E('ESCÁNDALO', 'justicia', 'AUDIOS FILTRADOS DE UN ALTO CARGO', 'Un medio publica conversaciones comprometedoras de un colaborador cercano. La oposición pide dimisiones.', [
-    o('Cesarlo de inmediato', 0, { apr: -2, est: 1 }, 'Cese fulminante tras la filtración: Moncloa corta el incendio.'),
+    o('Cesarlo de inmediato', 0, { apr: -2, est: 1 }, 'Cese fulminante tras la filtración: ' + MC.t.gov + ' corta el incendio.'),
     o('Defender su inocencia', 0, { apr: -7, est: -3 }, 'El Gobierno cierra filas, pero el escándalo crece cada día.'),
-    o('Encargar una auditoría independiente', 600, { apr: 2, est: 1 }, 'Moncloa abre una auditoría independiente y gana tiempo.')]);
-  E('ECONOMÍA', 'vivienda', 'BURBUJA INMOBILIARIA A LA VISTA', 'El crédito fácil dispara los precios. El Banco de España avisa del riesgo de una nueva burbuja.', [
+    o('Encargar una auditoría independiente', 600, { apr: 2, est: 1 }, '' + MC.t.gov + ' abre una auditoría independiente y gana tiempo.')]);
+  E('ECONOMÍA', 'vivienda', 'BURBUJA INMOBILIARIA A LA VISTA', 'El crédito fácil dispara los precios. El ' + MC.t.bank + ' avisa del riesgo de una nueva burbuja.', [
     o('Endurecer el crédito hipotecario', 0, { eco: -3, apr: -2, est: 2 }, 'El Gobierno pincha la burbuja antes de que explote.'),
     o('Dejar que el mercado siga', 0, { eco: 4, apr: 2, est: -3 }, 'El ladrillo sigue animando la economía… por ahora.')], s => s.metrics.eco > 66);
   E('VIRAL', 'cultura', 'EL PRESIDENTE, VIRAL EN TIKTOK', 'Un vídeo tuyo tropezando en un acto se hace viral. El país entero hace memes.', [
     o('Reírte de ti mismo en redes', 0, { apr: 5 }, 'El Presidente se ríe de sí mismo y los memes se vuelven a su favor.'),
-    o('Pedir que lo retiren', 300, { apr: -4, est: -1 }, 'Moncloa pide retirar el vídeo y provoca el efecto Streisand.')]);
+    o('Pedir que lo retiren', 300, { apr: -4, est: -1 }, '' + MC.t.gov + ' pide retirar el vídeo y provoca el efecto Streisand.')]);
   E('SOCIAL', 'interior', 'CAMIONEROS BLOQUEAN LAS CARRETERAS', 'Los transportistas cortan autovías por el precio del diésel. Los supermercados empiezan a vaciarse.', [
     o('Bonificar el combustible', 1500, { eco: -1, est: 3, apr: 3 }, 'Bonificación al diésel: los camiones vuelven a rodar.'),
     o('Enviar a la UIP a desalojar', 0, { est: -6, apr: -5, mil: 2 }, 'Cargas policiales en las autovías: imágenes muy duras.')], s => s.metrics.est < 55);
@@ -10288,11 +10305,11 @@ function playSound(n) {
     o('Pagar el rescate en silencio', 1500, { eco: 1, apr: -3 }, 'Se filtra que Hacienda pagó el rescate a los hackers.'),
     o('Negarse y reconstruir los sistemas', 2500, { est: 2, apr: 3, mil: 2 }, 'El Gobierno planta cara a los hackers y refuerza la ciberseguridad.')]);
   E('SOCIAL', 'igualdad', 'MANIFESTACIÓN HISTÓRICA EN MADRID', 'Más de un millón de personas toman el centro de Madrid con reivindicaciones enfrentadas.', [
-    o('Recibir a los convocantes', 0, { apr: 3, est: 2 }, 'El Presidente recibe a los convocantes en Moncloa.'),
-    o('Ignorar la protesta', 0, { apr: -4, est: -4 }, 'Moncloa ignora la mayor manifestación en una década.')]);
+    o('Recibir a los convocantes', 0, { apr: 3, est: 2 }, 'El Presidente recibe a los convocantes en ' + MC.t.place + '.'),
+    o('Ignorar la protesta', 0, { apr: -4, est: -4 }, '' + MC.t.gov + ' ignora la mayor manifestación en una década.')]);
   E('OPORTUNIDAD', 'educacion', 'PREMIO A UN CIENTÍFICO ESPAÑOL', 'Un investigador español gana un premio internacional y la ciencia vuelve a los telediarios.', [
     o('Anunciar un plan de ciencia', 1000, { apr: 4, eco: 2, est: 1 }, 'Plan de ciencia anunciado al calor del premio internacional.'),
-    o('Felicitarle sin más', 0, { apr: 1 }, 'Moncloa felicita al científico.')]);
+    o('Felicitarle sin más', 0, { apr: 1 }, '' + MC.t.gov + ' felicita al científico.')]);
 
   // ---- 2. Consecuencias retardadas y rachas, a partir de cada decisión ----
   let b0 = null;
@@ -10463,7 +10480,7 @@ function playSound(n) {
   const toast = (h, c) => { if (typeof goalsToast === 'function') goalsToast(h, c); };
   const M = () => gameState.metrics;
   // país del módulo exterior → países del mapa militar (id ISO)
-  const MAP = { us: [840], ma: [504], dz: [12], cn: [156], fr: [250], de: [276], uk: [826], ue: [620, 380, 300, 616, 40, 56, 100, 191, 196, 203, 208, 233, 246, 348, 372, 428, 440, 442, 528, 642, 703, 705, 752], la: [484, 192, 862, 170, 76, 32, 152, 604, 218, 68, 600, 858, 591, 188, 558, 340, 222, 320, 214] };
+  const MAP = (MC.intl && MC.intl.map) || { us: [840], ma: [504], dz: [12], cn: [156], fr: [250], de: [276], uk: [826], ue: [620, 380, 300, 616, 40, 56, 100, 191, 196, 203, 208, 233, 246, 348, 372, 428, 440, 442, 528, 642, 703, 705, 752], la: [484, 192, 862, 170, 76, 32, 152, 604, 218, 68, 600, 858, 591, 188, 558, 340, 222, 320, 214] };
   const ISO2 = {}; Object.keys(MAP).forEach(k => MAP[k].forEach(i => ISO2[i] = k));
   // posibles agresores: [id, nombre, fuerza, bloque, proyección, relación inicial]
   const FOES = window.WAR_C.map(c => [c.id, c.n, c.s, c.b, c.p, c.r0]);   // todos los países del mapa
@@ -10501,7 +10518,7 @@ function playSound(n) {
         const k = ISO2[id], def = goal === 'def';
         if (k) intlShift(k, -30, 'Guerra con ' + INTL[k].name, true);
         intlShift('ue', def ? 6 : -8, def ? 'Solidaridad europea ante la agresión' : 'La UE condena la guerra', true);
-        intlShift('us', def ? 6 : -6, def ? 'Washington respalda a España' : 'Washington pide contención', true);
+        intlShift('us', def ? 6 : -6, def ? 'Washington respalda a ' + MC.t.nation : 'Washington pide contención', true);
         if (!def) intlShift('la', -3, 'Rechazo iberoamericano a la guerra', true);
       }
     } catch (e) { console.error(e); }
@@ -10573,7 +10590,7 @@ function playSound(n) {
     if (day % 30 === 0 && typeof registerFinancialTransaction === 'function') registerFinancialTransaction('Mantenimiento de las Fuerzas Armadas', -Math.round(6 * (W.t + W.m + W.a)), 'defensa');
     if (W.mob && day >= W.mob.until) { ['t', 'm', 'a'].forEach(k => W[k] = Math.max(0, W[k] - W.mob.add[k])); W.mob = null; toast('Fin de la movilización: los reservistas vuelven a casa.', '#94a3b8'); }
     // vecinos inquietos con un ejército enorme / socios tranquilos con uno sólido
-    if (day % 30 === 11) { const p = own(); if (p > 60) { intlShift('ma', -1.5, 'Rearme español', true); intlShift('dz', -1, 'Rearme español', true); } if (p > 40) intlShift('us', .8, 'España cumple con la defensa', true); if (p < 22) intlShift('us', -1, 'España descuida su defensa', true); }
+    if (day % 30 === 11) { const p = own(); if (p > 60) { intlShift('ma', -1.5, 'Rearme ' + MC.t.adj, true); intlShift('dz', -1, 'Rearme ' + MC.t.adj, true); } if (p > 40) intlShift('us', .8, MC.t.nation + ' cumple con la defensa', true); if (p < 22) intlShift('us', -1, MC.t.nation + ' descuida su defensa', true); }
     if (day % 30 === 19) { try { drift(); } catch (e) { console.error(e); } }
     if (W.war || day < 45 || day % 15 !== 0 || day - (W.last || 0) < 90 || busy() || gameState.coupActive) return;
     const cands = FOES.map(f => [f, risk(f)]).filter(x => x[1] > 0 && relOf(x[0]) <= 15 && x[0][4] >= .5).sort((a, b) => b[1] - a[1]);
