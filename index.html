@@ -397,6 +397,14 @@ main#app, footer {
     }
     if (code != null) { exec(sel.url, code); window.CURRENT_COUNTRY = sel; }
     window.countryIsBuiltin = !window.CURRENT_COUNTRY || sel.id === BUILTIN;
+    // Perfil económico del país activo (España por defecto; otros países lo sobreescriben con COUNTRY_ECON)
+    window.MC = (function () {
+      var b = window.countryIsBuiltin !== false, e = (!b && typeof COUNTRY_ECON !== 'undefined') ? COUNTRY_ECON : {};
+      return { builtin: b, k: e.k || 1, budget: e.budget || 100000, step: e.budgetStep || 1000, pib: e.pib || 1700000,
+        debt: e.debt != null ? e.debt : 1695000, macroPib: e.macroPib || 100300, revPct: e.revPct || 0.42, pensPct: e.pensPct || 0.12,
+        otherPct: e.otherPct || 0.225, baseRate: e.baseRate || 1.9, debtMax: e.debtMax || 300000, cashCap: e.cashCap || 90000,
+        preset: e.preset || null, hint: e.hint || '', labels: e.labels || {}, pct: e.pct || null, names: e.names || {}, descs: e.descs || {}, war: e.war || null };
+    })();
 
     // Datos de CUALQUIER país sin cargarlo como país activo (p. ej. el modo multijugador necesita
     // los partidos/escaños de Marruecos aunque la partida sea de España). Se evalúa en un ámbito
@@ -2814,19 +2822,19 @@ function renderTabContent() {
 
 function renderCabinetTab() {
   const ministries = [
-    { id: 'economia', title: 'Ministerio de Economía y Hacienda', icon: 'fa-chart-pie' },
-    { id: 'interior', title: 'Ministerio del Interior y Seguridad', icon: 'fa-user-shield' },
-    { id: 'defensa', title: 'Ministerio de Defensa Nacional', icon: 'fa-person-military-rifle' },
-    { id: 'vivienda', title: 'Ministerio de Vivienda y Servicios Sociales', icon: 'fa-house-user' },
-    { id: 'territorio', title: 'Ministerio de Política Territorial', icon: 'fa-map-marked-alt' },
-    { id: 'sanidad', title: 'Ministerio de Sanidad', icon: 'fa-hospital' },
-    { id: 'educacion', title: 'Ministerio de Educación y FP', icon: 'fa-graduation-cap' },
-    { id: 'trabajo', title: 'Ministerio de Trabajo y Economía Social', icon: 'fa-helmet-safety' },
-    { id: 'justicia', title: 'Ministerio de Justicia', icon: 'fa-scale-balanced' },
-    { id: 'exteriores', title: 'Ministerio de Asuntos Exteriores', icon: 'fa-earth-europe' },
-    { id: 'transicion_ecologica', title: 'Ministerio para la Transición Ecológica', icon: 'fa-leaf' },
-    { id: 'cultura', title: 'Ministerio de Cultura', icon: 'fa-masks-theater' },
-    { id: 'igualdad', title: 'Ministerio de Igualdad', icon: 'fa-venus-mars' }
+    { id: 'economia', title: (MC.names.economia || 'Ministerio de Economía y Hacienda'), icon: 'fa-chart-pie' },
+    { id: 'interior', title: (MC.names.interior || 'Ministerio del Interior y Seguridad'), icon: 'fa-user-shield' },
+    { id: 'defensa', title: (MC.names.defensa || 'Ministerio de Defensa Nacional'), icon: 'fa-person-military-rifle' },
+    { id: 'vivienda', title: (MC.names.vivienda || 'Ministerio de Vivienda y Servicios Sociales'), icon: 'fa-house-user' },
+    { id: 'territorio', title: (MC.names.territorio || 'Ministerio de Política Territorial'), icon: 'fa-map-marked-alt' },
+    { id: 'sanidad', title: (MC.names.sanidad || 'Ministerio de Sanidad'), icon: 'fa-hospital' },
+    { id: 'educacion', title: (MC.names.educacion || 'Ministerio de Educación y FP'), icon: 'fa-graduation-cap' },
+    { id: 'trabajo', title: (MC.names.trabajo || 'Ministerio de Trabajo y Economía Social'), icon: 'fa-helmet-safety' },
+    { id: 'justicia', title: (MC.names.justicia || 'Ministerio de Justicia'), icon: 'fa-scale-balanced' },
+    { id: 'exteriores', title: (MC.names.exteriores || 'Ministerio de Asuntos Exteriores'), icon: 'fa-earth-europe' },
+    { id: 'transicion_ecologica', title: (MC.names.transicion_ecologica || 'Ministerio para la Transición Ecológica'), icon: 'fa-leaf' },
+    { id: 'cultura', title: (MC.names.cultura || 'Ministerio de Cultura'), icon: 'fa-masks-theater' },
+    { id: 'igualdad', title: (MC.names.igualdad || 'Ministerio de Igualdad'), icon: 'fa-venus-mars' }
   ];
 
   return `
@@ -2907,7 +2915,7 @@ function renderBudgetTab() {
     gameState.treasury = rawTreasury;
   }
   const totalBudget = rawTreasury;
-  const basePGE = 100000; // Base presupuestaria anual fija
+  const basePGE = MC.budget; // Base presupuestaria anual fija
 
   // Reparto real votado en los PGE (si ya se aprobaron); si no, el reparto por defecto
   const pgeAlloc = gameState.pgeSummary ? gameState.pgeSummary.allocation : null;
@@ -2921,13 +2929,13 @@ function renderBudgetTab() {
   };
 
   const ministryBudgets = [
-    { key: 'sanidad', name: 'Ministerio de Sanidad y Consumo', icon: 'fa-hospital', pct: 28, costPerDay: 17, minister: gameState.ministers ? gameState.ministers.sanidad : null, desc: 'Atención primaria, hospitales y cobertura farmacéutica estatal.' },
-    { key: 'educacion', name: 'Ministerio de Educación y FP', icon: 'fa-graduation-cap', pct: 20, costPerDay: 15, minister: gameState.ministers ? gameState.ministers.educacion : null, desc: 'Becas universitarias, personal docente y centros de formación.' },
-    { key: 'infraestructuras', name: 'Ministerio de Transportes e Infraestructuras', icon: 'fa-train', pct: 16, costPerDay: 8, minister: gameState.ministers ? gameState.ministers.territorio : null, desc: 'Red ferroviaria AVE, carreteras del Estado y puertos.' },
-    { key: 'interior', name: 'Ministerio del Interior y Seguridad', icon: 'fa-shield', pct: 14, costPerDay: 12, minister: gameState.ministers ? gameState.ministers.interior : null, desc: 'Policía Nacional, Guardia Civil y prisiones.' },
-    { key: 'defensa', name: 'Ministerio de Defensa y FFAA', icon: 'fa-person-military-rifle', pct: 12, costPerDay: 18, minister: gameState.ministers ? gameState.ministers.defensa : null, desc: 'Mantenimiento del ejército, equipamiento y misiones exteriores.' },
-    { key: 'economia', name: 'Ministerio de Economía y Hacienda', icon: 'fa-chart-pie', pct: 10, costPerDay: 10, minister: gameState.ministers ? gameState.ministers.economia : null, desc: 'Servicio de la deuda pública, gestión tributaria y auditorías.' },
-    { key: 'vivienda', name: 'Ministerio de Vivienda y Servicios Sociales', icon: 'fa-house-user', pct: 0, costPerDay: 10, minister: gameState.ministers ? gameState.ministers.vivienda : null, desc: 'Vivienda pública, alquiler asequible y servicios sociales.' }
+    { key: 'sanidad', name: (MC.names.sanidad || 'Ministerio de Sanidad y Consumo'), icon: 'fa-hospital', pct: (MC.pct ? MC.pct.sanidad : 28), costPerDay: +(17 * MC.k).toFixed(1), minister: gameState.ministers ? gameState.ministers.sanidad : null, desc: (MC.descs.sanidad || 'Atención primaria, hospitales y cobertura farmacéutica estatal.') },
+    { key: 'educacion', name: (MC.names.educacion || 'Ministerio de Educación y FP'), icon: 'fa-graduation-cap', pct: (MC.pct ? MC.pct.educacion : 20), costPerDay: +(15 * MC.k).toFixed(1), minister: gameState.ministers ? gameState.ministers.educacion : null, desc: (MC.descs.educacion || 'Becas universitarias, personal docente y centros de formación.') },
+    { key: 'infraestructuras', name: (MC.names.infraestructuras || 'Ministerio de Transportes e Infraestructuras'), icon: 'fa-train', pct: (MC.pct ? MC.pct.infraestructuras : 16), costPerDay: +(8 * MC.k).toFixed(1), minister: gameState.ministers ? gameState.ministers.territorio : null, desc: (MC.descs.infraestructuras || 'Red ferroviaria AVE, carreteras del Estado y puertos.') },
+    { key: 'interior', name: (MC.names.interior || 'Ministerio del Interior y Seguridad'), icon: 'fa-shield', pct: (MC.pct ? MC.pct.interior : 14), costPerDay: +(12 * MC.k).toFixed(1), minister: gameState.ministers ? gameState.ministers.interior : null, desc: (MC.descs.interior || 'Policía Nacional, Guardia Civil y prisiones.') },
+    { key: 'defensa', name: (MC.names.defensa || 'Ministerio de Defensa y FFAA'), icon: 'fa-person-military-rifle', pct: (MC.pct ? MC.pct.defensa : 12), costPerDay: +(18 * MC.k).toFixed(1), minister: gameState.ministers ? gameState.ministers.defensa : null, desc: (MC.descs.defensa || 'Mantenimiento del ejército, equipamiento y misiones exteriores.') },
+    { key: 'economia', name: (MC.names.economia || 'Ministerio de Economía y Hacienda'), icon: 'fa-chart-pie', pct: (MC.pct ? MC.pct.economia : 10), costPerDay: +(10 * MC.k).toFixed(1), minister: gameState.ministers ? gameState.ministers.economia : null, desc: (MC.descs.economia || 'Servicio de la deuda pública, gestión tributaria y auditorías.') },
+    { key: 'vivienda', name: (MC.names.vivienda || 'Ministerio de Vivienda y Servicios Sociales'), icon: 'fa-house-user', pct: (MC.pct ? MC.pct.vivienda : 0), costPerDay: +(10 * MC.k).toFixed(1), minister: gameState.ministers ? gameState.ministers.vivienda : null, desc: (MC.descs.vivienda || 'Vivienda pública, alquiler asequible y servicios sociales.') }
   ];
 
   const totalDailyExpense = ministryBudgets.reduce((acc, m) => acc + m.costPerDay, 0);
@@ -3719,8 +3727,9 @@ function makeDecision(optionIdx) {
     }
 
     function renderPGEScreen(app) {
+      if (MC.preset && !Object.values(gameState.budgetAllocation).some(v => v > 0)) gameState.budgetAllocation = Object.assign({}, MC.preset);
       const b = gameState.budgetAllocation;
-      const totalBudget = 100000;
+      const totalBudget = MC.budget;
       const currentSum = Object.values(b).reduce((acc, val) => acc + val, 0);
       const remaining = totalBudget - currentSum;
 
@@ -3729,18 +3738,18 @@ function makeDecision(optionIdx) {
           <div class="max-w-4xl mx-auto space-y-4 my-2">
             <div class="border-b border-red-500/60 pb-2 text-center space-y-1">
               <span class="bg-red-600 text-black font-hoi-tech text-[10px] px-2.5 py-0.5 rounded font-bold uppercase">DECRETO PRESUPUESTARIO MILITAR</span>
-              <h2 class="font-hoi-header text-3xl text-red-500 tracking-wider">PRESUPUESTOS DE LA JUNTA DE SALVACIÓN (100.000 M€)</h2>
+              <h2 class="font-hoi-header text-3xl text-red-500 tracking-wider">PRESUPUESTOS DE LA JUNTA DE SALVACIÓN (${MC.budget.toLocaleString('es-ES')} M€)</h2>
             </div>
             <div class="bg-slate-900 border border-red-900/80 p-3 rounded font-hoi-tech flex justify-between items-center text-xs">
               <span>PENDIENTE DE ASIGNAR: <strong id="budget-remaining-display" class="${remaining === 0 ? 'text-emerald-400' : 'text-red-400 animate-pulse'} ml-2">${remaining} M€</strong></span>
             </div>
             <div class="hoi-box p-4 rounded space-y-3 border-red-900/60">
-              ${renderBudgetSlider('sanidad', 'Sanidad Pública', 'fa-hospital', 'text-red-400', b.sanidad)}
-              ${renderBudgetSlider('educacion', 'Educación', 'fa-graduation-cap', 'text-blue-400', b.educacion)}
-              ${renderBudgetSlider('defensa', 'Fuerzas Armadas', 'fa-shield-halved', 'text-yellow-500', b.defensa)}
-              ${renderBudgetSlider('vivienda', 'Vivienda Social', 'fa-house-user', 'text-pink-400', b.vivienda)}
-              ${renderBudgetSlider('infraestructuras', 'Infraestructuras', 'fa-industry', 'text-emerald-400', b.infraestructuras)}
-              ${renderBudgetSlider('deuda', 'Fondo de Reserva Militar', 'fa-vault', 'text-purple-400', b.deuda)}
+              ${renderBudgetSlider('sanidad', (MC.labels.sanidad || 'Sanidad Pública'), 'fa-hospital', 'text-red-400', b.sanidad)}
+              ${renderBudgetSlider('educacion', (MC.labels.educacion || 'Educación'), 'fa-graduation-cap', 'text-blue-400', b.educacion)}
+              ${renderBudgetSlider('defensa', (MC.labels.defensa || 'Fuerzas Armadas'), 'fa-shield-halved', 'text-yellow-500', b.defensa)}
+              ${renderBudgetSlider('vivienda', (MC.labels.vivienda || 'Vivienda Social'), 'fa-house-user', 'text-pink-400', b.vivienda)}
+              ${renderBudgetSlider('infraestructuras', (MC.labels.infraestructuras || 'Infraestructuras'), 'fa-industry', 'text-emerald-400', b.infraestructuras)}
+              ${renderBudgetSlider('deuda', (MC.labels.deuda || 'Fondo de Reserva Militar'), 'fa-vault', 'text-purple-400', b.deuda)}
             </div>
             <button id="btn-submit-budget" onclick="submitMilitaryBudget()" ${remaining !== 0 ? 'disabled' : ''} class="${remaining === 0 ? 'bg-red-600 hover:bg-red-500 text-white font-bold cursor-pointer' : 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700'} w-full py-2.5 text-xs font-hoi-tech rounded uppercase">
               DECRETAR PRESUPUESTOS NACIONALES
@@ -3756,7 +3765,7 @@ function makeDecision(optionIdx) {
         <div class="max-w-5xl mx-auto space-y-4 my-1">
           <div class="border-b border-amber-500/40 pb-2 text-center space-y-1">
             <span class="bg-amber-500/20 text-amber-400 font-hoi-tech text-[10px] px-2.5 py-0.5 rounded border border-amber-500/30 font-bold uppercase">MÓDULO ECONÓMICO</span>
-            <h2 class="font-hoi-header text-3xl text-amber-400 tracking-wider">PRESUPUESTOS GENERALES DEL ESTADO (100.000 M€)</h2>
+            <h2 class="font-hoi-header text-3xl text-amber-400 tracking-wider">PRESUPUESTOS GENERALES DEL ESTADO (${MC.budget.toLocaleString('es-ES')} M€)</h2>${MC.hint ? `<p class="text-[10px] text-slate-400 font-sans max-w-3xl mx-auto">${MC.hint}</p>` : ''}
           </div>
 
           <div class="bg-slate-900 border border-slate-800 p-3 rounded font-hoi-tech flex flex-wrap justify-between items-center text-xs">
@@ -3768,12 +3777,12 @@ function makeDecision(optionIdx) {
 
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
             <div class="lg:col-span-7 hoi-box p-4 rounded space-y-2.5">
-              ${renderBudgetSlider('sanidad', 'Sanidad y Salud Pública', 'fa-hospital', 'text-red-400', b.sanidad)}
-              ${renderBudgetSlider('educacion', 'Educación y Universidad', 'fa-graduation-cap', 'text-blue-400', b.educacion)}
-              ${renderBudgetSlider('defensa', 'Defensa e Interior', 'fa-shield-halved', 'text-yellow-500', b.defensa)}
-              ${renderBudgetSlider('vivienda', 'Vivienda y Servicios Sociales', 'fa-house-user', 'text-pink-400', b.vivienda)}
-              ${renderBudgetSlider('infraestructuras', 'Infraestructuras e Industria', 'fa-industry', 'text-emerald-400', b.infraestructuras)}
-              ${renderBudgetSlider('deuda', 'Amortización de Deuda', 'fa-vault', 'text-purple-400', b.deuda)}
+              ${renderBudgetSlider('sanidad', (MC.labels.sanidad || 'Sanidad y Salud Pública'), 'fa-hospital', 'text-red-400', b.sanidad)}
+              ${renderBudgetSlider('educacion', (MC.labels.educacion || 'Educación y Universidad'), 'fa-graduation-cap', 'text-blue-400', b.educacion)}
+              ${renderBudgetSlider('defensa', (MC.labels.defensa || 'Defensa e Interior'), 'fa-shield-halved', 'text-yellow-500', b.defensa)}
+              ${renderBudgetSlider('vivienda', (MC.labels.vivienda || 'Vivienda y Servicios Sociales'), 'fa-house-user', 'text-pink-400', b.vivienda)}
+              ${renderBudgetSlider('infraestructuras', (MC.labels.infraestructuras || 'Infraestructuras e Industria'), 'fa-industry', 'text-emerald-400', b.infraestructuras)}
+              ${renderBudgetSlider('deuda', (MC.labels.deuda || 'Amortización de Deuda'), 'fa-vault', 'text-purple-400', b.deuda)}
             </div>
 
             <div class="lg:col-span-5 hoi-box p-4 rounded flex flex-col justify-between space-y-3">
@@ -3829,7 +3838,7 @@ function submitBudget() {
     // Consumir los votos temporales tras la votación
     gameState.temporaryOppositionVotes = 0;
 
-    executePGE({ income: estimatePGEIncome(100000), expenses: calcPGEExpenses() });
+    executePGE({ income: estimatePGEIncome(MC.budget), expenses: calcPGEExpenses() });
     gameState.lastNews = `¡Aprobados los Presupuestos Generales del Estado con ${totalVotes} votos a favor! ` + gameState.lastNews;
     if (typeof render === 'function') render();
   } else {
@@ -3851,9 +3860,9 @@ function submitBudget() {
             <span class="font-bold flex items-center gap-1.5 text-slate-200">
               <i class="fa-solid ${icon} ${colorClass}"></i> ${label}
             </span>
-            <span id="budget-val-${key}" class="font-bold ${colorClass}">${val} M€ (${Math.round((val/100000)*100)}%)</span>
+            <span id="budget-val-${key}" class="font-bold ${colorClass}">${val} M€ (${Math.round((val/MC.budget)*100)}%)</span>
           </div>
-          <input type="range" min="0" max="50000" step="1000" value="${val}" oninput="updateBudgetCategory('${key}', this.value)" class="w-full accent-amber-500 bg-slate-800 h-1 rounded cursor-pointer">
+          <input type="range" min="0" max="${MC.budget / 2}" step="${MC.step}" value="${val}" oninput="updateBudgetCategory('${key}', this.value)" class="w-full accent-amber-500 bg-slate-800 h-1 rounded cursor-pointer">
         </div>
       `;
     }
@@ -3863,9 +3872,9 @@ function submitBudget() {
       gameState.budgetAllocation[key] = parsedVal;
 
       const labelEl = document.getElementById(`budget-val-${key}`);
-      if (labelEl) labelEl.innerText = `${parsedVal} M€ (${Math.round((parsedVal / 100000) * 100)}%)`;
+      if (labelEl) labelEl.innerText = `${parsedVal} M€ (${Math.round((parsedVal / MC.budget) * 100)}%)`;
 
-      const totalBudget = 100000;
+      const totalBudget = MC.budget;
       const currentSum = Object.values(gameState.budgetAllocation).reduce((acc, v) => acc + v, 0);
       const remaining = totalBudget - currentSum;
 
@@ -3960,7 +3969,7 @@ function submitBudget() {
       gameState.metrics.mil = Math.min(100, gameState.metrics.mil + 15);
       gameState.pgeTriggered = true;
       gameState.pgeActive = false;
-      executePGE({ income: estimatePGEIncome(100000), expenses: calcPGEExpenses() });
+      executePGE({ income: estimatePGEIncome(MC.budget), expenses: calcPGEExpenses() });
       render();
     }
 
@@ -4518,14 +4527,14 @@ function calcPGEExpenses() {
 // ==========================================
 
 function submitBudget() {
-  const partyEvaluations = evaluatePartyBudget(gameState.budgetAllocation, 100000);
+  const partyEvaluations = evaluatePartyBudget(gameState.budgetAllocation, MC.budget);
   
   if (partyEvaluations.totalSeats >= SEATS_MAJ) {
     gameState.metrics.est = Math.min(100, gameState.metrics.est + 10);
     gameState.metrics.apr = Math.min(100, gameState.metrics.apr + 5);
     gameState.pgeTriggered = true;
     gameState.pgeActive = false;
-    executePGE({ income: estimatePGEIncome(100000), expenses: calcPGEExpenses() });
+    executePGE({ income: estimatePGEIncome(MC.budget), expenses: calcPGEExpenses() });
     render();
   } else {
     gameState.metrics.est = Math.max(0, gameState.metrics.est - 15);
@@ -6523,7 +6532,8 @@ function extraDailyTick() {
 //  COSTE DE MINISTERIOS, SOBRECOSTES POR CAJA ALTA Y HUD DE CAPITAL POLÍTICO
 // =====================================================================
 const MINISTRY_COST = { economia: 300, interior: 350, defensa: 550, vivienda: 300, territorio: 250, sanidad: 500, educacion: 450, trabajo: 300, justicia: 300, exteriores: 300, transicion_ecologica: 350, cultura: 200, igualdad: 250 };
-const CASH_SOFT_CAP = 90000;    // por encima de esto, la burocracia se come el excedente
+if (MC.k !== 1) Object.keys(MINISTRY_COST).forEach(k => { MINISTRY_COST[k] = Math.max(5, Math.round(MINISTRY_COST[k] * MC.k)); });
+const CASH_SOFT_CAP = MC.cashCap;    // por encima de esto, la burocracia se come el excedente
 
 function capitalHud() {
   const nav = document.querySelector('.sidebar-nav-list');
@@ -6649,7 +6659,7 @@ function hudUpdate() {
 // =====================================================================
 //  FINANZAS (DEUDA), INFORMES, LOGROS, GUARDADO Y OPORTUNIDADES
 // =====================================================================
-const DEBT_MAX = 300000, SAVE_KEY = 'moncloa_save_v1', ACH_KEY = 'moncloa_ach_v1';
+const DEBT_MAX = MC.debtMax, SAVE_KEY = 'moncloa_save_v1', ACH_KEY = 'moncloa_ach_v1';
 const fmt = n => Math.round(n).toLocaleString('es-ES');
 
 // ---------- Oportunidades (eventos positivos, usan el mismo popup y el margen de 30 días) ----------
@@ -6668,7 +6678,7 @@ SHOCK_POOL.push(
 function debtInit() { if (!gameState.debt) gameState.debt = { amount: 0 }; return gameState.debt; }
 function debtRate() {
   const m = gameState.metrics || { eco: 50 };
-  let r = 1.9 + (50 - m.eco) * 0.04;   // la prima por nivel de deuda se suma en el módulo del Banco de España (deuda total / PIB)
+  let r = MC.baseRate + (50 - m.eco) * 0.04;   // la prima por nivel de deuda se suma en el módulo del Banco de España (deuda total / PIB)
   if (gameState.intl && gameState.intl.rel.ue >= 70) r -= 0.5;
   return Math.max(0.5, +r.toFixed(2));
 }
@@ -6691,7 +6701,7 @@ function renderFinTab() {
   const btn = (fn, x, label, c) => `<button onclick="${fn}(${x})" class="hoi-button px-3 py-2 rounded text-[11px] cursor-pointer ${c}">${label}</button>`;
   return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech">
     <div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-amber-400"><i class="fa-solid fa-coins mr-2"></i>FINANZAS Y DEUDA PÚBLICA</h3>
-    <p class="text-xs text-slate-400 font-sans">Endeudarte da liquidez hoy, pero los intereses salen cada mes de la Tesorería y, por encima de 150.000 M€ de deuda nueva la deuda lastra la economía.</p></div>
+    <p class="text-xs text-slate-400 font-sans">Endeudarte da liquidez hoy, pero los intereses salen cada mes de la Tesorería y, por encima de ${fmt(Math.round(MC.debtMax / 2))} M€ de deuda nueva la deuda lastra la economía.</p></div>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
       <div class="bg-slate-950 border border-slate-800 rounded-lg p-3"><div class="text-[10px] text-slate-500">TESORERÍA</div><b class="${t < 0 ? 'text-red-400' : 'text-amber-400'} text-lg">${fmt(t)} M€</b></div>
       <div class="bg-slate-950 border border-slate-800 rounded-lg p-3"><div class="text-[10px] text-slate-500">DEUDA</div><b class="text-slate-100 text-lg">${fmt(D.amount)} M€</b></div>
@@ -6899,7 +6909,7 @@ function bdeAct(id) {
 function bdeSetGov(id) {
   const B = bdeInit(), g = BDE_GOVS.find(x => x.id === id); if (!g || (B.cd.gov || 0) > 0) return;
   B.gov = id; B.cd.gov = 365;
-  goalsToast(`<i class="fa-solid fa-user-tie text-amber-400"></i> Nuevo gobernador del Banco de España: <b>${g.name}</b>`, '#d9a726'); render();
+  goalsToast(`<i class="fa-solid fa-user-tie text-amber-400"></i> Nuevo gobernador del ${MC.builtin ? 'Banco de España' : 'Bank Al-Maghrib'}: <b>${g.name}</b>`, '#d9a726'); render();
 }
 
 function bdeFire(ev) {
@@ -6964,7 +6974,7 @@ function renderBdeTab() {
   if (goalsBtn && !document.getElementById('tab-btn-bde')) {
     const b = document.createElement('button');
     b.id = 'tab-btn-bde'; b.className = 'nav-tab-btn'; b.setAttribute('onclick', "switchTab('bde')");
-    b.innerHTML = '<i class="fa-solid fa-building-columns text-yellow-300 w-4 text-center"></i><span>Banco de España</span>';
+    b.innerHTML = '<i class="fa-solid fa-building-columns text-yellow-300 w-4 text-center"></i><span>' + (MC.builtin ? 'Banco de España' : 'Bank Al-Maghrib') + '</span>';
     goalsBtn.parentNode.insertBefore(b, goalsBtn);
   }
   const _rtc = renderTabContent;
@@ -7092,7 +7102,7 @@ const MANUAL = [
     <p>En <b>Negociación u Oposición</b> cuidas a los partidos fuera de la coalición: sus votos te salvan en la aprobación de los PGE o ante una moción.</p>` },
   { icon: 'fa-coins', title: 'Dinero y deuda', html: `
     <p>La <b>Tesorería</b> es tu caja. Todo lo que cuesta dinero sale de ahí y todo lo que ingresas entra ahí; la pestaña <b>Tesorería</b> muestra cada movimiento.</p>
-    <p>Los <b>PGE</b> reparten 100.000 M€ entre Sanidad, Educación, Defensa, Vivienda, Infraestructuras y <b>Amortización de deuda</b>. Esa última partida reduce de verdad tu deuda y sale de la caja. Solo se amortiza lo que debas y lo que tengas en caja.</p>
+    <p>Los <b>PGE</b> reparten ${MC.budget.toLocaleString('es-ES')} M€ entre Sanidad, Educación, Defensa, Vivienda, Infraestructuras y <b>Amortización de deuda</b>. Esa última partida reduce de verdad tu deuda y sale de la caja. Solo se amortiza lo que debas y lo que tengas en caja.</p>
     <p>En <b>Finanzas y Deuda</b> puedes emitir deuda para tener liquidez hoy o amortizarla. Cada mes pagas <b>intereses</b> y el coste de los ministerios. Por encima de 50.000 M€ de deuda nueva la deuda lastra la economía.</p>
     <p>Endeudarte mucho y de golpe sube la prima de riesgo; amortizar la baja.</p>` },
   { icon: 'fa-building-columns', title: 'Banco de España y moneda', html: `
@@ -8335,7 +8345,7 @@ function playSound(n) {
   'use strict';
 
   // ---------- Parámetros (ajustables) ----------
-  const REAL_DEBT = { amount: 1695000, pib: 1700000 };   // Escala de juego: la deuda real (99,7 % del PIB) se reduce a la proporción del presupuesto de 100.000 M€   // Banco de España, agosto de 2026: 100.000 M€, 99,7 % del PIB
+  const REAL_DEBT = { amount: MC.debt, pib: MC.pib };   // Escala de juego: la deuda real (99,7 % del PIB) se reduce a la proporción del presupuesto de 100.000 M€   // Banco de España, agosto de 2026: 100.000 M€, 99,7 % del PIB
   const LEGACY_SERVICE = 1.0;     // fracción del coste real de intereses que se carga a la Tesorería (escala de juego)
   const LEGACY_DRAG = 0.004;       // puntos de Economía al día por cada 100 % de deuda/PIB
   const EXIT_DAYS = 180, EXIT_FAST_DAYS = 60;
@@ -8356,7 +8366,7 @@ function playSound(n) {
     if (!gameState.ue) gameState.ue = { stage: 'none', ccy: 'euro', fx: 100, debtCcy: 'EUR', startDay: 0, exitDay: 0, outDay: 0, cool: 0, heritage: false, trade: 0, fxCd: 0, f: {}, confirm: false };
     return gameState.ue;
   }
-  const member = () => !applies() || U().stage !== 'out';
+  const member = () => !MC.builtin || !applies() || U().stage !== 'out';
   function D() {
     const d = debtInit();
     if (d.legacy == null && bdeSid()) { d.legacy = applies() ? REAL_DEBT.amount : 0; d.pib = REAL_DEBT.pib; }
@@ -8455,10 +8465,10 @@ function playSound(n) {
   // ---------- Eventos adicionales por nivel de deuda ----------
   SHOCK_POOL.push(
     { cat: 'MERCADOS', min: 'economia', title: 'LAS AGENCIAS ADVIERTEN: LA DEUDA SUPERA EL 105 % DEL PIB', desc: 'Las agencias de calificación avisan de que el endeudamiento total —heredado más el nuevo— compromete la nota de España.',
-      when: s => applies() && ratio() >= 105,
+      when: s => applies() && MC.builtin && ratio() >= 105,
       options: [ { text: 'Anunciar un plan creíble de reducción de deuda', cost: 0, stats: { eco: 2, apr: -3 }, news: 'Moncloa presenta un plan para reducir la deuda por debajo del 100 % del PIB.' }, { text: 'Confiar en que el crecimiento lo resolverá solo', cost: 0, stats: { eco: -4, apr: -1 }, news: 'Las agencias castigan la falta de plan con una rebaja de perspectiva.' } ] },
     { cat: 'UNIÓN EUROPEA', min: 'economia', title: 'BRUSELAS ABRE UN PROCEDIMIENTO POR DEUDA Y DÉFICIT EXCESIVOS', desc: 'La Comisión Europea considera que la trayectoria de la deuda incumple las reglas fiscales y exige un plan de ajuste.',
-      when: s => applies() && member() && ratio() >= 102 && ((s.metrics || {}).eco || 50) < 45,
+      when: s => applies() && MC.builtin && member() && ratio() >= 102 && ((s.metrics || {}).eco || 50) < 45,
       options: [ { text: 'Aceptar el plan de ajuste de Bruselas', cost: 0, stats: { eco: 3, apr: -5, est: -2 }, news: 'El Gobierno acepta el plan de ajuste exigido por la Comisión Europea.' }, { text: 'Plantar cara a la Comisión y desafiar las reglas fiscales', cost: 0, stats: { apr: 4, eco: -3 }, news: 'Moncloa desafía las reglas fiscales europeas y se arriesga a sanciones.' } ] }
   );
 
@@ -8490,7 +8500,7 @@ function playSound(n) {
   const exempt = ev => ev.euOwn || /^(BDE_|UE_|PES_)/.test(String(ev.id || ''));
   function guardPopups() {
     const b = document.getElementById('tab-btn-ue');
-    if (b) b.style.display = applies() ? '' : 'none';
+    if (b) b.style.display = (applies() && MC.builtin) ? '' : 'none';
     if (!applies() || member()) return;
     const ev = gameState.activeDynamicEvent, nw = gameState.activeNewsPopup;
     if ((ev && !exempt(ev) && related(ev)) || (nw && related(nw))) {
@@ -8848,7 +8858,7 @@ function playSound(n) {
   }
   (function () {
     const goalsBtn = document.getElementById('tab-btn-goals');
-    if (goalsBtn && !document.getElementById('tab-btn-ue')) {
+    if (goalsBtn && MC.builtin && !document.getElementById('tab-btn-ue')) {
       const b = document.createElement('button');
       b.id = 'tab-btn-ue'; b.className = 'nav-tab-btn'; b.setAttribute('onclick', "switchTab('ue')");
       b.innerHTML = '<i class="fa-solid fa-earth-europe text-sky-300 w-4 text-center"></i><span>Unión Europea</span>';
@@ -9250,7 +9260,7 @@ function playSound(n) {
   window.freeMoney = function (x) { registerFinancialTransaction('Ajuste de Tesorería (modo libre)', x, 'economia'); render(); };
   window.freeDebt = function (mode) {
     const d = debtInit(); if (d.legacy == null) d.legacy = 0;
-    if (mode === 'real') d.legacy = 1695000; else if (mode === 'zero') { d.legacy = 0; d.amount = 0; } else d.legacy = Math.max(0, d.legacy + mode);
+    if (mode === 'real') d.legacy = MC.debt; else if (mode === 'zero') { d.legacy = 0; d.amount = 0; } else d.legacy = Math.max(0, d.legacy + mode);
     render();
   };
   window.freeToggle = function (what, val) {
@@ -9289,7 +9299,7 @@ function playSound(n) {
       '<div><h4 class="text-xs text-slate-300 mb-2">MÉTRICAS DEL PAÍS</h4><div class="grid md:grid-cols-3 gap-2">' + sl + '</div></div>' +
       '<div class="flex flex-wrap gap-2">' + tg(!!f.lock, "freeToggle('lock')", 'Congelar métricas') + tg(f.floor, "freeToggle('floor')", 'Tesorería ilimitada') + '</div>' +
       '<div><h4 class="text-xs text-slate-300 mb-2">TESORERÍA: ' + fmt(Number(gameState.treasury) || 0) + ' M€</h4><div class="flex flex-wrap gap-2">' + b('freeMoney(10000)', '+10.000') + b('freeMoney(50000)', '+50.000') + b('freeMoney(-10000)', '−10.000', 'text-red-300') + '</div></div>' +
-      '<div><h4 class="text-xs text-slate-300 mb-2">DEUDA HEREDADA: ' + fmt((d.legacy || 0) / 1000) + ' mil M€</h4><div class="flex flex-wrap gap-2">' + b("freeDebt('real')", 'Real (1.695.000 M€)') + b("freeDebt('zero')", 'Sin deuda') + b('freeDebt(250000)', '+250.000') + b('freeDebt(-250000)', '−250.000') + '</div></div>' +
+      '<div><h4 class="text-xs text-slate-300 mb-2">DEUDA HEREDADA: ' + fmt((d.legacy || 0) / 1000) + ' mil M€</h4><div class="flex flex-wrap gap-2">' + b("freeDebt('real')", 'Real (' + fmt(MC.debt) + ' M€)') + b("freeDebt('zero')", 'Sin deuda') + b('freeDebt(250000)', '+250.000') + b('freeDebt(-250000)', '−250.000') + '</div></div>' +
       '<div><h4 class="text-xs text-slate-300 mb-2">CRISIS Y EVENTOS ALEATORIOS</h4><div class="flex flex-wrap gap-2">' + tg(f.events === 'none', "freeToggle('events','none')", 'Ninguno') + tg(f.events === 'low', "freeToggle('events','low')", 'Pocos') + tg(f.events === 'normal', "freeToggle('events','normal')", 'Normales') + '</div></div>' +
       '<div class="border-t border-slate-800 pt-3">' + b('freeElections()', '<i class="fa-solid fa-check-to-slot mr-1"></i>Convocar elecciones ahora', 'text-amber-300') + '<span class="text-[11px] text-slate-500 font-sans ml-2">Legislatura ' + gameState.campaign.current + ' · día ' + (gameState.daysInOffice || 0) + '</span></div>' +
       '<div class="pt-2 flex flex-wrap gap-2 items-center">' + b('freeChange()', '<i class="fa-solid fa-people-arrows mr-1"></i>' + (f.confirmChange ? 'Confirmar: nueva investidura (se reinician las métricas)' : 'Cambiar de partido (nueva investidura)'), f.confirmChange ? 'text-red-300' : 'text-amber-300') + (f.confirmChange ? b("FR_CANCEL()", 'Cancelar') : '') + '</div></div>';
@@ -9700,12 +9710,24 @@ function playSound(n) {
     [862,'Venezuela',30,'—',.5,30,0,7,-66],[170,'Colombia',28,'—',.5,55,0,4,-73],[76,'Brasil',48,'BRICS',.45,60,0,-10,-52],
     [32,'Argentina',28,'—',.45,60,0,-35,-65],[566,'Nigeria',28,'—',.5,50,0,9,8],[710,'Sudáfrica',32,'BRICS',.35,55,0,-29,24]
   ].concat(EXTRA).map(a => ({ id: a[0], n: a[1], s: a[2], b: a[3], p: a[4], r0: a[5], nuke: !!a[6], lat: a[7], lon: a[8] }));
+  // País propio (España por defecto; otros países lo definen en COUNTRY_ECON.war)
+  const OWN = (function () {
+    const w = (window.MC && !MC.builtin && MC.war) || null;
+    return w ? { id: w.id, n: w.name, lat: w.lat, lon: w.lon, allied: new RegExp(w.allied), own: w.own, rel: w.rel || {} }
+             : { id: 724, n: 'España', lat: 40, lon: -4, allied: /UE|OTAN/, own: null, rel: {} };
+  })();
+  if (OWN.id !== 724) {
+    const w = MC.war;
+    (w.drop || []).concat([OWN.id]).forEach(id => { const i = C.findIndex(c => c.id === id); if (i >= 0) C.splice(i, 1); });
+    (w.add || []).forEach(a => { if (!C.some(c => c.id === a[0])) C.push({ id: a[0], n: a[1], s: a[2], b: a[3], p: a[4], r0: a[5], nuke: !!a[6], lat: a[7], lon: a[8] }); });
+    C.forEach(c => { if (OWN.rel[c.id] != null) c.r0 = OWN.rel[c.id]; });
+  }
   const BY = {}; C.forEach(c => BY[c.id] = c);
   window.WAR_C = C;
-  const ALLIED = c => /UE|OTAN/.test(c.b);
+  const ALLIED = c => OWN.allied.test(c.b);
   const X = lon => (lon + 180) * 2.7778, Y = lat => (84 - lat) * 2.7778;
   const TECH = [['dron', 'Drones de combate', 'fa-plane-up'], ['cyber', 'Ciberguerra', 'fa-microchip'], ['logis', 'Logística avanzada', 'fa-truck-fast']];
-  const I = () => { const W = gameState.wr || (gameState.wr = {}); const d = { t: 38, m: 44, a: 46, mun: 40, gen: null, genPow: 1, genSup: 0, genCd: 0, ind: { blind: { lvl: 1, ord: null, up: null }, nav: { lvl: 2, ord: null, up: null }, air: { lvl: 2, ord: null, up: null }, mun: { lvl: 1, ord: null, up: null } }, rel: {}, war: null, hist: [], sel: null, last: 0, speed: 1, pane: 'op', view: 'w', log: [], tech: { dron: 0, cyber: 0, logis: 1 }, terr: [], sanc: 0 }; Object.keys(d).forEach(k => { if (W[k] == null) W[k] = d[k]; }); return W; };
+  const I = () => { const W = gameState.wr || (gameState.wr = {}); const d = { t: (OWN.own ? OWN.own.t : 38), m: (OWN.own ? OWN.own.m : 44), a: (OWN.own ? OWN.own.a : 46), mun: 40, gen: null, genPow: 1, genSup: 0, genCd: 0, ind: { blind: { lvl: 1, ord: null, up: null }, nav: { lvl: 2, ord: null, up: null }, air: { lvl: 2, ord: null, up: null }, mun: { lvl: 1, ord: null, up: null } }, rel: {}, war: null, hist: [], sel: null, last: 0, speed: 1, pane: 'op', view: 'w', log: [], tech: { dron: 0, cyber: 0, logis: 1 }, terr: [], sanc: 0 }; Object.keys(d).forEach(k => { if (W[k] == null) W[k] = d[k]; }); return W; };
   const rel = c => { const W = I(); if (W.rel[c.id] == null) W.rel[c.id] = c.r0; return W.rel[c.id]; };
   const cap = () => { goalsInit(); return gameState.goals; };
   const moral = () => 0.7 + ((gameState.metrics || { mil: 50 }).mil) / 200;
@@ -9734,16 +9756,16 @@ function playSound(n) {
   const log = t => { const W = I(); W.log.unshift(dstr() + ' · ' + t); W.log = W.log.slice(0, 12); };
   function col(id) {
     const W = I(), c = BY[id];
-    if (id === 724) return '#15803d';
+    if (id === OWN.id || (OWN.id === 504 && id === 732)) return '#15803d';
     if (!c) return '#1e293b';
     if (W.war && W.war.id === id) return '#ef4444';
     if (W.terr.some(t => t.id === id)) return '#a16207';
     const r = rel(c); return r >= 70 ? '#1d4ed8' : r <= 30 ? '#991b1b' : '#475569';
   }
   function mapSvg() {
-    const W = I(), w = W.war; load(); const zoom = W.view !== 'w', sp = [X(-4), Y(40)];
+    const W = I(), w = W.war; load(); const zoom = W.view !== 'w', sp = [X(OWN.lon), Y(OWN.lat)];
     let base;
-    if (WORLD) base = WORLD.map(p => `<path d="${p.d}" fill="${col(p.id)}" stroke="${W.sel === p.id ? '#fbbf24' : '#0f172a'}" stroke-width="${W.sel === p.id ? 1.4 : .4}" ${BY[p.id] ? `onclick="warSel(${p.id})" style="cursor:pointer"` : ''}><title>${p.id === 724 ? 'España' : BY[p.id] ? BY[p.id].n : ''}</title></path>`).join('');
+    if (WORLD) base = WORLD.map(p => `<path d="${p.d}" fill="${col(p.id)}" stroke="${W.sel === p.id ? '#fbbf24' : '#0f172a'}" stroke-width="${W.sel === p.id ? 1.4 : .4}" ${BY[p.id] ? `onclick="warSel(${p.id})" style="cursor:pointer"` : ''}><title>${p.id === OWN.id ? OWN.n : BY[p.id] ? BY[p.id].n : ''}</title></path>`).join('');
     else base = `<text x="500" y="14" fill="#64748b" font-size="10" text-anchor="middle">${LOADING ? 'Cargando mapa mundial…' : 'Mapa simplificado (sin conexión)'}</text>` + C.map(c => `<circle cx="${X(c.lon)}" cy="${Y(c.lat)}" r="${4 + c.s / 14}" fill="${col(c.id)}" stroke="${W.sel === c.id ? '#fbbf24' : '#0f172a'}" stroke-width="1.5" onclick="warSel(${c.id})" style="cursor:pointer"><title>${c.n}</title></circle>`).join('');
     const lab = C.filter(c => zoom || c.id === W.sel || (w && w.id === c.id)).map(c => `<text x="${X(c.lon)}" y="${Y(c.lat) + 2}" font-size="${zoom ? 5.5 : 8}" fill="#e2e8f0" text-anchor="middle" style="pointer-events:none;paint-order:stroke;stroke:#020617;stroke-width:1.2px">${c.n}</text>`).join('');
     let over = `<circle cx="${sp[0]}" cy="${sp[1]}" r="3.5" fill="#22c55e" stroke="#fff" stroke-width="1"/>`;
@@ -9786,12 +9808,12 @@ function playSound(n) {
       if (cap().capital < 25) { close(); return goalsToast('Capital político insuficiente (25).', '#ef4444'); }
       if ((gameState.metrics.mil || 0) < 25) { close(); return goalsToast('El Ejército se niega a combatir (Lealtad < 25).', '#ef4444'); }
       cap().capital -= 25; focusMetricAdd('apr', { terr: 3, human: 6, prev: 2 }[goal]); if (goal === 'prev') focusMetricAdd('eco', -2);
-      if (c.b === 'BRICS') { W.sanc = day + 120; log('Sanciones del bloque BRICS contra España.'); }
+      if (c.b === 'BRICS') { W.sanc = day + 120; log('Sanciones del bloque BRICS contra ' + OWN.n + '.'); }
       try { ['SUMAR', 'PODEMOS'].forEach(p => updatePartnerLoyalty(p, -8)); updatePartnerLoyalty('VOX', 3); } catch (e) {}
     }
     W.war = { id, start: day, prog: def ? 10 : 0, goal, k: goal === 'human' ? 1.3 : goal === 'prev' ? 0.8 : 1, nuke: c.nuke, nextEv: day + 12, sup: 80, baj: 0, cd: {}, buff: 0, deb: 0 };
-    log((def ? 'España es atacada por ' : 'España declara la guerra a ') + c.n + '.'); W.sel = id; W.pane = 'op'; fxPlay('guerra');
-    goalsToast('<i class="fa-solid fa-person-rifle text-red-400"></i> <b>' + (def ? 'España es atacada por ' : 'Guerra contra ') + c.n + '</b>', '#ef4444');
+    log((def ? OWN.n + ' es atacada por ' : OWN.n + ' declara la guerra a ') + c.n + '.'); W.sel = id; W.pane = 'op'; fxPlay('guerra');
+    goalsToast('<i class="fa-solid fa-person-rifle text-red-400"></i> <b>' + (def ? OWN.n + ' es atacada por ' : 'Guerra contra ') + c.n + '</b>', '#ef4444');
     if (document.getElementById('xm-modal')) close(); else render();
   };
   const OPS = [
@@ -9869,7 +9891,7 @@ function playSound(n) {
       const hs = C.filter(c => c.p >= .7 && !ALLIED(c) && rel(c) < 35);
       if (hs.length && Math.random() < 0.35) {
         const c = hs[Math.floor(Math.random() * hs.length)]; W.speed = gameState.gameSpeed || 1; fxPlay('crisis');
-        modal(`<span class="bg-red-600 text-black text-[10px] px-2 py-0.5 rounded font-bold animate-pulse">ULTIMÁTUM</span><h3 class="font-hoi-header text-2xl text-red-400">${c.n} amenaza a España</h3><p class="text-xs text-slate-300 font-sans">Las tensiones diplomáticas han escalado: ${c.n} exige concesiones y moviliza sus tropas en la frontera.</p>${btn(`warUlt(${c.id},0)`, 'Movilizar y resistir', 'Empieza una guerra defensiva')}${btn(`warUlt(${c.id},1)`, 'Negociar y ceder', 'Sin guerra, pero cuesta imagen')}${btn(`warUlt(${c.id},2)`, 'Pedir mediación internacional', 'Cuesta 5 de capital político; puede fallar')}`);
+        modal(`<span class="bg-red-600 text-black text-[10px] px-2 py-0.5 rounded font-bold animate-pulse">ULTIMÁTUM</span><h3 class="font-hoi-header text-2xl text-red-400">${c.n} amenaza a ${OWN.n}</h3><p class="text-xs text-slate-300 font-sans">Las tensiones diplomáticas han escalado: ${c.n} exige concesiones y moviliza sus tropas en la frontera.</p>${btn(`warUlt(${c.id},0)`, 'Movilizar y resistir', 'Empieza una guerra defensiva')}${btn(`warUlt(${c.id},1)`, 'Negociar y ceder', 'Sin guerra, pero cuesta imagen')}${btn(`warUlt(${c.id},2)`, 'Pedir mediación internacional', 'Cuesta 5 de capital político; puede fallar')}`);
       }
     }
     if (gameState.activeTab === 'war' && day % 3 === 0) render();
@@ -9959,17 +9981,17 @@ function playSound(n) {
         <button onclick="warPeace()" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer">Negociar la paz</button></div>`;
       const views = Object.keys(VIEWS).map(k => `<button onclick="warView('${k}')" class="px-2 py-1 rounded text-[10px] cursor-pointer ${W.view === k ? 'hoi-button-gold' : 'bg-slate-900 border border-slate-700 text-slate-300'}">${VNAME[k]}</button>`).join('');
       body = `<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2 space-y-2"><div class="flex flex-wrap gap-1.5">${views}</div>${mapSvg()}
-        <div class="text-[10px] text-slate-500 font-sans">Verde: España · azul: aliados · rojo oscuro: hostiles · rojo vivo: enemigo · ocre: territorio anexionado.</div>
+        <div class="text-[10px] text-slate-500 font-sans">Verde: ${OWN.n} · azul: aliados · rojo oscuro: hostiles · rojo vivo: enemigo · ocre: territorio anexionado.</div>
         <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1"><b class="text-sm text-slate-100"><i class="fa-solid fa-radio mr-1.5 text-amber-400"></i>Parte de guerra</b>${W.log.length ? W.log.slice(0, 6).map(x => `<div class="text-[11px] text-slate-300">${x}</div>`).join('') : '<div class="text-[11px] text-slate-500">Sin novedades.</div>'}</div></div>
         <div class="space-y-3"><div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1">${info}</div>${wp}</div></div>`;
     } else if (W.pane === 'army') {
       const forces = [['t', 'Ejército de Tierra', 'fa-person-rifle'], ['m', 'Armada', 'fa-ship'], ['a', 'Ejército del Aire', 'fa-jet-fighter']].map(([k, n, ic]) => `<div class="space-y-1"><div class="flex justify-between text-xs"><span class="text-slate-200"><i class="fa-solid ${ic} text-amber-400 mr-1.5"></i>${n}</span><b>${W[k]}</b></div>${bar(W[k], 'bg-amber-500')}<button onclick="warBuild('${k}')" class="hoi-button-gold px-2 py-1 rounded text-[10px] cursor-pointer">+5 · 1.000 M€</button></div>`).join('');
       const tech = TECH.map(([k, n, ic]) => `<div class="space-y-1"><div class="flex justify-between text-xs"><span class="text-slate-200"><i class="fa-solid ${ic} text-sky-400 mr-1.5"></i>${n}</span><b>Nv. ${W.tech[k]}/3</b></div>${bar(W.tech[k] / 3 * 100, 'bg-sky-500')}<button onclick="warTech('${k}')" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer">${W.tech[k] >= 3 ? 'Máximo' : 'Investigar · 2.500 M€'}</button></div>`).join('');
-      const rank = C.map(x => ({ n: x.n, s: x.s })).concat([{ n: 'ESPAÑA', s: own, me: 1 }]).sort((a, b) => b.s - a.s);
+      const rank = C.map(x => ({ n: x.n, s: x.s })).concat([{ n: OWN.n.toUpperCase(), s: own, me: 1 }]).sort((a, b) => b.s - a.s);
       const pos = rank.findIndex(x => x.me) + 1;
       body = `<div class="grid grid-cols-1 md:grid-cols-3 gap-4"><div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-3"><b class="text-sm text-slate-100">Fuerzas armadas</b>${forces}</div>
         <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-3"><b class="text-sm text-slate-100">Tecnología</b>${tech}<p class="text-[10px] text-slate-500 font-sans">Drones: +4 % de poder por nivel · Ciberguerra: desbloquea el ciberataque y resta 3 % al enemigo · Logística: reduce el consumo de suministros.</p></div>
-        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1"><b class="text-sm text-slate-100">Ranking mundial · España nº ${pos}</b>${rank.slice(0, 10).map((x, i) => `<div class="flex justify-between text-[11px] ${x.me ? 'text-emerald-400 font-bold' : 'text-slate-300'}"><span>${i + 1}. ${x.n}</span><span>${x.s}</span></div>`).join('')}</div></div>`;
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1"><b class="text-sm text-slate-100">Ranking mundial · ${OWN.n} nº ${pos}</b>${rank.slice(0, 10).map((x, i) => `<div class="flex justify-between text-[11px] ${x.me ? 'text-emerald-400 font-bold' : 'text-slate-300'}"><span>${i + 1}. ${x.n}</span><span>${x.s}</span></div>`).join('')}</div></div>`;
     } else if (W.pane === 'ind') {
       const cards = Object.keys(IND).map(k => {
         const D = IND[k], o = W.ind[k], stock = D.br === 'mun' ? 'Reservas ' + Math.round(W.mun) + '/100' : BRN[D.br] + ' ' + Math.round(W[D.br]) + '/100';
@@ -10164,14 +10186,14 @@ function playSound(n) {
   }
 
   // Escala del juego: PIB anual ≈ 100.300 M€ (deuda heredada ≈ 100 % PIB). Ratios reales de España.
-  const PIB = 100300;
+  const PIB = MC.macroPib;
   function macroCalc() {
     const m = gameState.metrics, D = (typeof debtInit === 'function') ? debtInit() : { amount: 0 };
     const Y = PIB / 12 * (0.82 + 0.36 * m.eco / 100);                               // PIB mensual según ciclo
-    const revenue = Y * 0.42 * (0.9 + 0.2 * m.emp / 100) * (m.est < 40 ? 0.96 : 1); // presión fiscal ≈ 42 % PIB
+    const revenue = Y * MC.revPct * (0.9 + 0.2 * m.emp / 100) * (m.est < 40 ? 0.96 : 1); // presión fiscal ≈ 42 % PIB
     const yrs = (gameState.daysInOffice || 0) / 365;
-    const pensions = Y * 0.12 * (1 + 0.02 * yrs);                                    // pensiones ≈ 12 % PIB, indexadas
-    const other = Y * 0.225;                                                          // sueldos públicos y transferencias
+    const pensions = Y * MC.pensPct * (1 + 0.02 * yrs);                                    // pensiones ≈ 12 % PIB, indexadas
+    const other = Y * MC.otherPct;                                                          // sueldos públicos y transferencias
     const paro = Y * 0.0125 * Math.max(0, 60 - m.emp) / 10;                          // prestación por desempleo (estabilizador)
     const debt = (D.legacy || 0) + (D.amount || 0);
     const rate = typeof debtRate === 'function' ? debtRate() : 2;
@@ -10612,7 +10634,7 @@ function playSound(n) {
   const E = () => (gameState.econ || (gameState.econ = { ord: 0, gdpG: 3.5, last: 0 }));
   const legacyD = () => Number((debtInit().legacy)) || 0;
   const totalD = () => legacyD() + (Number(debtInit().amount) || 0);
-  const pibOf = () => { const D = debtInit(); if (!D.pib) D.pib = 1700000; return D.pib; };
+  const pibOf = () => { const D = debtInit(); if (!D.pib) D.pib = MC.pib; return D.pib; };
   const ratioD = () => totalD() / pibOf() * 100;
   const FLOOR = 30000, TARGET = 50000, MARKET_CLOSE = 160;
   function fiscalMonth() {
