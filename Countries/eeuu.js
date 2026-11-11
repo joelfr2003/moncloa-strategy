@@ -1,6 +1,6 @@
 // =====================================================================
 //  ESTADOS UNIDOS — MONCLOA STRATEGY  (Countries/eeuu.js)
-//  Escala: k = 15 respecto a España (PIB ≈ 27.000.000 M€). Dinero en M€.
+//  Escala: k = 15 respecto a España (PIB ≈ 27.000.000 M$). Dinero en M$.
 //  Cámara de Representantes: 435 escaños, mayoría 218. Escenario ficticio 2026.
 //  Después de copiarlo: node Countries/generate-index.js  ·  subir VERSION de sw.js  ·  Ctrl+F5
 // =====================================================================
@@ -10,12 +10,15 @@ const CHAMBER = { seats: 435, majority: 218 };
 const SCENARIOS = {
   ACTUAL: {
     id: 'ACTUAL', title: 'ESTADOS UNIDOS (2026)', treasury: 1188000, startYear: 2026,
-    desc: 'Cámara de Representantes de 435 escaños (mayoría: 218), partida entre un ala republicana populista, los republicanos tradicionales y dos familias demócratas. Aranceles, inmigración, deuda récord, inteligencia artificial y la rivalidad con China marcan la agenda de la Casa Blanca.',
+    desc: 'Cámara de Representantes de 435 escaños (mayoría: 218), partida entre un ala republicana populista (Trump–Vance), los republicanos tradicionales, dos familias demócratas (Harris–Walz y los progresistas) y pequeños partidos como los Verdes de Jill Stein, los Libertarios de Chase Oliver e independientes como Robert F. Kennedy Jr. Aranceles, inmigración, deuda récord, inteligencia artificial y la rivalidad con China marcan la agenda de la Casa Blanca.',
     parties: [
-      { id: 'DEMP', name: 'Demócratas Progresistas', leader: 'Caucus Progresista', seats: 100, baseSeats: 100, minSeats: 0, maxSeats: 190, basePct: 23.0, color: '#7c3aed', isRegional: false, ideology: 'Izquierda', spectrumOrder: 1, redLines: ['MAGA'] },
-      { id: 'DEMM', name: 'Demócratas Moderados', leader: 'Hakeem Jeffries', seats: 115, baseSeats: 115, minSeats: 0, maxSeats: 210, basePct: 26.4, color: '#2563eb', isRegional: false, ideology: 'Centroizquierda', spectrumOrder: 3, redLines: ['MAGA'] },
-      { id: 'GOPT', name: 'Republicanos Tradicionales', leader: 'Mike Johnson', seats: 70, baseSeats: 70, minSeats: 0, maxSeats: 160, basePct: 16.1, color: '#dc2626', isRegional: false, ideology: 'Centroderecha', spectrumOrder: 5, redLines: ['DEMP'] },
-      { id: 'MAGA', name: 'Republicanos MAGA', leader: 'Freedom Caucus y aliados', seats: 150, baseSeats: 150, minSeats: 0, maxSeats: 230, basePct: 34.5, color: '#b91c1c', isRegional: false, ideology: 'Derecha populista', spectrumOrder: 7, redLines: ['DEMP', 'DEMM'] }
+      { id: 'VER',  name: 'Partido Verde',               leader: 'Jill Stein',                  seats: 1,   baseSeats: 1,   minSeats: 0, maxSeats: 40,  basePct: 1.0,  color: '#16a34a', isRegional: false, ideology: 'Ecologismo de izquierda', spectrumOrder: 1, redLines: ['MAGA'] },
+      { id: 'DEMP', name: 'Demócratas Progresistas',     leader: 'Bernie Sanders',              seats: 98,  baseSeats: 98,  minSeats: 0, maxSeats: 190, basePct: 22.0, color: '#7c3aed', isRegional: false, ideology: 'Izquierda',               spectrumOrder: 2, redLines: ['MAGA'] },
+      { id: 'DEMM', name: 'Partido Demócrata',           leader: 'Kamala Harris · Tim Walz',    seats: 115, baseSeats: 115, minSeats: 0, maxSeats: 210, basePct: 26.0, color: '#2563eb', isRegional: false, ideology: 'Centroizquierda',         spectrumOrder: 3, redLines: ['MAGA'] },
+      { id: 'IND',  name: 'Independientes',              leader: 'Robert F. Kennedy Jr.',       seats: 1,   baseSeats: 1,   minSeats: 0, maxSeats: 40,  basePct: 1.5,  color: '#64748b', isRegional: false, ideology: 'Populismo transversal',   spectrumOrder: 4, redLines: [] },
+      { id: 'GOPT', name: 'Republicanos Tradicionales',  leader: 'Nikki Haley',                 seats: 69,  baseSeats: 69,  minSeats: 0, maxSeats: 160, basePct: 15.5, color: '#dc2626', isRegional: false, ideology: 'Centroderecha',           spectrumOrder: 5, redLines: ['DEMP'] },
+      { id: 'LIB',  name: 'Partido Libertario',          leader: 'Chase Oliver',                seats: 1,   baseSeats: 1,   minSeats: 0, maxSeats: 40,  basePct: 1.0,  color: '#eab308', isRegional: false, ideology: 'Libertarismo',            spectrumOrder: 6, redLines: [] },
+      { id: 'MAGA', name: 'Republicanos MAGA',           leader: 'Donald Trump · JD Vance',     seats: 150, baseSeats: 150, minSeats: 0, maxSeats: 230, basePct: 33.0, color: '#b91c1c', isRegional: false, ideology: 'Derecha populista',       spectrumOrder: 7, redLines: ['DEMP', 'DEMM', 'VER'] }
     ]
   }
 };
@@ -168,7 +171,7 @@ const GOAL_POOL = [
   { id: 'emp', icon: 'fa-briefcase', title: 'Pleno Empleo', desc: 'Mantén el Empleo ≥ 70%', check: s => s.metrics.emp >= 70 },
   { id: 'mil', icon: 'fa-jet-fighter', title: 'Superpotencia Militar', desc: 'Mantén el poder Militar ≥ 75%', check: s => s.metrics.mil >= 75 },
   { id: 'con', icon: 'fa-scale-balanced', title: 'Consenso Político', desc: 'Mantén el Consenso ≥ 55%', check: s => s.metrics.con >= 55 },
-  { id: 'cash', icon: 'fa-vault', title: 'Tesoro Saneado', desc: 'Ten al menos 1.200.000 M€ en Tesorería', check: s => (Number(s.treasury) || 0) >= 1200000 },
+  { id: 'cash', icon: 'fa-vault', title: 'Tesoro Saneado', desc: 'Ten al menos 1.200.000 M$ en Tesorería', check: s => (Number(s.treasury) || 0) >= 1200000 },
   { id: 'tri', icon: 'fa-star', title: 'Éxito Total', desc: 'Economía, Estabilidad y Aprobación ≥ 60%', check: s => s.metrics.eco >= 60 && s.metrics.est >= 60 && s.metrics.apr >= 60 }
 ];
 const GOAL_ACTIONS = [
@@ -185,23 +188,23 @@ const GOAL_ACTIONS = [
   { id: 'sos', icon: 'fa-triangle-exclamation', title: 'Visita a una zona de catástrofe', cap: 8, cost: 1500, cd: 45, fx: { apr: 4, est: 2 }, news: 'El presidente visita la zona afectada y promete ayuda federal.' },
   { id: 'chi', icon: 'fa-handshake', title: 'Cumbre con el presidente chino', cap: 22, cost: 0, cd: 120, fx: { eco: 6, mil: -1 }, news: 'Washington y Pekín acuerdan una tregua comercial tras la cumbre.' }
 ];
-const FOCUS_TREE = [
+const FOCUS_TREE = [   // ramas del motor: eco (Economía), soc (Sociedad), seg (Seguridad), dip (Diplomacia)
   { id: 'e1', b: 'eco', title: 'Reforma fiscal federal', days: 365, now: { eco: 4 }, spirit: { name: 'Hacienda Eficiente', daily: {}, money: 1800 } },
   { id: 'e2', b: 'eco', title: 'Reindustrialización y semiconductores', days: 420, req: 'e1', now: { emp: 3 }, spirit: { name: 'Fábricas en EE. UU.', daily: { eco: .05, emp: .04 }, money: 0 } },
   { id: 'e3', b: 'eco', title: 'Liderazgo en inteligencia artificial', days: 400, req: 'e2', now: { eco: 3 }, spirit: { name: 'Potencia Tecnológica', daily: { eco: .06 }, money: 2400 } },
-  { id: 's1', b: 'est', title: 'Modernizar la ciberseguridad', days: 300, now: { est: 3 }, spirit: { name: 'Escudo Cibernético', daily: { est: .04 }, money: 0 } },
-  { id: 's2', b: 'est', title: 'Reforma de las agencias de seguridad', days: 360, req: 's1', now: { est: 3, con: 1 }, spirit: { name: 'Seguridad Coordinada', daily: { est: .05 }, money: -600 } },
-  { id: 'm1', b: 'emp', title: 'Programa nacional de aprendices', days: 300, now: { emp: 3 }, spirit: { name: 'Cantera de Oficios', daily: { emp: .04 }, money: 0 } },
-  { id: 'm2', b: 'emp', title: 'Pacto con los sindicatos', days: 380, req: 'm1', now: { emp: 2, est: 2 }, spirit: { name: 'Paz Laboral', daily: { emp: .03, est: .03 }, money: 0 } },
-  { id: 'c1', b: 'con', title: 'Bipartidismo en el Congreso', days: 330, now: { con: 4 }, spirit: { name: 'Cooperación Legislativa', daily: { con: .04 }, money: 0 } },
-  { id: 'c2', b: 'con', title: 'Reforma del proceso electoral', days: 400, req: 'c1', now: { con: 3, apr: 1 }, spirit: { name: 'Confianza en las Urnas', daily: { con: .05, est: .02 }, money: 0 } },
-  { id: 'a1', b: 'apr', title: 'Agenda para la clase media', days: 320, now: { apr: 4 }, spirit: { name: 'Clase Media Fuerte', daily: { apr: .04 }, money: -900 } },
-  { id: 'a2', b: 'apr', title: 'Plan de vivienda asequible', days: 380, req: 'a1', now: { apr: 3, emp: 1 }, spirit: { name: 'Hogar para Todos', daily: { apr: .04, est: .02 }, money: -1200 } },
-  { id: 'a3', b: 'apr', title: 'Sanidad más barata', days: 420, req: 'a2', now: { apr: 3 }, spirit: { name: 'Salud Accesible', daily: { apr: .05 }, money: -1500 } },
-  { id: 'k1', b: 'mil', title: 'Modernización de las Fuerzas Armadas', days: 400, now: { mil: 4 }, spirit: { name: 'Ejército del Siglo XXI', daily: { mil: .05 }, money: -1800 } },
-  { id: 'k2', b: 'mil', title: 'Escudo antimisiles y fuerza espacial', days: 450, req: 'k1', now: { mil: 3, est: 1 }, spirit: { name: 'Dominio Espacial', daily: { mil: .05, est: .02 }, money: -2400 } },
-  { id: 'k3', b: 'mil', title: 'Alianzas del Indo-Pacífico', days: 360, req: 'k1', now: { mil: 2, eco: 1 }, spirit: { name: 'Arco de Aliados', daily: { mil: .04, eco: .02 }, money: 0 } },
-  { id: 'k4', b: 'est', title: 'Resiliencia frente a catástrofes', days: 340, req: 's1', now: { est: 3, apr: 1 }, spirit: { name: 'País Preparado', daily: { est: .04 }, money: -600 } }
+  { id: 'e4', b: 'eco', title: 'Independencia energética', days: 380, req: 'e1', now: { eco: 2, est: 2 }, spirit: { name: 'Energía Propia', daily: { eco: .04, est: .02 }, money: 1500 } },
+  { id: 's1', b: 'soc', title: 'Agenda para la clase media', days: 320, now: { apr: 4 }, spirit: { name: 'Clase Media Fuerte', daily: { apr: .04 }, money: -900 } },
+  { id: 's2', b: 'soc', title: 'Plan de vivienda asequible', days: 380, req: 's1', now: { apr: 3, emp: 1 }, spirit: { name: 'Hogar para Todos', daily: { apr: .04, est: .02 }, money: -1200 } },
+  { id: 's3', b: 'soc', title: 'Sanidad más barata', days: 420, req: 's2', now: { apr: 3 }, spirit: { name: 'Salud Accesible', daily: { apr: .05 }, money: -1500 } },
+  { id: 's4', b: 'soc', title: 'Programa nacional de aprendices y pacto con los sindicatos', days: 340, req: 's1', now: { emp: 3, est: 2 }, spirit: { name: 'Paz Laboral', daily: { emp: .04, est: .03 }, money: 0 } },
+  { id: 'k1', b: 'seg', title: 'Modernización de las Fuerzas Armadas', days: 400, now: { mil: 4 }, spirit: { name: 'Ejército del Siglo XXI', daily: { mil: .05 }, money: -1800 } },
+  { id: 'k2', b: 'seg', title: 'Escudo antimisiles y Fuerza Espacial', days: 450, req: 'k1', now: { mil: 3, est: 1 }, spirit: { name: 'Dominio Espacial', daily: { mil: .05, est: .02 }, money: -2400 } },
+  { id: 'k3', b: 'seg', title: 'Blindaje de la ciberseguridad', days: 300, now: { est: 3 }, spirit: { name: 'Escudo Cibernético', daily: { est: .04 }, money: 0 } },
+  { id: 'k4', b: 'seg', title: 'Frontera inteligente y resiliencia ante catástrofes', days: 360, req: 'k3', now: { est: 3, apr: 1 }, spirit: { name: 'País Preparado', daily: { est: .05 }, money: -600 } },
+  { id: 'd1', b: 'dip', title: 'Alianzas del Indo-Pacífico', days: 360, now: { mil: 2, eco: 1 }, spirit: { name: 'Arco de Aliados', daily: { mil: .04, eco: .02 }, money: 0 } },
+  { id: 'd2', b: 'dip', title: 'OTAN reforzada y pacto transatlántico', days: 380, req: 'd1', now: { mil: 2, est: 2 }, spirit: { name: 'Alianza Atlántica', daily: { mil: .03, est: .03 }, money: 900 } },
+  { id: 'd3', b: 'dip', title: 'Red de acuerdos comerciales con aliados', days: 400, req: 'd1', now: { eco: 3 }, spirit: { name: 'Comercio Libre entre Aliados', daily: { eco: .05 }, money: 1800 } },
+  { id: 'd4', b: 'dip', title: 'Tregua estratégica con las grandes potencias', days: 420, req: 'd2', now: { est: 3, apr: 2 }, spirit: { name: 'Distensión Global', daily: { est: .04, apr: .02 }, money: 0 } }
 ];
 const FOCUS_LINKS = [
   { t: 'Economía hundida destruye empleo', on: s => s.eco < 40, fx: { emp: -.08 } },
@@ -237,7 +240,7 @@ const ACHIEVEMENTS = [
   { id: 'apr80', icon: 'fa-heart', title: 'Landslide', desc: 'Alcanza una Aprobación ≥ 80%', ok: s => s.metrics && s.metrics.apr >= 80 },
   { id: 'mil85', icon: 'fa-jet-fighter', title: 'Pax Americana', desc: 'Alcanza un poder Militar ≥ 85%', ok: s => s.metrics && s.metrics.mil >= 85 },
   { id: 'emp80', icon: 'fa-briefcase', title: 'Sueño Americano', desc: 'Alcanza un Empleo ≥ 80%', ok: s => s.metrics && s.metrics.emp >= 80 },
-  { id: 'cash', icon: 'fa-vault', title: 'Tesoro Rebosante', desc: 'Acumula 2.000.000 M€ en Tesorería', ok: s => (Number(s.treasury) || 0) >= 2000000 },
+  { id: 'cash', icon: 'fa-vault', title: 'Tesoro Rebosante', desc: 'Acumula 2.000.000 M$ en Tesorería', ok: s => (Number(s.treasury) || 0) >= 2000000 },
   { id: 'trip', icon: 'fa-star', title: 'Estado de la Unión', desc: 'Economía, Estabilidad y Aprobación ≥ 70% a la vez', ok: s => s.metrics && s.metrics.eco >= 70 && s.metrics.est >= 70 && s.metrics.apr >= 70 }
 ];
 const BDE_GOVS = [
@@ -260,6 +263,7 @@ const BDE_ACTIONS = [
 
 // ---- 5. ECONOMÍA Y TEXTOS DEL PAÍS ----------------------------------------------------
 const COUNTRY_ECON = {
+  currency: '$',                 // el motor muestra $ en lugar de €
   terms: { gov: 'La Casa Blanca', place: 'la Casa Blanca', cabinet: 'Gabinete presidencial', bank: 'Reserva Federal',
            nation: 'Estados Unidos', adj: 'estadounidense', firms: 'estadounidenses', capital: 'Washington' },
   k: 15,
@@ -368,5 +372,37 @@ const COUNTRY_INTL = {
       options: [{ text: 'Aceptar y reforzar la alianza', intl: { jp: 8, cn: -3 }, income: 9000, stats: { eco: 3, emp: 2, apr: 1 }, news: 'Japón y Corea invertirán miles de millones en la industria estadounidense.' }, { text: 'Negociar sin compromisos de seguridad', intl: { jp: -4 }, income: 3000, stats: { eco: 1 }, news: 'Washington pacta la inversión asiática sin nuevas garantías de seguridad.' }] },
     { id: 'mex', cond: r => r.mx <= 35, title: 'MÉXICO ENDURECE EL TONO POR LOS ARANCELES', desc: 'La presidenta mexicana amenaza con represalias comerciales y con frenar la cooperación fronteriza.',
       options: [{ text: 'Ofrecer un acuerdo de seguridad y comercio', intl: { mx: 10 }, cost: 1800, stats: { est: 1, eco: 1 }, news: 'EE. UU. y México pactan un acuerdo de seguridad y comercio.' }, { text: 'Mantener la presión', intl: { mx: -8 }, stats: { est: -2, apr: 2 }, news: 'Washington mantiene la presión sobre México por el comercio y la frontera.' }] }
+  ]
+};
+
+// ---- 8. ÓRDENES EJECUTIVAS (sustituyen a los «Decretos del BOE» de España) ----------------
+const COUNTRY_DECREES = {
+  tab: 'Órdenes ejecutivas',
+  title: 'FEDERAL REGISTER — ÓRDENES EJECUTIVAS PRESIDENCIALES',
+  sub: 'Las órdenes ejecutivas pasan 7 días de reloj de revisión jurídica y publicación en el Federal Register antes de surtir efecto.',
+  pending: 'ÓRDENES EN REVISIÓN (PUBLICACIÓN EN EL FEDERAL REGISTER EN CURSO)',
+  btn: 'FIRMAR ORDEN EJECUTIVA',
+  pub: '¡PUBLICADA EN EL FEDERAL REGISTER! Entra en vigor la orden ejecutiva',
+  logPrefix: 'Orden ejecutiva enviada al Federal Register',
+  list: [
+    { id: 'ORD_ALIVIO_FISCAL', title: 'Orden de Alivio Fiscal a las Familias', cost: 22500, desc: '+0.3% Economía y +0.1% Aprobación/día durante 30 días.', cooldown: 60, statsPerDay: { eco: +0.3, apr: +0.1 } },
+    { id: 'ORD_EMPLEO_JOVEN', title: 'Programa Nacional de Empleo Juvenil', cost: 30000, desc: '+0.4% Empleo y +0.2% Estabilidad/día durante 30 días.', cooldown: 90, statsPerDay: { emp: +0.4, est: +0.2 } },
+    { id: 'ORD_PAGA_MILITAR', title: 'Bonificación de Paga a las Fuerzas Armadas', cost: 15000, desc: '+0.5% Est. Militar/día durante 20 días.', cooldown: 45, statsPerDay: { mil: +0.5 } },
+    { id: 'ORD_ALQUILER', title: 'Moratoria de Desahucios y Ayuda al Alquiler', cost: 12000, desc: '+0.3% Estabilidad y +0.2% Aprobación/día durante 25 días.', cooldown: 50, statsPerDay: { est: +0.3, apr: +0.2 } },
+    { id: 'ORD_IA', title: 'Iniciativa Nacional de IA y Computación', cost: 37500, desc: '+0.5% Economía/día durante 40 días.', cooldown: 120, statsPerDay: { eco: +0.5 } },
+    { id: 'ORD_SALUD', title: 'Refuerzo de la Salud Pública y Medicare', cost: 27000, desc: '+0.4% Estabilidad y +0.3% Aprobación/día durante 30 días.', cooldown: 75, statsPerDay: { est: +0.4, apr: +0.3 } },
+    { id: 'ORD_POLICIA', title: 'Plan Federal de Apoyo a la Policía Local', cost: 18000, desc: '+0.5% Estabilidad/día durante 20 días.', cooldown: 45, statsPerDay: { est: +0.5 } },
+    { id: 'ORD_ENERGIA', title: 'Créditos Fiscales a Energías Limpias', cost: 33000, desc: '+0.3% Economía y +0.2% Aprobación/día durante 30 días.', cooldown: 90, statsPerDay: { eco: +0.3, apr: +0.2 } },
+    { id: 'ORD_INFRA', title: 'Modernización de Puentes, Carreteras y Aeropuertos', cost: 45000, desc: '+0.6% Economía y +0.3% Empleo/día durante 30 días.', cooldown: 100, statsPerDay: { eco: +0.6, emp: +0.3 } },
+    { id: 'ORD_BANCA', title: 'Gravamen a los Beneficios Extraordinarios de la Banca', cost: 7500, desc: '+0.4% Aprobación y -0.2% Economía/día durante 20 días.', cooldown: 60, statsPerDay: { apr: +0.4, eco: -0.2 } },
+    { id: 'ORD_FAMILIAS', title: 'Crédito Fiscal por Hijo', cost: 21000, desc: '+0.4% Aprobación y +0.2% Estabilidad/día durante 25 días.', cooldown: 60, statsPerDay: { apr: +0.4, est: +0.2 } },
+    { id: 'ORD_PYMES', title: 'Programa de Rescate a la Pequeña Empresa', cost: 24000, desc: '+0.4% Economía y +0.3% Empleo/día durante 30 días.', cooldown: 70, statsPerDay: { eco: +0.4, emp: +0.3 } },
+    { id: 'ORD_AGRO', title: 'Ayudas a Agricultores y Ganaderos', cost: 19500, desc: '+0.3% Empleo y +0.2% Estabilidad/día durante 30 días.', cooldown: 60, statsPerDay: { emp: +0.3, est: +0.2 } },
+    { id: 'ORD_DIPLOMACIA', title: 'Fondo de Diplomacia Pública', cost: 4500, desc: '+0.3% Aprobación/día durante 20 días.', cooldown: 40, statsPerDay: { apr: +0.3 } },
+    { id: 'ORD_BECAS', title: 'Becas de Formación Técnica y Aprendizaje', cost: 25500, desc: '+0.5% Empleo/día durante 30 días.', cooldown: 80, statsPerDay: { emp: +0.5 } },
+    { id: 'ORD_DEFENSA', title: 'Modernización del Arsenal y la Flota', cost: 42000, desc: '+0.8% Est. Militar/día durante 20 días.', cooldown: 90, statsPerDay: { mil: +0.8 } },
+    { id: 'ORD_REINDUSTRIAL', title: 'Reindustrialización y Aranceles Selectivos', cost: 31500, desc: '+0.5% Economía y +0.2% Empleo/día durante 30 días.', cooldown: 85, statsPerDay: { eco: +0.5, emp: +0.2 } },
+    { id: 'ORD_FRONTERA', title: 'Refuerzo de la Seguridad Fronteriza', cost: 27000, desc: '+0.5% Estabilidad/día durante 25 días.', cooldown: 70, statsPerDay: { est: +0.5 } },
+    { id: 'ORD_TURISMO', title: 'Campaña Brand USA de Turismo Internacional', cost: 2250, desc: '+0.4% Economía/día durante 25 días.', cooldown: 50, statsPerDay: { eco: +0.4 } }
   ]
 };
