@@ -12,6 +12,12 @@
       "name": "Marruecos",
       "flag": "MA",
       "file": "marruecos.js"
+    },
+    {
+      "id": "eeuu",
+      "name": "Estados Unidos",
+      "flag": "US",
+      "file": "eeuu.js"
     }
   ]
 }
