@@ -884,6 +884,8 @@ const BDE_ACTIONS = [
 //  LF 2026: Educación 97,1 mil M MAD · Defensa 157,2 · Inversión 114,8 · Salud 42,4 · intereses 41,6.
 // =====================================================================
 const COUNTRY_ECON = {
+  // Términos que el motor usa en titulares y textos (Moncloa / Banco de España en España)
+  terms: { gov: 'Rabat', place: 'el Palacio Real', cabinet: 'Gabinete de Gobierno', bank: 'Bank Al-Maghrib', nation: 'Marruecos', adj: 'marroquí', firms: 'marroquíes', capital: 'Rabat' },
   k: 0.10,                       // escala respecto a España (PIB 176.000 / 1.700.000)
   budget: 10000, budgetStep: 100, // PGE a repartir (M€)
   pib: 176000, debt: 123000,      // PIB y deuda pública heredada (≈ 70 % del PIB)
@@ -932,5 +934,96 @@ const COUNTRY_MAP = {
     { id: 'GUE', name: 'Guelmim-Uad Nun', d: 'M 194.4,181.3 L 220.5,190.0 L 253.2,202.5 L 227.7,215.0 L 227.7,223.3 L 135.7,216.3 Z', spectrumPref: 5.2, regionalist: true, desc: 'Guelmim-Uad Nun · Puerta del Sáhara y comercio caravanero' },
     { id: 'LAA', name: 'Laâyoune-Saguia el Hamra', d: 'M 135.7,216.3 L 227.7,223.3 L 227.7,265.0 L 227.7,290.0 L 94.4,287.5 L 100.9,261.8 L 129.2,236.3 Z', spectrumPref: 5.6, regionalist: true, desc: 'Laâyoune-Saguia el Hamra · Provincias del Sur, fosfatos de Bou Craa' },
     { id: 'DAK', name: 'Dakhla-Río de Oro', d: 'M 94.4,287.5 L 227.7,290.0 L 133.5,380.0 L 46.5,381.5 L 69.4,322.5 Z', spectrumPref: 5.8, regionalist: true, desc: 'Dakhla-Río de Oro · Puerto Atlántico de Dakhla, pesca y energía' }
+  ]
+};
+
+
+// =====================================================================
+//  COUNTRY_INTL — Relaciones Exteriores de Marruecos (sustituye a los socios de España)
+//  · partners : socios/bloques. ally (relación >=70) y tense (<=30) dan bonus/penalización
+//               diaria a las métricas (daily) y mensual en M€ (money, opcional).
+//  · base     : relación inicial (0-100).   · links : efecto bloque (acercarte a X mueve a Y).
+//  · map      : códigos numéricos de país (ISO) del mapa de Guerra que sincroniza cada socio.
+//  · actions  : acciones diplomáticas por socio. cap=capital político, cost=gasto M€,
+//               inc=ingreso M€, cd=días de espera, fx=relaciones que cambia, now=métricas.
+//  · monthly  : cada mes, si la métrica m supera gt o baja de lt, mueve relaciones (fx).
+//  · pop      : crisis diplomáticas aleatorias (cond recibe el objeto de relaciones).
+// =====================================================================
+const COUNTRY_INTL = {
+  blocksText: 'EEUU↔China, Francia↔Argelia, España↔Bruselas',
+  partners: {
+    es: { name: 'España',          icon: 'fa-handshake',          ally: { name: 'Frontera Norte Estable',     daily: { est: .04, eco: .02 }, money: 80 },  tense: { name: 'Tensión por Ceuta y Melilla',  daily: { est: -.05 }, money: -40 } },
+    fr: { name: 'Francia',         icon: 'fa-landmark',           ally: { name: 'Eje Rabat–París',            daily: { eco: .04, est: .02 }, money: 60 },  tense: { name: 'Distanciamiento con París',    daily: { eco: -.04 }, money: -40 } },
+    us: { name: 'Estados Unidos',  icon: 'fa-flag-usa',           ally: { name: 'Aliado Estratégico No-OTAN', daily: { mil: .05, eco: .02 } },            tense: { name: 'Frialdad con Washington',      daily: { mil: -.04 } } },
+    dz: { name: 'Argelia',         icon: 'fa-fire-flame-simple',  ally: { name: 'Frontera Oriental Abierta',  daily: { eco: .04, est: .03 }, money: 50 },  tense: { name: 'Frontera Cerrada con Argel',   daily: { est: -.05, mil: -.02 }, money: -40 } },
+    ue: { name: 'Unión Europea',   icon: 'fa-earth-europe',       ally: { name: 'Socio Avanzado de Bruselas', daily: { eco: .05 }, money: 120 },        tense: { name: 'Fricción con Bruselas',        daily: { eco: -.05 }, money: -60 } },
+    gc: { name: 'Países del Golfo',icon: 'fa-coins',              ally: { name: 'Inversión del Golfo',        daily: { eco: .04, emp: .02 }, money: 100 }, tense: { name: 'Retirada de Inversión del Golfo', daily: { eco: -.04 }, money: -60 } },
+    cn: { name: 'China',           icon: 'fa-dragon',             ally: { name: 'Socio Comercial Asiático',   daily: { eco: .04 }, money: 60 },         tense: { name: 'Guerra Comercial con Pekín',   daily: { eco: -.04 }, money: -40 } },
+    af: { name: 'África',          icon: 'fa-earth-africa',       ally: { name: 'Liderazgo Africano',         daily: { apr: .03, est: .02 } },            tense: { name: 'Aislamiento Africano',         daily: { apr: -.03 } } }
+  },
+  base: { es: 50, fr: 78, us: 85, dz: 12, ue: 70, gc: 78, cn: 55, af: 55 },
+  links: { us: { cn: -.3 }, cn: { us: -.3 }, fr: { ue: .2, dz: -.1 }, ue: { fr: .15 }, es: { ue: .15 } },
+  map: {
+    es: [724], fr: [250], us: [840], dz: [12], cn: [156],
+    gc: [682, 784, 414, 634, 512, 48],
+    af: [478, 434, 788, 818, 686, 384, 566, 288, 404, 716],
+    ue: [620, 380, 276, 56, 528, 300, 40, 246, 752, 208, 372, 616, 203, 642, 100, 191, 196, 233, 428, 440, 442, 348, 703, 705, 470]
+  },
+  actions: {
+    es: [
+      { id: 'cum', title: 'Cumbre bilateral con Madrid',               cap: 8, cd: 60,  fx: { es: 10, ue: 2 } },
+      { id: 'cab', title: 'Conectar los cables eléctricos con España', cost: 300, cap: 4, cd: 120, fx: { es: 8, ue: 1 }, now: { eco: 1 } },
+      { id: 'mig', title: 'Pacto de cooperación migratoria',           cost: 30, cd: 60, fx: { es: 10, dz: -2 }, now: { est: 2 } }
+    ],
+    fr: [
+      { id: 'cum', title: 'Cumbre Rabat–París',                        cap: 8, cd: 50,  fx: { fr: 10, ue: 2 } },
+      { id: 'inv', title: 'Inversión industrial francesa',             cap: 5, inc: 150, cd: 90, fx: { fr: 8 }, now: { emp: 1 } }
+    ],
+    us: [
+      { id: 'arm', title: 'Comprar material militar',                  cost: 500, cd: 60, fx: { us: 10, cn: -3 }, now: { mil: 3 } },
+      { id: 'sah', title: 'Pedir apoyo sobre el Sáhara',               cap: 10, cd: 90, fx: { us: 8, dz: -3 } }
+    ],
+    dz: [
+      { id: 'dia', title: 'Mensaje de distensión a Argel',             cap: 12, cd: 90, fx: { dz: 10, es: -2 }, now: { est: 1 } },
+      { id: 'fro', title: 'Reforzar la frontera oriental',             cap: 6, cd: 60,  fx: { dz: -8 }, now: { mil: 2, est: 1 } }
+    ],
+    ue: [
+      { id: 'pesca',   title: 'Renovar el acuerdo pesquero UE–Marruecos', cap: 3, inc: 300, cd: 120, fx: { ue: 3 } },
+      { id: 'asoc',    title: 'Asociación avanzada con la UE',            cap: 5, cd: 180, fx: { ue: 4 } },
+      { id: 'migra',   title: 'Pacto migratorio con Bruselas',            cap: 4, inc: 500, cd: 120, fx: { ue: 4 } },
+      { id: 'energia', title: 'Corredor de energía verde con Europa',     cap: 5, cost: 400, cd: 150, fx: { ue: 3 }, now: { eco: 1 } },
+      { id: 'visados', title: 'Negociar visados Schengen',                cap: 3, cd: 120, fx: { ue: 2 } }
+    ],
+    gc: [
+      { id: 'fon', title: 'Fondo de inversión del Golfo',              cap: 6, inc: 250, cd: 90, fx: { gc: 8 }, now: { eco: 1 } },
+      { id: 'vis', title: 'Visita de Estado a las monarquías',         cap: 8, cd: 60,  fx: { gc: 12 } }
+    ],
+    cn: [
+      { id: 'inv',  title: 'Atraer fábricas chinas (Tánger Med)',      cap: 8, cd: 60,  fx: { cn: 10, us: -4 }, now: { eco: 2 } },
+      { id: 'ruta', title: 'Adhesión a la Ruta de la Seda',            cap: 12, cd: 90, fx: { cn: 12, us: -6, ue: -2 }, now: { emp: 1 } }
+    ],
+    af: [
+      { id: 'gas', title: 'Gasoducto Nigeria–Marruecos',               cost: 300, cd: 90, fx: { af: 12, dz: -3 }, now: { eco: 2 } },
+      { id: 'ua',  title: 'Cumbre Atlántica Africana',                 cap: 8, cd: 60,  fx: { af: 10 } }
+    ]
+  },
+  monthly: [
+    { m: 'eco', gt: 70, fx: { ue: .8, fr: .6 },   why: 'Credibilidad económica' },
+    { m: 'eco', lt: 30, fx: { ue: -1, fr: -.8 },  why: 'Economía débil ante los socios' },
+    { m: 'est', lt: 30, fx: { ue: -.8, af: -.5 }, why: 'Inestabilidad interna' },
+    { m: 'mil', gt: 70, fx: { us: .5, dz: -.5 },  why: 'Capacidad de disuasión' },
+    { m: 'mil', lt: 35, fx: { us: -1, dz: -.8 },  why: 'Ejército debilitado: menos respeto exterior' }
+  ],
+  pop: [
+    { id: 'usb', cond: r => r.us >= 65, title: 'WASHINGTON OFRECE CAZAS Y EJERCICIOS CONJUNTOS', desc: 'Su aliado estratégico propone un gran ejercicio militar y la venta de nuevo material. Argel y Pekín lo miran con recelo.',
+      options: [{ text: 'Aceptar el paquete militar', intl: { us: 10, cn: -3, dz: -2 }, cost: 400, stats: { mil: 3, apr: -2 }, news: 'Marruecos acepta nuevo material y ejercicios con Estados Unidos.' }, { text: 'Declinar y mantener el equilibrio', intl: { us: -8, cn: 2 }, stats: { apr: 2 }, news: 'Rabat rechaza ampliar la cooperación militar con Washington.' }] },
+    { id: 'dzf', cond: r => r.dz <= 25, title: 'ARGEL ENDURECE LA FRONTERA Y LA RETÓRICA', desc: 'Argelia refuerza sus tropas en la frontera y acusa a Rabat de provocación. Crece la tensión en el Oriental.',
+      options: [{ text: 'Proponer una mediación internacional', intl: { dz: 8, ue: 3 }, cost: 100, stats: { est: 2 }, news: 'Marruecos propone una mediación para rebajar la tensión con Argelia.' }, { text: 'Responder con una exhibición de fuerza', intl: { dz: -8, us: 2 }, stats: { mil: 3, est: -3, apr: 2 }, news: 'Rabat responde con maniobras en el Oriental.' }] },
+    { id: 'ues', cond: r => r.ue <= 32, title: 'BRUSELAS CUESTIONA EL ACUERDO PESQUERO', desc: 'El Parlamento Europeo amenaza con bloquear el acuerdo y congelar fondos de cooperación.',
+      options: [{ text: 'Ofrecer garantías y cooperación migratoria', intl: { ue: 12 }, cost: 200, news: 'Marruecos ofrece garantías a Bruselas para salvar el acuerdo.' }, { text: 'Buscar socios alternativos', intl: { ue: -8, cn: 5, gc: 4 }, stats: { eco: -2, apr: 2 }, news: 'Rabat diversifica socios ante la presión europea.' }] },
+    { id: 'esm', cond: r => r.es <= 35, title: 'MADRID ENDURECE EL CONTROL EN CEUTA Y MELILLA', desc: 'España refuerza las vallas y reclama más cooperación policial a Rabat.',
+      options: [{ text: 'Reforzar la cooperación policial', intl: { es: 12, dz: -2 }, cost: 150, stats: { est: 2 }, news: 'Marruecos y España refuerzan la cooperación en la frontera.' }, { text: 'Plantar cara y alzar el tono', intl: { es: -8 }, stats: { apr: 3, est: -2 }, news: 'Rabat responde con dureza a las medidas de Madrid.' }] },
+    { id: 'gco', cond: r => r.gc >= 70, title: 'EL GOLFO OFRECE UN GRAN FONDO DE INVERSIÓN', desc: 'Las monarquías del Golfo proponen financiar puertos, energía y turismo a cambio de condiciones políticas.',
+      options: [{ text: 'Aceptar las condiciones', intl: { gc: 8, us: -1 }, income: 600, stats: { eco: 3, emp: 2, apr: -2 }, news: 'Marruecos recibe una inyección de inversión del Golfo.' }, { text: 'Negociar sin ataduras políticas', intl: { gc: -4 }, income: 200, stats: { eco: 1, apr: 2 }, news: 'Rabat pacta una inversión del Golfo sin condiciones políticas.' }] }
   ]
 };
