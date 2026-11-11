@@ -42,6 +42,8 @@
     { id: 'embargo', t: 'Cierre de frontera y aranceles', ic: 'fa-ban', k: 'now', cap: 6, A: { eco: -2 }, B: { eco: -5 }, rel: -14, breaks: ['trade', 'border'],
       d: 'Golpe económico al otro (y algo a ti). Rompe los pactos comercial y fronterizo.' }
   ];
+  ACTIONS.push({ id: 'ceasefire', t: 'Proponer alto el fuego', ic: 'fa-dove', k: 'prop', cap: 0, A: {}, B: {}, rel: 8, war: true,
+    d: 'Propones terminar la guerra. Si el otro jugador acepta, la guerra acaba en las dos partidas.' });
   const ACT = id => ACTIONS.filter(x => x.id === id)[0];
   const PACT_FX = { trade: ['eco', 0.02], border: ['est', 0.025], defense: ['mil', 0.025] };
   const STAT = { eco: 1, est: 1, apr: 1, mil: 1, emp: 1, con: 1 };
@@ -49,7 +51,7 @@
   // ---------------- ESTADO ----------------
   let peer = null, link = null, USER = '';
   try { USER = localStorage.getItem('moncloa_user') || ''; } catch (e) { /* sin almacenamiento */ }
-  const blank = () => ({ on: true, role: null, code: '', other: null, linked: false, rel: 50, pacts: { trade: false, border: false, defense: false }, inbox: [], log: [], cd: {} });
+  const blank = () => ({ on: true, role: null, code: '', other: null, linked: false, rel: 50, pacts: { trade: false, border: false, defense: false }, inbox: [], log: [], cd: {}, pvp: null });
   const S = () => gameState.mp;
   function ensure() {
     if (!gameState.mp) gameState.mp = blank();
@@ -166,6 +168,7 @@
       fx(x.B, (x.B.cash < 0 ? 'Ayuda a ' : 'Ayuda recibida de ') + oname());
       if (x.pact) m.pacts[x.id] = true; else m.cd[x.id] = 20;
       setRel(m.rel + x.rel);
+      if (x.id === 'ceasefire') { m.pvp = null; try { window.warPeace(); } catch (e) { /* sin guerra local */ } }
       log('Aceptas «' + x.t + '» de ' + oname() + '.');
     } else { setRel(m.rel - 2); log('Rechazas «' + x.t + '» de ' + oname() + '.'); }
     m.inbox = m.inbox.filter(i => i.uid !== u);
@@ -197,6 +200,7 @@
       render(); return;
     }
     if (d.t === 'go') { if (m.role === 'guest' && L.on) startGame(); return; }
+    if (d.t === 'wdec' || d.t === 'wst' || d.t === 'wend') { onWar(d); return; }
     const x = ACT(d.id);
     if (d.t === 'prop' && x && x.k === 'prop' && typeof d.uid === 'string') {
       if (m.inbox.some(i => i.uid === d.uid)) return;
@@ -208,6 +212,7 @@
       if (d.ok) {
         const a = Object.assign({}, x.A); if (x.escrow) delete a.cash;   // la ayuda ya se pagó al proponer
         fx(a, 'Ayuda de ' + oname()); if (!x.pact) m.cd[x.id] = 20;
+        if (x.id === 'ceasefire') { m.pvp = null; try { window.warPeace(); } catch (e) { /* sin guerra local */ } }
         log(oname() + ' acepta «' + x.t + '».'); toast(oflag() + ' ' + esc(oname()) + ' acepta: ' + esc(x.t), '#10b981');
       } else {
         if (x.escrow) cash(x.escrow, 'Ayuda devuelta por ' + oname());
@@ -226,6 +231,7 @@
     const d = gameState.daysInOffice || 0, pk = Object.keys(m.pacts).filter(k => m.pacts[k]);
     Object.keys(m.cd).forEach(k => { if (m.cd[k] > 0) m.cd[k]--; });
     pk.forEach(k => fx({ [PACT_FX[k][0]]: PACT_FX[k][1] }));
+    try { pvpDaily(); } catch (e) { console.error(e); }
     if (m.pacts.trade && d % 30 === 0) cash(150, 'Pacto comercial con ' + oname());
     if (m.linked && X.day0 != null) {
       const e = elapsed(); if (e % 2 === 0) tx({ t: 'day', n: e });
@@ -234,6 +240,73 @@
     if (m.role === 'host' && m.linked && pk.length) { setRel(m.rel + 0.05 * pk.length); if (d % 10 === 0) tx({ t: 'sync', auth: true }); }
   }
 
+
+  // ---------------- GUERRA ENTRE JUGADORES ----------------
+  // Si atacas desde el mapa de Guerra al país del otro jugador: la relación se desploma, se rompen los pactos,
+  // y el otro recibe el aviso, inicia una guerra defensiva en su partida y puede resistir con sus operaciones.
+  // Cada 5 días los dos frentes se empujan entre sí; quien gana o pide paz lo comunica al otro.
+  const WISO = { espana: 724, marruecos: 504 };   // código del país en el mapa de Guerra (añade aquí los países nuevos)
+  const wiso = id => WISO[id] || ((window.COUNTRIES || []).filter(c => c.id === id)[0] || {}).iso;
+  const WAR = () => gameState.wr && gameState.wr.war;
+  const pvpTarget = id => { const m = S(); return !!(m && m.linked && m.other && wiso(m.other.id) === id); };
+  const _wg = window.warGo;
+  window.warGo = function (id, goal) {
+    const m = S(), pv = goal !== 'def' && pvpTarget(id);
+    if (pv && m.pvp) return toast('Ya estás en guerra con ' + oname() + '.');
+    const had = WAR(), r = _wg.apply(this, arguments), w = WAR();
+    if (pv && !had && w && w.id === id) {
+      m.pvp = { role: 'att', goal, since: gameState.daysInOffice || 0, local: true };
+      Object.keys(m.pacts).forEach(k => { m.pacts[k] = false; });
+      setRel(m.rel - 35);
+      tx({ t: 'wdec', goal });
+      log('Declaras la guerra a ' + oname() + '.');
+      toast(oflag() + ' <b>GUERRA contra ' + esc(oname()) + '</b><br><span class="text-xs">La relación se desploma y se rompen los pactos.</span>');
+    }
+    return r;
+  };
+  function endPvp(r, mine) {   // r = resultado desde MI punto de vista: win | lose | peace
+    const m = S(); if (!m || !m.pvp) return;
+    m.pvp = null;
+    if (mine) { setRel(m.rel + (r === 'peace' ? 15 : r === 'win' ? -10 : 0)); tx({ t: 'wend', r }); }
+    log('Fin de la guerra con ' + oname() + ': ' + (r === 'win' ? 'victoria' : r === 'lose' ? 'derrota' : 'alto el fuego') + '.');
+  }
+  function onWar(d) {
+    const m = S(), id = m.other && wiso(m.other.id), w = WAR();
+    if (d.t === 'wdec') {
+      adopt(d);
+      m.pvp = { role: 'def', goal: d.goal, since: gameState.daysInOffice || 0, local: false };
+      fx({ apr: 3, est: -2 });
+      try { if (id && !w) { _wg.call(window, id, 'def'); m.pvp.local = !!(WAR() && WAR().id === id); } } catch (e) { console.error(e); }
+      log(oname() + ' te declara la guerra.');
+      toast(oflag() + ' <b>¡' + esc(oname()).toUpperCase() + ' TE HA DECLARADO LA GUERRA!</b><br><span class="text-xs">' + (m.pvp.local ? 'Defiéndete desde Militar y Guerra: tus operaciones empujan el frente contra el atacante.' : 'Ya estás en otra guerra: no puedes abrir el frente contra el atacante.') + '</span>');
+      try { fxPlay('guerra'); } catch (e) { /* sin audio */ }
+    } else if (d.t === 'wst') {
+      if (m.pvp && m.pvp.local && w && w.id === id && typeof d.p === 'number') w.prog = Math.max(-100, Math.min(100, w.prog - Math.max(0, d.p) * 0.05));
+    } else if (d.t === 'wend') {
+      adopt(d);
+      if (m.pvp && m.pvp.local && w && w.id === id) {
+        if (d.r === 'win') w.prog = -100; else if (d.r === 'lose') w.prog = 100; else { try { window.warPeace(); } catch (e) { /* ya acabó */ } }
+      }
+      toast(oflag() + ' ' + esc(oname()) + ': ' + (d.r === 'win' ? 'ha ganado la guerra' : d.r === 'lose' ? 'ha perdido la guerra' : 'pide el alto el fuego'), '#d9a726');
+      const mine = d.r === 'win' ? 'lose' : d.r === 'lose' ? 'win' : 'peace'; endPvp(mine, false);
+    }
+    render();
+  }
+  function pvpDaily() {
+    const m = S(); if (!m || !m.pvp) return;
+    const id = m.other && wiso(m.other.id), w = WAR(), d = gameState.daysInOffice || 0;
+    if (w && w.id === id) { if (m.linked && d % 5 === 0) tx({ t: 'wst', p: Math.round(w.prog) }); return; }
+    if (!m.pvp.local || !m.linked) return;
+    const W = gameState.wr || {}, h = (W.hist || [])[0] || '';
+    endPvp(W.pend === id ? 'win' : /DERROTA/.test(h) ? 'lose' : 'peace', true);
+  }
+  function warBox(m) {
+    const p = m.pvp; if (!p) return '';
+    const w = WAR(), id = m.other && wiso(m.other.id), on = w && w.id === id;
+    return `<div class="bg-red-950/60 border border-red-500/60 rounded-lg p-3 space-y-2 font-hoi-tech"><div class="flex justify-between items-center"><b class="text-sm text-red-300"><i class="fa-solid fa-person-rifle mr-1"></i>GUERRA CON ${esc(oname()).toUpperCase()}</b><span class="text-[10px] text-red-200">${p.role === 'att' ? 'Eres el atacante' : 'Te han atacado'}${on ? ' · frente ' + Math.round(w.prog) : ''}</span></div>
+      <div class="text-[11px] text-slate-300">${p.role === 'def' ? 'Resiste: cada operación que lances desde Militar y Guerra empuja el frente contra el atacante. ' : ''}Los dos frentes se influyen cada 5 días. Para terminar, propón un alto el fuego aquí abajo.</div>
+      ${on ? '<button onclick="switchTab(\'war\')" class="hoi-button-gold px-3 py-1 rounded text-[11px]">Ir al Estado Mayor</button>' : ''}</div>`;
+  }
 
   // ---------------- ONLINE (PeerJS directo o relé Supabase) ----------------
   function loadPeer(cb) {
@@ -327,7 +400,7 @@
     const inbox = m.inbox.filter(i => !i.mine).map(it => { const x = ACT(it.id); if (!x) return '';
       return `<div class="bg-slate-900 border border-amber-500/40 rounded p-2 text-[11px] space-y-1"><div><b>${oflag()} ${esc(oname())}</b> te propone: <b class="text-amber-300">${x.t}</b></div><div class="text-slate-400">${x.d}</div>
       <div class="flex gap-2"><button onclick="MP.answer('${it.uid}',true)" class="hoi-button-gold px-3 py-1 rounded">Aceptar</button><button onclick="MP.answer('${it.uid}',false)" class="hoi-button px-3 py-1 rounded">Rechazar</button></div></div>`; }).join('');
-    const acts = ACTIONS.map(x => {
+    const acts = ACTIONS.filter(x => !x.war || m.pvp).map(x => {
       const on = x.pact && m.pacts[x.id], cd = m.cd[x.id] || 0, pend = m.inbox.some(i => i.mine && i.id === x.id), off = on || cd > 0 || pend || cap() < x.cap;
       return `<button ${off ? 'disabled' : ''} onclick="MP.act('${x.id}')" class="hoi-button p-2 rounded text-[11px] text-left ${off ? 'opacity-50' : ''} ${x.k === 'now' ? 'border-red-500/40' : ''}"><div><i class="fa-solid ${x.ic} mr-1"></i><b>${x.t}</b> <span class="text-slate-500">· ${x.cap} cap.</span></div><div class="text-slate-400 mt-0.5">${x.d}</div><div class="text-[10px] mt-1 ${on ? 'text-emerald-400' : 'text-slate-500'}">${on ? '✔ ACTIVO' : pend ? 'Propuesta pendiente' : cd > 0 ? 'Disponible en ' + cd + ' días' : x.k === 'prop' ? 'Requiere aceptación' : 'Efecto inmediato'}</div></button>`; }).join('');
     const pk = [['trade', 'Comercio'], ['border', 'Frontera'], ['defense', 'Defensa']].map(([k, l]) => `<span class="text-[10px] px-2 py-0.5 rounded border ${m.pacts[k] ? 'border-emerald-500 text-emerald-400' : 'border-slate-700 text-slate-500'}">${l}</span>`).join(' ');
@@ -341,6 +414,7 @@
         <div class="text-[11px] ${X.day0 == null ? 'text-amber-400' : X.waiting ? 'text-amber-400' : 'text-emerald-400'}"><i class="fa-solid fa-clock mr-1"></i>Reloj compartido: ${X.day0 == null ? 'esperando a que los dos estéis en la partida' : X.waiting ? 'esperando al otro jugador' : 'sincronizado'}</div>
         <div class="flex justify-between text-[11px] text-slate-400"><span>Tu capital político: <b class="text-slate-200">${Math.floor(cap())}</b></span><span>Tu tesorería: <b class="text-slate-200">${fmt(treas())} M€</b></span></div>
         <button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded text-[10px]">Desconectar</button></div>
+      ${warBox(m)}
       ${inbox ? `<div class="space-y-2"><div class="text-[11px] text-amber-400 tracking-wider">PROPUESTAS RECIBIDAS</div>${inbox}</div>` : ''}
       <div class="hoi-box p-4 rounded-xl space-y-2"><div class="text-[11px] text-amber-400 tracking-wider font-hoi-tech">DIPLOMACIA CON ${esc(oname()).toUpperCase()}</div><div class="grid grid-cols-1 md:grid-cols-2 gap-2">${acts}</div></div>
       ${logHtml(m)}`;
