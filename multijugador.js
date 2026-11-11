@@ -73,10 +73,24 @@
       else if (STAT[k]) { try { focusAccum(focusInit(), k, o[k]); } catch (e) { focusMetricAdd(k, o[k]); } }
     });
   }
-  function setRel(v) {
-    const m = S(); if (!m) return; m.rel = clamp(Number(v) || 0);
-    try { const k = m.other && INTL_KEY[m.other.id], I = intlInit(); if (k && I.rel && I.rel[k] != null) I.rel[k] = m.rel; } catch (e) { /* sin INTL */ }
-    try { const id = m.other && wiso(m.other.id), W = gameState.wr; if (W && id != null) { W.rel = W.rel || {}; W.rel[id] = m.rel; } } catch (e) { /* sin mapa de Guerra */ }
+  // La relación es UN solo valor compartido (m.rel). Cada cambio se envía al otro jugador como diferencia,
+  // y las pestañas Guerra / Relaciones exteriores leen y escriben ese mismo valor (propiedad enlazada).
+  function setRel(v, quiet) {
+    const m = S(); if (!m) return;
+    const old = m.rel; m.rel = clamp(Number(v) || 0);
+    if (!quiet && m.linked && Math.abs(m.rel - old) > 1e-6) tx({ t: 'reld', dr: Math.round((m.rel - old) * 1000) / 1000 });
+    bindRel();
+  }
+  function bindRel() {
+    const m = S(); if (!m || !m.other || !m.linked) return;
+    const hook = (o, k) => {
+      if (!o || k == null) return;
+      const ds = Object.getOwnPropertyDescriptor(o, k); if (ds && ds.get && ds.get.mp) return;
+      const g = () => { const mm = S(); return mm ? mm.rel : 50; }; g.mp = 1;
+      try { Object.defineProperty(o, k, { get: g, set: v => { if (S()) setRel(v); }, enumerable: true, configurable: true }); } catch (e) { /* propiedad bloqueada */ }
+    };
+    try { const k = INTL_KEY[m.other.id], I = intlInit(); if (k && I.rel) hook(I.rel, k); } catch (e) { /* sin INTL */ }
+    try { const id = wiso(m.other.id), W = gameState.wr; if (W && id != null) { W.rel = W.rel || {}; hook(W.rel, id); } } catch (e) { /* sin mapa de Guerra */ }
   }
   function log(t) {
     const m = S(); if (!m) return;
@@ -88,7 +102,7 @@
   const tx = o => { const m = S(); if (link && link.open) link.send(Object.assign({ rel: m ? Math.round(m.rel * 100) / 100 : undefined, p: m ? m.pacts : undefined }, o)); };
   const adopt = d => {   // confirma la relación y los pactos con los valores del emisor
     const m = S(); if (!m || !d) return;
-    if (typeof d.rel === 'number' && isFinite(d.rel)) setRel(d.rel);
+    if (d.auth && typeof d.rel === 'number' && isFinite(d.rel)) setRel(d.rel, true);   // solo el anfitrión corrige el valor absoluto
     if (d.p && typeof d.p === 'object') Object.keys(m.pacts).forEach(k => { if (typeof d.p[k] === 'boolean') m.pacts[k] = d.p[k]; });
   };
 
@@ -169,7 +183,7 @@
       fx(x.B, (x.B.cash < 0 ? 'Ayuda a ' : 'Ayuda recibida de ') + oname());
       if (x.pact) m.pacts[x.id] = true; else m.cd[x.id] = 20;
       setRel(m.rel + x.rel);
-      if (x.id === 'ceasefire') { m.pvp = null; try { window.warPeace(); } catch (e) { /* sin guerra local */ } }
+      if (x.id === 'ceasefire') { m.pvp = null; try { realPeace(); } catch (e) { /* sin guerra local */ } }
       log('Aceptas «' + x.t + '» de ' + oname() + '.');
     } else { setRel(m.rel - 2); log('Rechazas «' + x.t + '» de ' + oname() + '.'); }
     m.inbox = m.inbox.filter(i => i.uid !== u);
@@ -191,6 +205,7 @@
       toast(esc(m.other.user || m.other.name) + ' (' + esc(m.other.name) + ') se ha conectado.', '#10b981');
       sendReady(); checkStart(); render(); return;
     }
+    if (d.t === 'reld') { if (typeof d.dr === 'number' && isFinite(d.dr)) setRel(m.rel + Math.max(-100, Math.min(100, d.dr)), true); render(); return; }
     if (d.t === 'rdy' || d.t === 'spd' || d.t === 'day') { clockMsg(d); return; }
     if (d.t === 'sync') {
       if (d.auth && m.role === 'guest') {
@@ -201,7 +216,8 @@
       render(); return;
     }
     if (d.t === 'go') { if (m.role === 'guest' && L.on) startGame(); return; }
-    if (d.t === 'wdec' || d.t === 'wst' || d.t === 'wend') { onWar(d); return; }
+    if (d.t === 'wdec' || d.t === 'wst' || d.t === 'wabs' || d.t === 'wend') { onWar(d); return; }
+    if (d.t === 'wpz' || d.t === 'wterm' || d.t === 'wdebt' || d.t === 'wtrib') { onPeace(d); return; }
     if (d.t === 'wpact') {   // el otro jugador te paga un pacto de cooperación: el dinero llega a tu tesorería
       const amt = Math.max(0, Math.min(400, Number(d.amt) || 0));
       if (amt) cash(amt, 'Pacto de cooperación con ' + oname());
@@ -223,7 +239,7 @@
       if (d.ok) {
         const a = Object.assign({}, x.A); if (x.escrow) delete a.cash;   // la ayuda ya se pagó al proponer
         fx(a, 'Ayuda de ' + oname()); if (!x.pact) m.cd[x.id] = 20;
-        if (x.id === 'ceasefire') { m.pvp = null; try { window.warPeace(); } catch (e) { /* sin guerra local */ } }
+        if (x.id === 'ceasefire') { m.pvp = null; try { realPeace(); } catch (e) { /* sin guerra local */ } }
         log(oname() + ' acepta «' + x.t + '».'); toast(oflag() + ' ' + esc(oname()) + ' acepta: ' + esc(x.t), '#10b981');
       } else {
         if (x.escrow) cash(x.escrow, 'Ayuda devuelta por ' + oname());
@@ -243,7 +259,8 @@
     Object.keys(m.cd).forEach(k => { if (m.cd[k] > 0) m.cd[k]--; });
     pk.forEach(k => fx({ [PACT_FX[k][0]]: PACT_FX[k][1] }));
     try { pvpDaily(); } catch (e) { console.error(e); }
-    try { const oid = m.linked && m.other && wiso(m.other.id), W = gameState.wr; if (oid != null && W && (!W.rel || W.rel[oid] == null)) setRel(m.rel); } catch (e) { /* sin mapa */ }
+    try { bindRel(); } catch (e) { /* sin mapa */ }
+    try { debtDaily(m, d); } catch (e) { console.error(e); }
     if (m.pacts.trade && d % 30 === 0) cash(150, 'Pacto comercial con ' + oname());
     if (m.linked && X.day0 != null) {
       const e = elapsed(); if (e % 2 === 0) tx({ t: 'day', n: e });
@@ -271,9 +288,113 @@
   };
   window.warSanction = function (id) {
     const m = S(); if (!pvpTarget(id)) return _wsn.apply(this, arguments);
-    const r = _wsn.apply(this, arguments); setRel(m.rel - 15);
+    const b0 = m.rel, r = _wsn.apply(this, arguments); if (m.rel === b0) setRel(b0 - 15);
     tx({ t: 'wsanc' }); log('Sanciones contra ' + oname() + '.'); render(); return r;
   };
+  const _peace0 = window.warPeace;
+
+  // ================= PAZ NEGOCIADA · TÉRMINOS DE VICTORIA · DEUDA Y CAMBIO DE PRESIDENTE =================
+  const realPeace = () => { try { _peace0(); } catch (e) { /* sin guerra local */ } };
+  function ov(html) { ovClose(); const d = document.createElement('div'); d.id = 'mp-ov'; d.className = 'fixed inset-0 bg-black/85 z-[10000] flex items-center justify-center p-4 overflow-y-auto'; d.innerHTML = '<div class="hoi-box border-2 border-amber-500 max-w-md w-full p-5 rounded space-y-3 font-hoi-tech">' + html + '</div>'; document.body.appendChild(d); }
+  function ovClose() { const o = document.getElementById('mp-ov'); if (o) o.remove(); }
+  const obtn = (fn, t, sub) => '<button onclick="' + fn + '" class="hoi-button w-full text-left px-3 py-2 rounded text-xs"><b>' + t + '</b>' + (sub ? '<div class="text-[10px] text-slate-400 font-sans">' + sub + '</div>' : '') + '</button>';
+  const legLeft = () => Math.max(0, 1460 - (gameState.daysInOffice || 0));
+  const kEco = () => { try { return (typeof MC !== 'undefined' && MC.k) || 1; } catch (e) { return 1; } };
+  function newLeader() {   // el ministro de Exteriores o, si no hay, uno al azar de los que tengas asignados
+    const ids = gameState.ministers || {}; let id = ids.exteriores;
+    if (!id) { const l = Object.values(ids).filter(Boolean); id = l.length ? l[Math.floor(Math.random() * l.length)] : null; }
+    let nm = null; try { const r = (typeof REAL_MINISTERS !== 'undefined' ? REAL_MINISTERS : []).filter(x => x.id === id)[0]; nm = r && r.name; } catch (e) { /* sin lista */ }
+    return nm || 'un ministro de tu gabinete';
+  }
+  // El perdedor asume el cambio de presidente y/o la deuda; avisa al vencedor con los importes
+  function takeTerms(k) {
+    const m = S(); if (!m) return;
+    const total = Math.round((k === 'gob' ? 9000 : 6000) * kEco()), months = Math.max(1, Math.floor(legLeft() / 30));
+    m.debt = { to: oname(), total, left: total, monthly: Math.max(1, Math.round(total / months)) };
+    if (k === 'gob') { m.puppet = { name: newLeader(), by: oname() }; fx({ apr: -4, est: -3 }); setRel(60); }
+    tx({ t: 'wdebt', total, monthly: m.debt.monthly, puppet: m.puppet ? m.puppet.name : null });
+    log(k === 'gob' ? 'Un régimen impuesto por ' + oname() + ': ' + m.puppet.name + ' pasa a presidir el país y debes pagar ' + fmt(total) + ' M€.' : 'Debes pagar ' + fmt(total) + ' M€ a ' + oname() + ' hasta fin de legislatura.');
+    toast(oflag() + (k === 'gob' ? ' <b>' + esc(m.puppet.name) + '</b> sustituye al presidente. ' : ' ') + 'Deuda con ' + esc(oname()) + ': <b>' + fmt(total) + ' M€</b> en pagos mensuales', '#ef4444');
+  }
+  function debtDaily(m, d) {
+    if (m.debt && m.debt.left > 0 && d % 30 === 0 && m.linked) {
+      const pay = Math.min(m.debt.monthly, m.debt.left); cash(-pay, 'Pago de la deuda a ' + oname()); m.debt.left -= pay; tx({ t: 'wtrib', amt: pay });
+      log('Pagas ' + fmt(pay) + ' M€ de deuda a ' + oname() + ' (quedan ' + fmt(m.debt.left) + ').');
+    }
+    if (m.annexIncome && d % 30 === 0) cash(m.annexIncome, 'Administración del territorio anexionado');
+  }
+  function termsModal() {
+    const m = S(); if (!m || !m.terms) return;
+    try { window.warCancel(); } catch (e) { /* sin modal del motor */ }   // sustituye al cuadro de términos del motor
+    ov('<span class="bg-emerald-500 text-black text-[10px] px-2 py-0.5 rounded font-bold">VICTORIA</span><h3 class="font-hoi-header text-2xl text-emerald-400">Términos de paz con ' + esc(oname()) + '</h3>'
+      + obtn("MPW.terms('rep')", 'Exigir una deuda de guerra', 'Pagará ' + fmt(6000 * kEco()) + ' M€ en pagos mensuales hasta fin de legislatura. Conserva a su presidente.')
+      + obtn("MPW.terms('gob')", 'Cambiar al presidente', 'Su presidente es sustituido por su ministro de Exteriores (o uno de su gabinete al azar). Sigue siendo ' + esc(oname()) + ' quien gobierna, y te paga ' + fmt(9000 * kEco()) + ' M€ hasta fin de legislatura.')
+      + obtn("MPW.terms('anex')", 'Anexionar el país', 'Pasa a ser tuyo: administras sus territorios (ingresos mensuales) y el otro jugador pierde su partida.'));
+  }
+  function applyTerms(k) {   // en el vencedor
+    const m = S(); if (!m) return; m.terms = false; ovClose();
+    const W = gameState.wr; if (W) W.pend = null;
+    try { focusMetricAdd('apr', 8); focusMetricAdd('mil', 6); goalsInit(); gameState.goals.capital = Math.min(100, gameState.goals.capital + 12); } catch (e) { /* sin metas */ }
+    if (k === 'anex') {
+      try { if (W) { W.terr = W.terr || []; W.terr.push({ id: wiso(m.other.id), n: oname() }); } } catch (e) { /* sin territorios */ }
+      m.annexIncome = Math.round(500 * kEco()); fx({ eco: 3, est: -2 }); setRel(100);
+      tx({ t: 'wterm', k }); log('Anexionas ' + oname() + ': ahora la administras tú.'); toast(oflag() + ' <b>' + esc(oname()) + ' anexionado</b>', '#10b981');
+    } else { tx({ t: 'wterm', k }); log('Impones a ' + oname() + (k === 'gob' ? ' un cambio de presidente y una deuda.' : ' una deuda de guerra.')); }
+    try { if (W) { W.hist = W.hist || []; W.hist.unshift(oname() + ': VICTORIA (' + { rep: 'deuda de guerra', gob: 'cambio de presidente', anex: 'anexión' }[k] + ')'); W.hist = W.hist.slice(0, 8); } } catch (e) { /* sin historial */ }
+    render();
+  }
+  function annexed() {   // en el perdedor: el país es anexionado y la partida termina
+    const m = S(); if (m) log(oname() + ' anexiona tu país.');
+    const why = oname() + ' ha ganado la guerra y anexiona tu país. Tu partida termina aquí.', ttl = 'PAÍS ANEXIONADO';
+    try { if (gameState.campaign) diffForceEnd(why, ttl); else { gameState.endReason = why; gameState.endTitle = ttl; showEpilogue(true); } } catch (e) { toast(why); }
+  }
+  // Mensajería de paz y términos
+  function onPeace(d) {
+    const m = S(); if (!m) return;
+    if (d.t === 'wpz') {
+      if (d.k === 'ask') {
+        if (m.peaceOut) { m.pvp = null; m.peaceOut = false; ovClose(); realPeace(); tx({ t: 'wpz', k: 'yes' }); log('Ambos pedís la paz: alto el fuego.'); render(); return; }
+        m.peaceIn = true; try { fxPlay('event'); } catch (e) { /* sin audio */ }
+        ov('<span class="bg-amber-500 text-black text-[10px] px-2 py-0.5 rounded font-bold">NEGOCIACIÓN</span><h3 class="font-hoi-header text-xl text-amber-300">' + oflag() + ' ' + esc(oname()) + ' pide la paz</h3><p class="text-xs text-slate-300 font-sans">Puedes aceptar el alto el fuego, rechazarlo y seguir luchando, o exigir como condición que cambie de presidente y pague una deuda.</p>'
+          + obtn('MPW.pz(\'yes\')', 'Aceptar el alto el fuego', 'La guerra termina en las dos partidas.') + obtn('MPW.pz(\'no\')', 'Rechazar', 'La guerra continúa.')
+          + obtn('MPW.pz(\'demand\')', 'Exigir cambio de presidente', 'Su presidente será sustituido por su ministro de Exteriores (o uno al azar) y pagará ' + fmt(9000 * kEco()) + ' M€ hasta fin de legislatura.'));
+      } else if (d.k === 'yes') { m.pvp = null; m.peaceOut = false; ovClose(); realPeace(); log(oname() + ' acepta el alto el fuego.'); toast(oflag() + ' ' + esc(oname()) + ' acepta el alto el fuego', '#10b981'); }
+      else if (d.k === 'no') { m.peaceOut = false; ovClose(); log(oname() + ' rechaza la paz.'); toast(oflag() + ' ' + esc(oname()) + ' rechaza el alto el fuego'); }
+      else if (d.k === 'demand') {
+        m.peaceOut = false; const nm = newLeader(); m.nextLeader = nm;
+        ov('<span class="bg-red-600 text-black text-[10px] px-2 py-0.5 rounded font-bold">CONDICIÓN</span><h3 class="font-hoi-header text-xl text-red-300">' + oflag() + ' ' + esc(oname()) + ' exige un cambio de presidente</h3><p class="text-xs text-slate-300 font-sans">A cambio de la paz, tu presidente sería sustituido por <b>' + esc(nm) + '</b> y pagarías ' + fmt(9000 * kEco()) + ' M€ hasta fin de legislatura. Seguirías gobernando tú.</p>'
+          + obtn("MPW.cond(true)", 'Aceptar la condición', 'Termina la guerra.') + obtn("MPW.cond(false)", 'Rechazar', 'La guerra continúa.'));
+      } else if (d.k === 'agree') { m.pvp = null; ovClose(); realPeace(); log(oname() + ' acepta tus condiciones.'); toast(oflag() + ' ' + esc(oname()) + ' acepta: cambia de presidente y te pagará la deuda', '#10b981'); }
+      else if (d.k === 'refuse') { ovClose(); log(oname() + ' rechaza tu condición.'); toast(oflag() + ' ' + esc(oname()) + ' rechaza la condición: la guerra continúa'); }
+    } else if (d.t === 'wterm') {
+      if (d.k === 'anex') annexed(); else takeTerms(d.k);
+    } else if (d.t === 'wdebt') {
+      m.debtIn = { total: d.total, monthly: d.monthly, left: d.total }; if (d.puppet) m.puppetOther = d.puppet;
+      log(oname() + ' deberá pagarte ' + fmt(d.total) + ' M€.'); toast(oflag() + ' ' + esc(oname()) + ' te pagará <b>' + fmt(d.total) + ' M€</b>' + (d.puppet ? ' y su presidente pasa a ser <b>' + esc(d.puppet) + '</b>' : ''), '#10b981');
+    } else if (d.t === 'wtrib') {
+      const amt = Math.max(0, Math.min(1e6, Number(d.amt) || 0)); if (amt) { cash(amt, 'Pago de la deuda de ' + oname()); if (m.debtIn) m.debtIn.left = Math.max(0, m.debtIn.left - amt); log(oname() + ' te paga ' + fmt(amt) + ' M€ de su deuda.'); }
+    }
+    render();
+  }
+  window.MPW = {
+    terms: k => applyTerms(k),
+    pz: k => { const m = S(); if (!m) return; ovClose(); m.peaceIn = false;
+      if (k === 'yes') { m.pvp = null; realPeace(); setRel(m.rel + 15); tx({ t: 'wpz', k: 'yes' }); log('Aceptas el alto el fuego con ' + oname() + '.'); }
+      else if (k === 'no') { setRel(m.rel - 2); tx({ t: 'wpz', k: 'no' }); log('Rechazas la paz con ' + oname() + '.'); }
+      else { m.waitCond = true; tx({ t: 'wpz', k: 'demand' }); log('Exiges a ' + oname() + ' que cambie de presidente.'); }
+      render(); },
+    cond: ok => { const m = S(); if (!m) return; ovClose();
+      if (ok) { m.pvp = null; takeTerms('gob'); tx({ t: 'wpz', k: 'agree' }); realPeace(); } else tx({ t: 'wpz', k: 'refuse' });
+      render(); }
+  };
+  // "Negociar la paz" en una guerra contra el otro jugador ya no la termina por la fuerza: se la propone
+  window.warPeace = function () {
+    const m = S(); if (!m || !m.pvp || !m.linked) return _peace0.apply(this, arguments);
+    if (m.peaceOut) return toast('Ya has propuesto la paz a ' + oname() + '.', '#d9a726');
+    m.peaceOut = true; tx({ t: 'wpz', k: 'ask' }); log('Propones la paz a ' + oname() + '.');
+    toast(oflag() + ' Propuesta de paz enviada a ' + esc(oname()), '#d9a726'); render();
+  };
+
   const _wg = window.warGo;
   window.warGo = function (id, goal) {
     const m = S(), pv = goal !== 'def' && pvpTarget(id);
@@ -291,7 +412,8 @@
   };
   function endPvp(r, mine) {   // r = resultado desde MI punto de vista: win | lose | peace
     const m = S(); if (!m || !m.pvp) return;
-    m.pvp = null;
+    m.pvp = null; m.peaceOut = false; m.peaceIn = null; ovClose();
+    if (r === 'win' && mine) { m.terms = true; setTimeout(termsModal, 400); }   // el vencedor elige los términos
     if (mine) { setRel(m.rel + (r === 'peace' ? 15 : r === 'win' ? -10 : 0)); tx({ t: 'wend', r }); }
     log('Fin de la guerra con ' + oname() + ': ' + (r === 'win' ? 'victoria' : r === 'lose' ? 'derrota' : 'alto el fuego') + '.');
   }
@@ -315,10 +437,12 @@
         const before = w.prog; w.prog = Math.max(-100, Math.min(100, w.prog - d.dp));
         m.pvp.base = (m.pvp.base == null ? before : m.pvp.base) - (before - w.prog);
       }
+    } else if (d.t === 'wabs') {
+      if (m.role === 'guest' && m.pvp && m.pvp.local && w && w.id === id && typeof d.p === 'number') { w.prog = Math.max(-100, Math.min(100, -d.p)); m.pvp.base = w.prog; }
     } else if (d.t === 'wend') {
       adopt(d);
       if (m.pvp && m.pvp.local && w && w.id === id) {
-        if (d.r === 'win') w.prog = -100; else if (d.r === 'lose') w.prog = 100; else { try { window.warPeace(); } catch (e) { /* ya acabó */ } }
+        if (d.r === 'win') w.prog = -100; else if (d.r === 'lose') w.prog = 100; else { try { realPeace(); } catch (e) { /* ya acabó */ } }
       }
       toast(oflag() + ' ' + esc(oname()) + ': ' + (d.r === 'win' ? 'ha ganado la guerra' : d.r === 'lose' ? 'ha perdido la guerra' : 'pide el alto el fuego'), '#d9a726');
       const mine = d.r === 'win' ? 'lose' : d.r === 'lose' ? 'win' : 'peace'; endPvp(mine, false);
@@ -330,6 +454,9 @@
     const id = m.other && wiso(m.other.id), w = WAR(), d = gameState.daysInOffice || 0;
     if (w && w.id === id) {
       if (m.pvp.base == null) m.pvp.base = w.prog;
+      m.pvp.hold = w.prog >= 70 ? (m.pvp.hold || 0) + 1 : 0;   // victoria por desgaste: +70 de frente durante 20 días
+      if (m.pvp.hold >= 20) { w.prog = 100; toast('Tus tropas han roto las líneas enemigas: <b>victoria decisiva</b>', '#10b981'); }
+      if (m.role === 'host' && m.linked && d % 10 === 0) tx({ t: 'wabs', p: Math.round(w.prog * 100) / 100 });
       if (m.linked && d % 2 === 0) { const dp = w.prog - m.pvp.base; if (Math.abs(dp) >= 0.01) { tx({ t: 'wst', dp: Math.round(dp * 100) / 100 }); m.pvp.base = w.prog; } }
       return;
     }
@@ -337,11 +464,19 @@
     const W = gameState.wr || {}, h = (W.hist || [])[0] || '';
     endPvp(W.pend === id ? 'win' : /DERROTA/.test(h) ? 'lose' : 'peace', true);
   }
+  function debtBox(m) {
+    const o = [];
+    if (m.puppet) o.push('Presidente impuesto por ' + esc(m.puppet.by) + ': <b class="text-red-300">' + esc(m.puppet.name) + '</b>');
+    if (m.debt) o.push('Debes ' + fmt(m.debt.left) + ' M€ de ' + fmt(m.debt.total) + ' (pago mensual ' + fmt(m.debt.monthly) + ' M€)');
+    if (m.debtIn) o.push('Te deben ' + fmt(m.debtIn.left) + ' M€ de ' + fmt(m.debtIn.total) + (m.puppetOther ? ' · su presidente ahora es ' + esc(m.puppetOther) : ''));
+    if (m.annexIncome) o.push('Territorio anexionado: +' + fmt(m.annexIncome) + ' M€/mes');
+    return o.length ? '<div class="bg-slate-900 border border-amber-500/50 rounded-lg p-3 text-[11px] text-slate-200 space-y-1 font-hoi-tech"><b class="text-amber-300">TÉRMINOS DE LA GUERRA</b>' + o.map(x => '<div>' + x + '</div>').join('') + '</div>' : '';
+  }
   function warBox(m) {
     const p = m.pvp; if (!p) return '';
     const w = WAR(), id = m.other && wiso(m.other.id), on = w && w.id === id;
     return `<div class="bg-red-950/60 border border-red-500/60 rounded-lg p-3 space-y-2 font-hoi-tech"><div class="flex justify-between items-center"><b class="text-sm text-red-300"><i class="fa-solid fa-person-rifle mr-1"></i>GUERRA CON ${esc(oname()).toUpperCase()}</b><span class="text-[10px] text-red-200">${p.role === 'att' ? 'Eres el atacante' : 'Te han atacado'}${on ? ' · frente ' + Math.round(w.prog) : ''}</span></div>
-      <div class="text-[11px] text-slate-300">${p.role === 'def' ? 'Resiste: cada operación que lances desde Militar y Guerra empuja el frente contra el atacante. ' : ''}Los dos frentes se influyen cada 5 días. Para terminar, propón un alto el fuego aquí abajo.</div>
+      <div class="text-[11px] text-slate-300">${p.role === 'def' ? 'Resiste: cada operación que lances desde Militar y Guerra empuja el frente contra el atacante. ' : ''}Los dos frentes son el mismo (con signo contrario). <b>Victoria:</b> frente a +100, o mantener +70 durante 20 días. <b>Derrota:</b> frente a −100. También puedes abrir negociaciones de paz: el otro jugador acepta, rechaza o impone condiciones.</div>
       ${on ? '<button onclick="switchTab(\'war\')" class="hoi-button-gold px-3 py-1 rounded text-[11px]">Ir al Estado Mayor</button>' : ''}</div>`;
   }
 
@@ -451,7 +586,7 @@
         <div class="text-[11px] ${X.day0 == null ? 'text-amber-400' : X.waiting ? 'text-amber-400' : 'text-emerald-400'}"><i class="fa-solid fa-clock mr-1"></i>Reloj compartido: ${X.day0 == null ? 'esperando a que los dos estéis en la partida' : X.waiting ? 'esperando al otro jugador' : 'sincronizado'}</div>
         <div class="flex justify-between text-[11px] text-slate-400"><span>Tu capital político: <b class="text-slate-200">${Math.floor(cap())}</b></span><span>Tu tesorería: <b class="text-slate-200">${fmt(treas())} M€</b></span></div>
         <button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded text-[10px]">Desconectar</button></div>
-      ${warBox(m)}
+      ${warBox(m)}${debtBox(m)}
       ${inbox ? `<div class="space-y-2"><div class="text-[11px] text-amber-400 tracking-wider">PROPUESTAS RECIBIDAS</div>${inbox}</div>` : ''}
       <div class="hoi-box p-4 rounded-xl space-y-2"><div class="text-[11px] text-amber-400 tracking-wider font-hoi-tech">DIPLOMACIA CON ${esc(oname()).toUpperCase()}</div><div class="grid grid-cols-1 md:grid-cols-2 gap-2">${acts}</div></div>
       ${logHtml(m)}`;
