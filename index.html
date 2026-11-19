@@ -402,41 +402,79 @@ main#app, footer {
       </div>
     </div>
 
-    <!-- PESTAÑAS PRINCIPALES (EN VERTICAL) -->
+    <!-- PESTAÑAS PRINCIPALES (EN VERTICAL) — todas presentes para cualquier país -->
 <div class="sidebar-nav-list">
   <button onclick="switchTab('main')" id="tab-btn-main" class="nav-tab-btn active">
     <i class="fa-solid fa-landmark text-amber-400 w-4 text-center"></i>
     <span>Decisiones</span>
   </button>
-
   <button onclick="switchTab('boe')" id="tab-btn-boe" class="nav-tab-btn">
     <i class="fa-solid fa-scroll text-sky-400 w-4 text-center"></i>
     <span id="nav-boe-label">Decretos (BOE)</span>
   </button>
-
   <button onclick="switchTab('cabinet')" id="tab-btn-cabinet" class="nav-tab-btn">
     <i class="fa-solid fa-user-group text-emerald-400 w-4 text-center"></i>
     <span>Ministros</span>
   </button>
-
-  <button onclick="switchTab('budget')" id="tab-btn-budget" class="nav-tab-btn">
-    <i class="fa-solid fa-wallet text-amber-400 w-4 text-center"></i>
-    <span>Tesorería</span>
-  </button>
-
   <button onclick="switchTab('media')" id="tab-btn-media" class="nav-tab-btn">
     <i class="fa-solid fa-bullhorn text-indigo-400 w-4 text-center"></i>
     <span>Prensa</span>
   </button>
-
+  <button onclick="switchTab('budget')" id="tab-btn-budget" class="nav-tab-btn">
+    <i class="fa-solid fa-wallet text-amber-400 w-4 text-center"></i>
+    <span>Tesorería</span>
+  </button>
+  <button onclick="switchTab('fin')" id="tab-btn-fin" class="nav-tab-btn">
+    <i class="fa-solid fa-coins text-yellow-400 w-4 text-center"></i>
+    <span>Finanzas y Deuda</span>
+  </button>
+  <button onclick="switchTab('bde')" id="tab-btn-bde" class="nav-tab-btn">
+    <i class="fa-solid fa-building-columns text-amber-400 w-4 text-center"></i>
+    <span id="nav-bde-label">Banco Central</span>
+  </button>
+  <button onclick="switchTab('proj')" id="tab-btn-proj" class="nav-tab-btn">
+    <i class="fa-solid fa-helmet-safety text-orange-400 w-4 text-center"></i>
+    <span>Proyectos de Estado</span>
+  </button>
+  <button onclick="switchTab('opposition')" id="tab-btn-opposition" class="nav-tab-btn">
+    <i class="fa-solid fa-scale-balanced text-rose-400 w-4 text-center"></i>
+    <span>Negociación u Oposición</span>
+  </button>
   <button onclick="switchTab('goals')" id="tab-btn-goals" class="nav-tab-btn">
     <i class="fa-solid fa-flag text-yellow-400 w-4 text-center"></i>
     <span>Mandato y Objetivos</span>
   </button>
-
-  <button onclick="switchTab('opposition')" id="tab-btn-opposition" class="nav-tab-btn">
-    <i class="fa-solid fa-scale-balanced text-rose-400 w-4 text-center"></i>
-    <span>Negociación u Oposición</span>
+  <button onclick="switchTab('soc')" id="tab-btn-soc" class="nav-tab-btn">
+    <i class="fa-solid fa-people-group text-emerald-400 w-4 text-center"></i>
+    <span>Sociedad y Opinión</span>
+  </button>
+  <button onclick="switchTab('focus')" id="tab-btn-focus" class="nav-tab-btn">
+    <i class="fa-solid fa-diagram-project text-orange-400 w-4 text-center"></i>
+    <span>Focos Nacionales</span>
+  </button>
+  <button onclick="switchTab('intl')" id="tab-btn-intl" class="nav-tab-btn">
+    <i class="fa-solid fa-globe text-sky-400 w-4 text-center"></i>
+    <span>Relaciones Exteriores</span>
+  </button>
+  <button onclick="switchTab('war')" id="tab-btn-war" class="nav-tab-btn">
+    <i class="fa-solid fa-earth-europe text-red-400 w-4 text-center"></i>
+    <span>Militar y Guerra</span>
+  </button>
+  <button onclick="switchTab('ue')" id="tab-btn-ue" class="nav-tab-btn">
+    <i class="fa-solid fa-european-union text-blue-400 w-4 text-center"></i>
+    <span>Unión Europea</span>
+  </button>
+  <button onclick="switchTab('stats')" id="tab-btn-stats" class="nav-tab-btn">
+    <i class="fa-solid fa-chart-simple text-cyan-400 w-4 text-center"></i>
+    <span>Informes</span>
+  </button>
+  <button onclick="switchTab('cis')" id="tab-btn-cis" class="nav-tab-btn">
+    <i class="fa-solid fa-square-poll-vertical text-teal-400 w-4 text-center"></i>
+    <span>Encuestas</span>
+  </button>
+  <button onclick="switchTab('ach')" id="tab-btn-ach" class="nav-tab-btn">
+    <i class="fa-solid fa-trophy text-violet-400 w-4 text-center"></i>
+    <span>Logros</span>
   </button>
 </div>
 
@@ -573,6 +611,7 @@ main#app, footer {
 
     // Nombre de la pestaña de decretos según el país (EE. UU.: Órdenes ejecutivas)
     try { if (MC.decrees && MC.decrees.tab) { var _nb = document.getElementById('nav-boe-label'); if (_nb) _nb.textContent = MC.decrees.tab; } } catch (e) {}
+    try { var _bd = document.getElementById('nav-bde-label'); if (_bd && MC.t && MC.t.bank) _bd.textContent = MC.t.bank; } catch (e) {}
     // Moneda del país: muestra su símbolo en todos los textos (M€ -> M$) sin tocar el resto del motor
     if (MC.cur && MC.cur !== '€') (function (cur) {
       var sep = cur.length > 1 ? ' ' : '';
@@ -9054,7 +9093,7 @@ function playSound(n) {
   }
   (function () {
     const goalsBtn = document.getElementById('tab-btn-goals');
-    if (goalsBtn && MC.builtin && !document.getElementById('tab-btn-ue')) {
+    if (goalsBtn && !document.getElementById('tab-btn-ue')) {
       const b = document.createElement('button');
       b.id = 'tab-btn-ue'; b.className = 'nav-tab-btn'; b.setAttribute('onclick', "switchTab('ue')");
       b.innerHTML = '<i class="fa-solid fa-earth-europe text-sky-300 w-4 text-center"></i><span>Unión Europea</span>';
