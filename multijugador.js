@@ -106,35 +106,71 @@
     if (d.p && typeof d.p === 'object') Object.keys(m.pacts).forEach(k => { if (typeof d.p[k] === 'boolean') m.pacts[k] = d.p[k]; });
   };
 
-  // ---------------- RELOJ COMPARTIDO ----------------
-  // Pausa y velocidad se sincronizan entre los dos jugadores; el reloj no arranca hasta que ambos están en la partida,
-  // y quien va por delante espera a que el otro le alcance (así los dos avanzan los mismos días).
-  const X = { ready: false, sent: false, day: null, day0: null, waiting: false, waitSpd: 1, applying: false };
+  // ---------------- RELOJ COMPARTIDO (anfitrión autoritativo + heartbeat) ----------------
+  // El anfitrión es la fuente de verdad del día. Heartbeat cada 4 s mantiene viva la conexión.
+  const X = { ready: false, sent: false, day: null, day0: null, waiting: false, waitSpd: 1, applying: false, lastRx: 0, hbTimer: null };
   const inGame = () => gameState.step === 4 || gameState.step === 5;
   const elapsed = () => (gameState.daysInOffice || 0) - (X.day0 == null ? (gameState.daysInOffice || 0) : X.day0);
-  const resetClock = () => { X.ready = false; X.sent = false; X.day = null; X.day0 = null; X.waiting = false; };
+  function stopHeartbeat() { if (X.hbTimer) { clearInterval(X.hbTimer); X.hbTimer = null; } }
+  function startHeartbeat() {
+    stopHeartbeat();
+    X.lastRx = Date.now();
+    X.hbTimer = setInterval(() => {
+      const m = S();
+      if (!m || !m.linked || !link || !link.open) return;
+      try { tx({ t: 'hb', n: elapsed(), role: m.role }); } catch (e) {}
+      if (Date.now() - X.lastRx > 18000) {
+        m.linked = false;
+        log('Conexión perdida (sin respuesta).');
+        toast('Conexión perdida. Reconecta desde Multijugador.', '#ef4444');
+        stopHeartbeat();
+        try { if (link) link.close(); } catch (e) {}
+        link = null;
+        render();
+      }
+    }, 4000);
+  }
+  const resetClock = () => { X.ready = false; X.sent = false; X.day = null; X.day0 = null; X.waiting = false; stopHeartbeat(); };
   const _sg = setGameSpeed;
   function localSpeed(v) { X.applying = true; try { _sg(v); } finally { X.applying = false; } }
   setGameSpeed = function (v) {
     const m = S();
     if (m && m.linked && !X.applying) {
-      if (v > 0 && !(X.ready && inGame())) { localSpeed(0); toast('Reloj compartido: esperando a que el otro jugador llegue a la partida.', '#d9a726'); return; }
+      if (v > 0 && !(X.ready && inGame())) { localSpeed(0); toast('Reloj compartido: esperando al otro jugador.', '#d9a726'); return; }
       X.waiting = false; tx({ t: 'spd', v });
     }
     return _sg.apply(this, arguments);
   };
   function sendReady() { const m = S(); if (m && m.linked) { X.sent = inGame(); tx({ t: 'rdy', r: X.sent }); } }
-  function checkStart() {   // cuando los dos están dentro: se pausa y se fija el día 0 común
+  function checkStart() {
     const m = S(); if (!m || !m.linked || !X.ready || !inGame() || X.day0 != null) return;
     X.day0 = gameState.daysInOffice || 0; X.day = 0; localSpeed(0);
-    toast('Reloj compartido: pulsad ▶ para empezar a la vez.', '#d9a726');
+    startHeartbeat();
+    toast('Reloj compartido listo. Pulsad ▶ para empezar a la vez.', '#d9a726');
   }
   function clockMsg(d) {
+    X.lastRx = Date.now();
     if (d.t === 'rdy') { X.ready = !!d.r; checkStart(); }
-    else if (d.t === 'spd' && [0, 1, 2, 3].indexOf(d.v) >= 0) { if (inGame() && X.day0 != null) { X.waiting = false; localSpeed(d.v); } }
+    else if (d.t === 'spd' && [0, 1, 2, 3].indexOf(d.v) >= 0) {
+      if (inGame() && X.day0 != null) { X.waiting = false; localSpeed(d.v); }
+    }
     else if (d.t === 'day' && typeof d.n === 'number') {
+      const m = S();
       X.day = d.n;
-      if (X.waiting && elapsed() <= X.day + 1) { X.waiting = false; localSpeed(X.waitSpd); }
+      if (m && m.role === 'guest' && X.day0 != null) {
+        const e = elapsed();
+        if (e > d.n + 2 && gameState.gameSpeed > 0 && !X.waiting) {
+          X.waiting = true; X.waitSpd = gameState.gameSpeed; localSpeed(0);
+          toast('Reloj: esperando al anfitrión…', '#d9a726');
+        } else if (X.waiting && e <= d.n + 1) {
+          X.waiting = false; localSpeed(X.waitSpd);
+        }
+      } else if (X.waiting && elapsed() <= d.n + 1) {
+        X.waiting = false; localSpeed(X.waitSpd);
+      }
+    }
+    else if (d.t === 'hb') {
+      if (typeof d.n === 'number') X.day = d.n;
     }
   }
   // ---------------- CONFIGURACIÓN (la decide el anfitrión) ----------------
@@ -206,7 +242,7 @@
       sendReady(); checkStart(); render(); return;
     }
     if (d.t === 'reld') { if (typeof d.dr === 'number' && isFinite(d.dr)) setRel(m.rel + Math.max(-100, Math.min(100, d.dr)), true); render(); return; }
-    if (d.t === 'rdy' || d.t === 'spd' || d.t === 'day') { clockMsg(d); return; }
+    if (d.t === 'rdy' || d.t === 'spd' || d.t === 'day' || d.t === 'hb') { clockMsg(d); return; }
     if (d.t === 'sync') {
       if (d.auth && m.role === 'guest') {
         adopt(d);
@@ -264,8 +300,13 @@
     try { aftermath(m, d); } catch (e) { console.error(e); }
     if (m.pacts.trade && d % 30 === 0) cash(150, 'Pacto comercial con ' + oname());
     if (m.linked && X.day0 != null) {
-      const e = elapsed(); if (e % 2 === 0) tx({ t: 'day', n: e });
-      if (X.day != null && gameState.gameSpeed > 0 && e > X.day + 3 && !X.waiting) { X.waiting = true; X.waitSpd = gameState.gameSpeed; localSpeed(0); toast('Reloj compartido: esperando al otro jugador…', '#d9a726'); }
+      const e = elapsed();
+      // Anfitrión emite el día cada turno; invitado solo cuando va por detrás no emite autoridad
+      if (m.role === 'host' || e % 3 === 0) tx({ t: 'day', n: e });
+      if (m.role === 'guest' && X.day != null && gameState.gameSpeed > 0 && e > X.day + 2 && !X.waiting) {
+        X.waiting = true; X.waitSpd = gameState.gameSpeed; localSpeed(0);
+        toast('Reloj: esperando al anfitrión…', '#d9a726');
+      }
     }
     if (m.role === 'host' && m.linked) {
       if (pk.length) setRel(m.rel + 0.05 * pk.length);
@@ -570,12 +611,32 @@
   // ---------------- CONEXIÓN ----------------
   function wire(c) {
     link = c;
-    const hello = () => { const m = ensure(); m.linked = true; resetClock(); tx({ t: 'hello', c: myC().id, n: myC().name, u: USER }); render(); };
+    const hello = () => {
+      const m = ensure();
+      m.linked = true;
+      resetClock();
+      X.lastRx = Date.now();
+      tx({ t: 'hello', c: myC().id, n: myC().name, u: USER });
+      // Si ya estamos en partida, reactivar heartbeat
+      if (inGame()) startHeartbeat();
+      render();
+    };
     c.on('open', hello);
-    c.on('data', onData);
-    c.on('close', () => { const m = S(); if (m) { m.linked = false; log('Conexión con ' + oname() + ' perdida.'); } link = null; render(); });
+    c.on('data', d => { X.lastRx = Date.now(); onData(d); });
+    c.on('close', () => {
+      const m = S();
+      if (m) { m.linked = false; log('Conexión con ' + oname() + ' perdida.'); }
+      stopHeartbeat();
+      link = null;
+      toast('Conexión cerrada. Puedes reconectar desde Multijugador.', '#ef4444');
+      render();
+    });
+    c.on('error', err => {
+      console.warn('Link error', err);
+      toast('Error de red: ' + (err && err.type || 'desconocido'), '#ef4444');
+    });
   }
-  function closeNet() { resetClock(); try { if (link) link.close(); if (peer) peer.destroy(); } catch (e) { /* ya cerrado */ } link = peer = null; const m = S(); if (m) { m.linked = false; m.role = null; m.code = ''; } }
+  function closeNet() { stopHeartbeat(); resetClock(); try { if (link) link.close(); if (peer) peer.destroy(); } catch (e) { /* ya cerrado */ } link = peer = null; const m = S(); if (m) { m.linked = false; m.role = null; m.code = ''; } }
   function host() {
     if (!userOk()) return need();
     (useRelay() ? loadSb : loadPeer)(() => {
@@ -740,10 +801,20 @@
     const cards = (window.COUNTRIES || []).map(c => `<div class="lb-country ${me.id === c.id ? 'sel' : ''}" onclick="MP.country('${esc(c.id)}')"><div class="lb-flag">${flagOf(c.id)}</div><div class="lb-cn">${esc(c.name)}</div><div class="lb-tag">${me.id === c.id ? 'Tu país' : 'Cambiar a este país'}</div></div>`).join('');
     return `<div><div class="lb-label mb-1">1 · Nombre de usuario</div><input id="lb-user" class="lb-input" maxlength="16" placeholder="Ej.: Presidente_Moncloa" value="${esc(USER)}" oninput="MP.user(this.value)"></div>
       <div><div class="lb-label mb-2">2 · Elige tu país (cada jugador, uno distinto)</div><div class="lb-countries">${cards}</div></div>
-      <div><div class="lb-label mb-2">3 · Crea una partida o únete a una</div><div class="flex gap-2 flex-wrap items-center">
-        ${btn('hoi-button-gold', 'fa-globe', 'Crear partida (anfitrión)', 'MP.create()')}
-        <input id="mp-code" maxlength="5" value="${esc(L.code)}" placeholder="CÓDIGO DE SALA" class="lb-input" style="width:190px;text-transform:uppercase;letter-spacing:.2em" oninput="MP.codeIn(this.value)">
-        ${btn('hoi-button', 'fa-right-to-bracket', 'Unirse', "MP.enter(document.getElementById('mp-code').value)")}</div></div>
+      <div><div class="lb-label mb-2">3 · Modo de juego</div>
+        <div class="flex flex-col gap-3">
+          <button onclick="MP.solo()" class="hoi-button-gold w-full px-5 py-3 rounded-lg text-sm text-left flex items-center gap-3">
+            <i class="fa-solid fa-user text-lg"></i>
+            <span><b>UN JUGADOR</b><br><span class="text-[11px] opacity-80 font-normal">Juega solo. Sin conexión ni código de sala.</span></span>
+          </button>
+          <div class="text-[10px] text-slate-500 tracking-wider text-center">— o multijugador online —</div>
+          <div class="flex gap-2 flex-wrap items-center">
+            ${btn('hoi-button', 'fa-globe', 'Crear sala (anfitrión)', 'MP.create()')}
+            <input id="mp-code" maxlength="5" value="${esc(L.code)}" placeholder="CÓDIGO DE SALA" class="lb-input" style="width:190px;text-transform:uppercase;letter-spacing:.2em" oninput="MP.codeIn(this.value)">
+            ${btn('hoi-button', 'fa-right-to-bracket', 'Unirse', "MP.enter(document.getElementById('mp-code').value)")}
+          </div>
+        </div>
+      </div>
       <div class="lb-err">${esc(L.err)}</div>`;
   }
 
@@ -762,6 +833,7 @@
     lobby: v => { L.view = v; L.err = ''; render(); },
     create: () => { if (need()) { L.view = 'settings'; L.err = ''; render(); } },
     diff: k => { if (typeof DIFFICULTY !== 'undefined' && DIFFICULTY[k]) { L.diff = k; render(); } },
+    solo: () => { if (!need()) return; L.on = false; gameState.mp = null; closeNet(); startGame(); },
     begin: () => { const m = S(); if (!m || m.role !== 'host' || !m.linked) return; tx({ t: 'go' }); startGame(); },
     copy: u => { try { navigator.clipboard.writeText(u); goalsToast('Enlace copiado.', '#10b981'); } catch (e) { prompt('Copia el enlace:', u); } },
     rel: () => (S() ? S().rel : null), pacts: () => (S() ? Object.assign({}, S().pacts) : {}), isLinked: () => !!(S() && S().linked),
