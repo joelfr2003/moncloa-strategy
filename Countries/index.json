@@ -18,6 +18,12 @@
       "name": "Estados Unidos",
       "flag": "US",
       "file": "eeuu.js"
+    },
+    {
+      "id": "francia",
+      "name": "Francia",
+      "flag": "FR",
+      "file": "francia.js"
     }
   ]
 }

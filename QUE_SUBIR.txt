@@ -1,0 +1,20 @@
+SUBE ESTO A TU REPO moncloa-strategy (estructura igual que GitHub):
+
+RAÍZ:
+  index.html          → sustituir
+  multijugador.js     → sustituir
+  sw.js               → sustituir (v35)
+
+Countries/:
+  francia.js          → NUEVO
+  index.json          → sustituir (incluye Francia)
+  (espana.js, marruecos.js, eeuu.js opcionales si quieres las mismas versiones)
+
+icons/                → solo si te faltan iconos
+
+NO hace falta tocar music/ ni himnos.
+
+Después del push, en la consola del juego:
+navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister())))
+.then(()=>caches.keys()).then(ks=>Promise.all(ks.map(k=>caches.delete(k))))
+.then(()=>location.reload(true));

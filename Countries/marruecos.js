@@ -1,1030 +1,867 @@
 // =====================================================================
-//  MARRUECOS — MONCLOA STRATEGY
-//  Contenido unificado de pais-marruecos.js + marruecos.js, adaptado a la
-//  estructura exacta de plantilla-pais.js (17 constantes globales).
-//  Cárgalo ANTES del script principal con una etiqueta <script> normal.
-//
-//  NOTAS DE ADAPTACIÓN
-//  · cost > 0 gasta tesorería; cost < 0 ingresa (convención de
-//    pais-marruecos.js). Todas las cantidades están en M€.
-//  · 'palace' (Confianza del Palacio) no existe como métrica base: en
-//    eventos, shocks y acciones presidenciales se ha pasado a `con`.
-//    En ministros, espíritus y proyectos se ha omitido. VERIFICAR el uso
-//    de `con` en el motor.
-//  · Los efectos sobre `debt`, `ES` (España) y `rel` bilateral de los
-//    eventos no tienen campo en la plantilla y se han omitido.
-//  · Cartera ministerial original -> cartera de la lista cerrada:
-//    awqaf -> cultura · equipamiento -> transicion_ecologica
-//    agricultura -> territorio · industria -> economia
-//    energia -> transicion_ecologica
-//  · Los ministros «TEC» (técnicos del Palacio) usan el partido 'OTR'.
-//  · Titulares (`news`, `textResult`) y cabeceras de diario: redactados
-//    al adaptar, porque los archivos originales no los incluían.
+//  JUEGO DE MARRUECOS · integrado en la interfaz principal
+//  - Ya no crea una pantalla propia: es una pestaña más del menú lateral
+//    y usa las mismas clases visuales que España (hoi-box, hoi-button…).
+//  - El estado vive en gameState.mp.P (= gameState.morocco), así que se
+//    guarda, se sincroniza con el jugador 2 y comparte día con España.
+//  - La simulación la ejecuta SOLO el anfitrión (multijugador.js llama a
+//    moroccoTick() una vez por cada día de España). El jugador 2 envía
+//    órdenes y recibe el estado, igual que ya hacía el resto del modo.
 // =====================================================================
+(function () {
+  'use strict';
+  const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
 
+  // Regiones (polígonos esquemáticos en lon/lat) – se proyectan a un SVG de 340x330
+  const REG = [
+    ['TTA', 'Tánger-Tetuán-Alhucemas', [[-6, 35.8], [-5.3, 35.9], [-3.9, 35.2], [-4.3, 34.7], [-5.5, 34.6], [-6.1, 35]]],
+    ['ORI', 'Oriental', [[-3.9, 35.2], [-2.2, 35.1], [-1.2, 32.5], [-1.2, 31.9], [-3, 32], [-4, 33.2], [-4.3, 34.7]]],
+    ['FEM', 'Fez-Meknes', [[-5.5, 34.6], [-4.3, 34.7], [-4, 33.2], [-4.4, 32.6], [-5.3, 32.8], [-6, 33.6]]],
+    ['RSK', 'Rabat-Salé-Kénitra', [[-6.1, 35], [-5.5, 34.6], [-6, 33.6], [-6.9, 33.5], [-7, 34.3], [-6.5, 34.6]]],
+    ['CAS', 'Casablanca-Settat', [[-6.9, 33.5], [-6, 33.6], [-6.2, 32.6], [-7.5, 32.3], [-8.8, 32.9], [-7.7, 33.6]]],
+    ['BMK', 'Béni Mellal-Khénifra', [[-6, 33.6], [-5.3, 32.8], [-5.5, 32], [-6.5, 31.7], [-6.2, 32.6]]],
+    ['MAR', 'Marrakech-Safi', [[-7.5, 32.3], [-6.2, 32.6], [-6.5, 31.7], [-7.5, 30.8], [-9, 30.6], [-9.9, 31.5], [-9.2, 32.5]]],
+    ['DRA', 'Drâa-Tafilalet', [[-4.4, 32.6], [-3, 32], [-2, 30.8], [-4, 29.2], [-6.2, 29.8], [-7.5, 30.8], [-6.5, 31.7], [-5.5, 32]]],
+    ['SOU', 'Souss-Massa', [[-9, 30.6], [-7.5, 30.8], [-6.2, 29.8], [-8.7, 28.7], [-9.9, 29.4]]],
+    ['GUE', 'Guelmim-Oued Noun', [[-10.2, 29.2], [-8.7, 28.7], [-8.7, 27.7], [-11.1, 27.8]]],
+    ['LAA', 'Laâyoune-Sakia El Hamra', [[-11.1, 27.8], [-8.7, 27.7], [-8.7, 25], [-14.5, 26], [-13.2, 27.7]]],
+    ['DAK', 'Dakhla-Oued Ed-Dahab', [[-14.5, 26], [-8.7, 25], [-8.7, 21.4], [-17, 21.4], [-16, 23.7], [-15, 25]]]
+  ];
+  const pts = p => p.map(([lo, la]) => ((lo + 17) * 20).toFixed(0) + ',' + ((36 - la) * 22).toFixed(0)).join(' ');
+  const BUD = [
+    { id: 'edu', t: 'Educación', ic: 'fa-graduation-cap', cost: 1.5, d: 'Mejora la aprobación y, a largo plazo, la economía.', fx: { apr: 0.0003, eco: 0.0002 } },
+    { id: 'san', t: 'Sanidad', ic: 'fa-heart-pulse', cost: 1.5, d: 'Sube la aprobación y algo la estabilidad.', fx: { apr: 0.0004, est: 0.0001 } },
+    { id: 'def', t: 'Defensa', ic: 'fa-shield', cost: 1.5, d: 'Mantiene la preparación de las FAR.', fx: { mil: 0.0006 } },
+    { id: 'inf', t: 'Infraestructuras', ic: 'fa-road', cost: 1.5, d: 'Puertos, carreteras y energía: impulsa la economía.', fx: { eco: 0.0005 } },
+    { id: 'seg', t: 'Seguridad e Interior', ic: 'fa-user-shield', cost: 1.5, d: 'Más estabilidad interna.', fx: { est: 0.0005 } },
+    { id: 'agr', t: 'Agricultura y agua', ic: 'fa-wheat-awn', cost: 1.5, d: 'Campo y agua: ayuda a economía, aprobación y estabilidad.', fx: { eco: 0.0002, apr: 0.0002, est: 0.0002 } }];
+  const POL = [
+    { id: 'green', t: 'Plan Generación Verde', cost: 600, cap: 5, cd: 60, P: { eco: 3, apr: 2 }, d: 'Renovables e industria verde.' },
+    { id: 'edu', t: 'Reforma educativa', cost: 400, cap: 4, cd: 60, P: { apr: 3, eco: 1 }, d: 'Nuevo modelo escolar y universitario.' },
+    { id: 'agua', t: 'Desaladoras y trasvases', cost: 500, cap: 4, cd: 60, P: { eco: 2, est: 2 }, d: 'Seguridad hídrica frente a la sequía.' },
+    { id: 'tgv', t: 'Alta velocidad Tánger–Marrakech', cost: 900, cap: 6, cd: 90, P: { eco: 4, apr: 2 }, d: 'Gran obra ferroviaria.' },
+    { id: 'mundial', t: 'Mundial 2030 con España', cost: 800, cap: 6, cd: 90, P: { apr: 4, eco: 3 }, ES: { eco: 1 }, rel: 4, d: 'Sede compartida: beneficia a ambos.' },
+    { id: 'pan', t: 'Subsidio al pan y al butano', cost: 300, cap: 3, cd: 45, P: { apr: 4, est: 2 }, d: 'Alivio de precios para las familias.' },
+    { id: 'gas', t: 'Gasoducto con España', cost: 700, cap: 6, cd: 90, P: { eco: 3 }, ES: { eco: 2 }, rel: 5, d: 'Energía compartida: beneficia a ambos.' }];
+  const EVS = [
+    { title: 'Sequía y malas cosechas', desc: 'Seis años de sequía hunden el campo y el pan se encarece.', opts: [
+      { t: 'Importar cereal y subsidiar el pan (−400 M€)', tes: -400, P: { apr: 4, eco: -1 } }, { t: 'Racionar el agua y dejar que ajuste el mercado', P: { apr: -6, est: -3, eco: 1 } }] },
+    { title: 'Protestas juveniles', desc: 'Miles de jóvenes salen a la calle exigiendo sanidad, educación y empleo.', opts: [
+      { t: 'Abrir diálogo y reformas (−300 M€)', tes: -300, P: { apr: 6, est: 4 } }, { t: 'Mano dura y detenciones', P: { est: -2, apr: -7, mil: 2 } }] },
+    { title: 'Boom de los fosfatos', desc: 'El precio mundial de los fosfatos se dispara.', opts: [
+      { t: 'Contrato preferente con España (+500 M€)', tes: 500, P: { eco: 2 }, ES: { eco: 2 }, rel: 5 }, { t: 'Vender al mejor postor (+800 M€)', tes: 800, P: { eco: 3 }, rel: -4 }] },
+    { title: 'Presión migratoria en Ceuta y Melilla', desc: 'Cientos de personas se concentran junto a la valla.', opts: [
+      { t: 'Reforzar la contención (−200 M€)', tes: -200, ES: { est: 2 }, rel: 4 }, { t: 'Relajar controles para presionar a Madrid', P: { apr: 3 }, ES: { est: -5, apr: -3 }, rel: -10 }] },
+    { title: 'Terremoto en el Atlas', desc: 'Un seísmo devasta varias provincias de montaña.', opts: [
+      { t: 'Pedir ayuda urgente a España (1.000 M€)', P: { apr: 3 }, ask: 1, rel: 2 }, { t: 'Gestionarlo en solitario (−700 M€)', tes: -700, P: { apr: -2, est: -2 } }] }];
 
-// =====================================================================
-// 1. SCENARIOS
-//  · spectrumOrder reescalado de 1–11 (hemiciclo original) a 1–7,
-//    conservando el orden relativo.
-//  · basePct calculado como escaños / 395 (no es cuota de voto real).
-//  · minSeats = 0 (el original solo limitaba 0..max).
-// =====================================================================
-// Cámara de Representantes: 395 escaños, mayoría absoluta 198
-const CHAMBER = { seats: 395, majority: 198 };
+  // ---------------- CÁMARA DE REPRESENTANTES (395 escaños, mayoría 198) ----------------
+  const TOTAL = 395, MAJ = 198;
+  // order = posición en el espectro (para el hemiciclo y la votación de investidura); red = líneas rojas
+  const MPARTIES = [
+    { id: 'FGD', name: 'Federación de la Izquierda Democrática', color: '#be185d', ideo: 'Izquierda', order: 1, seats: 1, max: 60, leader: 'Candidatura de la FGD', red: ['RNI', 'PAM', 'UC', 'PI', 'MP'] },
+    { id: 'PPS', name: 'Partido del Progreso y el Socialismo', color: '#f97316', ideo: 'Izquierda', order: 2, seats: 22, max: 70, leader: 'Nabil Benabdallah', red: [] },
+    { id: 'USFP', name: 'Unión Socialista de Fuerzas Populares', color: '#f43f5e', ideo: 'Socialdemocracia', order: 3, seats: 34, max: 90, leader: 'Driss Lachguar', red: [] },
+    { id: 'PJD', name: 'Partido Justicia y Desarrollo', color: '#38bdf8', ideo: 'Islamismo conservador', order: 4, seats: 13, max: 130, leader: 'Abdelilah Benkirane', red: ['PAM'] },
+    { id: 'MP', name: 'Movimiento Popular', color: '#a16207', ideo: 'Centro rural', order: 5, seats: 28, max: 70, leader: 'Dirección del MP', red: [] },
+    { id: 'UC', name: 'Unión Constitucional', color: '#eab308', ideo: 'Liberal', order: 6, seats: 18, max: 60, leader: 'Mohamed Sajid', red: [] },
+    { id: 'PAM', name: 'Autenticidad y Modernidad', color: '#16a34a', ideo: 'Centro modernista', order: 7, seats: 87, max: 130, leader: 'Abdellatif Ouahbi', red: ['PJD'] },
+    { id: 'RNI', name: 'Agrupación Nacional de Independientes', color: '#2563eb', ideo: 'Liberal / centroderecha', order: 8, seats: 102, max: 150, leader: 'Aziz Akhannouch', red: [] },
+    { id: 'PI', name: 'Istiqlal', color: '#dc2626', ideo: 'Nacionalista conservador', order: 9, seats: 81, max: 120, leader: 'Nizar Baraka', red: [] },
+    { id: 'MDS', name: 'Movimiento Demócrata y Social', color: '#94a3b8', ideo: 'Centro', order: 10, seats: 3, max: 25, leader: 'Dirección del MDS', red: [] },
+    { id: 'OTR', name: 'Independientes y otros', color: '#64748b', ideo: 'Varios', order: 11, seats: 6, max: 30, leader: 'Independiente', red: [] }
+  ];
+  const PBY = id => MPARTIES.find(p => p.id === id);
+  const pname = id => (id === 'TEC' ? 'Técnico' : (PBY(id) ? PBY(id).id : id));
 
-const SCENARIOS = {
-  ACTUAL: {
-    id: 'ACTUAL',
-    title: 'MARRUECOS (2021)',
-    treasury: 7700,   // M€ iniciales: 4,4 % del PIB (misma proporción que España). PIB ≈ 176.000 M€
-    startYear: 2026,
-    desc: 'Cámara de Representantes de 395 escaños (mayoría absoluta: 198), dominada por el RNI, el PAM y el Istiqlal tras el hundimiento del PJD. El Palacio conserva los ministerios de soberanía mientras la sequía, la inflación y la protesta juvenil marcan la agenda.',
-    parties: [
-      { id: 'FGD',  name: 'Federación de la Izquierda Democrática',     leader: 'Candidatura de la FGD', seats: 1,   baseSeats: 1,   minSeats: 0, maxSeats: 60,  basePct: 0.3,  color: '#be185d', isRegional: false, ideology: 'Izquierda',                spectrumOrder: 1, redLines: ['RNI', 'PAM', 'UC', 'PI', 'MP'] },
-      { id: 'PPS',  name: 'Partido del Progreso y el Socialismo',       leader: 'Nabil Benabdallah',     seats: 22,  baseSeats: 22,  minSeats: 0, maxSeats: 70,  basePct: 5.6,  color: '#f97316', isRegional: false, ideology: 'Izquierda',                spectrumOrder: 2, redLines: [] },
-      { id: 'USFP', name: 'Unión Socialista de Fuerzas Populares',      leader: 'Driss Lachguar',        seats: 34,  baseSeats: 34,  minSeats: 0, maxSeats: 90,  basePct: 8.6,  color: '#f43f5e', isRegional: false, ideology: 'Socialdemocracia',         spectrumOrder: 3, redLines: [] },
-      { id: 'PJD',  name: 'Partido Justicia y Desarrollo',              leader: 'Abdelilah Benkirane',   seats: 13,  baseSeats: 13,  minSeats: 0, maxSeats: 130, basePct: 3.3,  color: '#38bdf8', isRegional: false, ideology: 'Islamismo conservador',    spectrumOrder: 4, redLines: ['PAM'] },
-      { id: 'MP',   name: 'Movimiento Popular',                         leader: 'Dirección del MP',      seats: 28,  baseSeats: 28,  minSeats: 0, maxSeats: 70,  basePct: 7.1,  color: '#a16207', isRegional: false, ideology: 'Centro rural',             spectrumOrder: 4, redLines: [] },
-      { id: 'UC',   name: 'Unión Constitucional',                       leader: 'Mohamed Sajid',         seats: 18,  baseSeats: 18,  minSeats: 0, maxSeats: 60,  basePct: 4.6,  color: '#eab308', isRegional: false, ideology: 'Liberal',                  spectrumOrder: 5, redLines: [] },
-      { id: 'PAM',  name: 'Autenticidad y Modernidad',                  leader: 'Abdellatif Ouahbi',     seats: 87,  baseSeats: 87,  minSeats: 0, maxSeats: 130, basePct: 22.0, color: '#16a34a', isRegional: false, ideology: 'Centro modernista',        spectrumOrder: 5, redLines: ['PJD'] },
-      { id: 'RNI',  name: 'Agrupación Nacional de Independientes',      leader: 'Aziz Akhannouch',       seats: 102, baseSeats: 102, minSeats: 0, maxSeats: 150, basePct: 25.8, color: '#2563eb', isRegional: false, ideology: 'Liberal / centroderecha',  spectrumOrder: 6, redLines: [] },
-      { id: 'PI',   name: 'Istiqlal',                                   leader: 'Nizar Baraka',          seats: 81,  baseSeats: 81,  minSeats: 0, maxSeats: 120, basePct: 20.5, color: '#dc2626', isRegional: false, ideology: 'Nacionalista conservador', spectrumOrder: 6, redLines: [] },
-      { id: 'MDS',  name: 'Movimiento Demócrata y Social',              leader: 'Dirección del MDS',     seats: 3,   baseSeats: 3,   minSeats: 0, maxSeats: 25,  basePct: 0.8,  color: '#94a3b8', isRegional: false, ideology: 'Centro',                   spectrumOrder: 4, redLines: [] },
-      { id: 'OTR',  name: 'Independientes y otros',                     leader: 'Independiente',         seats: 6,   baseSeats: 6,   minSeats: 0, maxSeats: 30,  basePct: 1.5,  color: '#64748b', isRegional: false, ideology: 'Varios',                   spectrumOrder: 4, redLines: [] }
-    ]
+  // ---------------- MINISTERIOS Y MINISTROS ----------------
+  // sov: ministerio de soberanía (el Palacio prefiere un técnico de su confianza)
+  const MINISTRIES = [
+    { id: 'economia', title: 'Ministerio de Economía y Finanzas', icon: 'fa-chart-pie' },
+    { id: 'interior', title: 'Ministerio del Interior', icon: 'fa-user-shield', sov: 1 },
+    { id: 'defensa', title: 'Administración de Defensa Nacional', icon: 'fa-person-military-rifle', sov: 1 },
+    { id: 'exteriores', title: 'Asuntos Exteriores y Cooperación Africana', icon: 'fa-earth-africa', sov: 1 },
+    { id: 'awqaf', title: 'Habices y Asuntos Islámicos', icon: 'fa-mosque', sov: 1 },
+    { id: 'justicia', title: 'Ministerio de Justicia', icon: 'fa-scale-balanced' },
+    { id: 'educacion', title: 'Educación Nacional y Deportes', icon: 'fa-graduation-cap' },
+    { id: 'sanidad', title: 'Sanidad y Protección Social', icon: 'fa-hospital' },
+    { id: 'equipamiento', title: 'Equipamiento y Agua', icon: 'fa-road' },
+    { id: 'agricultura', title: 'Agricultura, Pesca y Desarrollo Rural', icon: 'fa-wheat-awn' },
+    { id: 'industria', title: 'Industria y Comercio', icon: 'fa-industry' },
+    { id: 'energia', title: 'Transición Energética y Desarrollo Sostenible', icon: 'fa-bolt' },
+    { id: 'cultura', title: 'Juventud, Cultura y Comunicación', icon: 'fa-masks-theater' }
+  ];
+  const MIN = [
+    { id: 'nadia', name: 'Nadia Fettah Alaoui', party: 'RNI', portfolio: 'economia', pros: '+1,5 Economía', cons: '−1 Aprobación (ajustes impopulares)', effects: { eco: 1.5, apr: -1 } },
+    { id: 'laftit', name: 'Abdelouafi Laftit', party: 'TEC', portfolio: 'interior', pros: '+2 Estabilidad, +1 Palacio', cons: '−1 Aprobación (mano dura)', effects: { est: 2, palace: 1, apr: -1 } },
+    { id: 'loudiyi', name: 'Abdellatif Loudiyi', party: 'TEC', portfolio: 'defensa', pros: '+2 Poder militar, +1 Palacio', cons: 'Sin control parlamentario', effects: { mil: 2, palace: 1 } },
+    { id: 'bourita', name: 'Nasser Bourita', party: 'TEC', portfolio: 'exteriores', pros: '+1,5 Palacio, +0,5 Economía', cons: 'Diplomacia opaca para la coalición', effects: { palace: 1.5, eco: 0.5 } },
+    { id: 'toufiq', name: 'Ahmed Toufiq', party: 'TEC', portfolio: 'awqaf', pros: '+1,5 Palacio, +1 Estabilidad', cons: 'Poco margen para reformas', effects: { palace: 1.5, est: 1 } },
+    { id: 'ouahbi', name: 'Abdellatif Ouahbi', party: 'PAM', portfolio: 'justicia', pros: '+1 Estabilidad', cons: '−1 Aprobación (polémicas constantes)', effects: { est: 1, apr: -1 } },
+    { id: 'berrada', name: 'Mohamed Saad Berrada', party: 'RNI', portfolio: 'educacion', pros: '+1 Aprobación (reforma escolar)', cons: '−0,5 Estabilidad (huelgas docentes)', effects: { apr: 1, est: -0.5 } },
+    { id: 'aittaleb', name: 'Khalid Aït Taleb', party: 'RNI', portfolio: 'sanidad', pros: '+1,5 Aprobación (red hospitalaria)', cons: '−0,5 Economía (coste del sistema)', effects: { apr: 1.5, eco: -0.5 } },
+    { id: 'baraka', name: 'Nizar Baraka', party: 'PI', portfolio: 'equipamiento', pros: '+1,5 Economía (obra pública)', cons: '−0,5 Palacio (peso propio del Istiqlal)', effects: { eco: 1.5, palace: -0.5 } },
+    { id: 'sadiki', name: 'Mohammed Sadiki', party: 'RNI', portfolio: 'agricultura', pros: '+1 Economía, +0,5 Estabilidad', cons: '−0,5 Aprobación (sequía)', effects: { eco: 1, est: 0.5, apr: -0.5 } },
+    { id: 'mezzour', name: 'Ryad Mezzour', party: 'PI', portfolio: 'industria', pros: '+2 Economía (automoción y aeronáutica)', cons: '−0,5 Aprobación', effects: { eco: 2, apr: -0.5 } },
+    { id: 'benali', name: 'Leila Benali', party: 'TEC', portfolio: 'energia', pros: '+1,5 Economía, +0,5 Estabilidad', cons: '−0,5 Aprobación', effects: { eco: 1.5, est: 0.5, apr: -0.5 } },
+    { id: 'bensaid', name: 'Mehdi Bensaid', party: 'PAM', portfolio: 'cultura', pros: '+1 Aprobación (juventud)', cons: '−0,5 Estabilidad', effects: { apr: 1, est: -0.5 } }
+  ];
+  const shadowOf = (party, pf) => ({ id: 'shadow_' + party + '_' + pf, name: 'Portavoz sectorial', party, portfolio: pf, pros: '+1 Estabilidad y representación de la coalición', cons: '−0,5 Aprobación por falta de perfil técnico', effects: { est: 1, apr: -0.5 } });
+  const tecOf = pf => ({ id: 'tec_' + pf, name: 'Técnico de confianza del Palacio', party: 'TEC', portfolio: pf, pros: '+1 Palacio, +0,5 Estabilidad', cons: '−0,5 Aprobación: sin base parlamentaria', effects: { palace: 1, est: 0.5, apr: -0.5 } });
+  function minOf(id) {
+    if (!id) return null;
+    const x = MIN.find(a => a.id === id); if (x) return x;
+    const p = String(id).split('_');
+    if (p[0] === 'shadow' && PBY(p[1])) return shadowOf(p[1], p[2]);
+    if (p[0] === 'tec') return tecOf(p[1]);
+    return null;
   }
-};
-
-
-// =====================================================================
-// 2. DYNAMIC_EVENTS — decisiones de gobierno (DECS de marruecos.js)
-//    «Estadios frente a hospitales y escuelas» está en HOUSING_EVENTS.
-// =====================================================================
-const DYNAMIC_EVENTS = [
-  {
-    id: 'SPECIAL_MUDAWANA',
-    category: 'SOCIEDAD',
-    title: 'REFORMA DEL CÓDIGO DE FAMILIA (MUDAWANA)',
-    desc: 'Las organizaciones de mujeres exigen más derechos en herencia, custodia y matrimonio; los sectores conservadores y religiosos se oponen.',
-    condition: (m) => true,
-    options: [
-      { text: 'Aprobar una reforma profunda e igualitaria', stats: { apr: +4, est: -3, con: -2 }, cost: 0, loyaltyImpact: { USFP: +15, PPS: +20, PJD: -30, MP: -10, PI: -15 }, news: 'El Gobierno aprueba una profunda reforma de la Mudawana; los islamistas la rechazan.' },
-      { text: 'Limitarse a retoques técnicos tras consultar al Consejo de Ulemas', stats: { apr: -3, est: +2, con: +3 }, cost: 0, loyaltyImpact: { PJD: +10, PI: +10, USFP: -15, PPS: -20 }, news: 'El Gobierno limita la reforma de la Mudawana a retoques técnicos tras consultar a los ulemas.' }
-    ]
-  },
-  {
-    id: 'SPECIAL_CANNABIS_RIF',
-    category: 'ECONOMÍA',
-    title: 'CANNABIS LEGAL EN EL RIF',
-    desc: 'Las cooperativas piden extender la producción legal de cannabis medicinal e industrial y regularizar a miles de agricultores.',
-    condition: (m) => true,
-    options: [
-      { text: 'Ampliar la producción legal a todo el Rif', stats: { eco: +3, apr: +3, est: +2 }, cost: 150, loyaltyImpact: { PAM: +15, PJD: -15, PI: -5 }, news: 'Rabat extiende el cannabis legal a todo el Rif y regulariza a miles de agricultores.' },
-      { text: 'Mantener el modelo restrictivo', stats: { apr: -2, est: -2 }, cost: 0, loyaltyImpact: { PAM: -10, PJD: +8 }, news: 'Rabat mantiene el modelo restrictivo y las cooperativas del Rif se sienten abandonadas.' }
-    ]
-  },
-  {
-    id: 'GEO_SAHARA_AUTONOMIA',
-    category: 'SUR',
-    title: 'PROVINCIAS DEL SUR Y PLAN DE AUTONOMÍA',
-    desc: 'El Palacio pide reforzar la apuesta por el Sáhara en el plano económico y diplomático.',
-    condition: (m) => true,
-    options: [
-      { text: 'Acelerar inversiones en Dakhla y el puerto atlántico', stats: { eco: +3, apr: +2, con: +4 }, cost: 500, loyaltyImpact: { PI: +10 }, news: 'El Gobierno acelera las inversiones en Dakhla y su puerto atlántico.' },
-      { text: 'Ofensiva diplomática en busca de nuevos reconocimientos', stats: { con: +5, apr: +1 }, cost: 120, loyaltyImpact: { PI: +8 }, news: 'La diplomacia marroquí lanza una ofensiva para sumar nuevos reconocimientos sobre el Sáhara.' }
-    ]
-  },
-  {
-    id: 'HUELGA_SMIG',
-    category: 'LABORAL',
-    title: 'SALARIO MÍNIMO Y DIÁLOGO SOCIAL',
-    desc: 'Los sindicatos amenazan con huelgas generales si no se actualizan los salarios ante la inflación.',
-    condition: (m) => true,
-    options: [
-      { text: 'Subir el SMIG un 10 % y firmar el acuerdo social', stats: { apr: +6, est: +3, eco: -2 }, cost: 350, loyaltyImpact: { USFP: +15, PPS: +15, UC: -10, RNI: -5 }, news: 'Gobierno y sindicatos firman el acuerdo social con una subida del 10 % del SMIG.' },
-      { text: 'Congelar salarios y dar incentivos fiscales a las empresas', stats: { eco: +3, apr: -6, est: -3 }, cost: 0, loyaltyImpact: { RNI: +10, UC: +10, USFP: -15 }, news: 'El Gobierno congela los salarios y premia a las empresas; los sindicatos amenazan con paros.' }
-    ]
-  },
-  {
-    id: 'CRISIS_SEQUIA_ESTRUCTURAL',
-    category: 'AGUA',
-    title: 'SEQUÍA ESTRUCTURAL',
-    desc: 'Los embalses están al mínimo histórico. Hay que elegir entre priorizar el consumo humano o el campo exportador.',
-    condition: (m) => true,
-    options: [
-      { text: 'Acelerar desaladoras y restringir cultivos de alto consumo', stats: { eco: +1, est: +3, apr: -1 }, cost: 500, loyaltyImpact: { MP: -10 }, news: 'El Gobierno acelera las desaladoras y restringe los cultivos que más agua consumen.' },
-      { text: 'Priorizar la exportación agrícola con trasvases', stats: { eco: +3, est: -4, apr: -2 }, cost: 0, loyaltyImpact: { MP: +10, RNI: +5 }, news: 'El Gobierno prioriza la exportación agrícola con trasvases; protestas por el agua en el interior.' }
-    ]
-  },
-  {
-    id: 'CRISIS_CAJA_COMPENSACION',
-    category: 'PRECIOS',
-    title: 'REFORMA DE LA CAJA DE COMPENSACIÓN',
-    desc: 'Los subsidios universales al butano y al pan pesan cada vez más en las cuentas públicas.',
-    condition: (m) => true,
-    options: [
-      { text: 'Sustituirlos por ayuda directa a las familias', stats: { eco: +2, apr: -3, est: -2 }, cost: 300, loyaltyImpact: { RNI: +8, PPS: -8 }, news: 'El Gobierno sustituye los subsidios universales por ayudas directas a las familias.' },
-      { text: 'Mantener los subsidios universales', stats: { apr: +4, est: +2, eco: -2 }, cost: 250, loyaltyImpact: { PPS: +8, USFP: +8 }, news: 'El Gobierno mantiene los subsidios al butano y al pan pese al coste para las arcas públicas.' }
-    ]
-  },
-  {
-    id: 'SPECIAL_MODERNIZACION_MILITAR',
-    category: 'DEFENSA',
-    title: 'MODERNIZACIÓN MILITAR',
-    desc: 'Las FAR piden renovar drones y defensa antiaérea ante la carrera de armamentos regional.',
-    condition: (m) => true,
-    options: [
-      { text: 'Comprar drones y sistemas antiaéreos en el exterior', stats: { mil: +7, con: +3, apr: -1 }, cost: 600, loyaltyImpact: {}, news: 'Marruecos adquiere drones y defensa antiaérea en el exterior para modernizar las FAR.' },
-      { text: 'Producir en Marruecos con socios europeos', stats: { mil: +4, eco: +2 }, cost: 350, loyaltyImpact: {}, news: 'Marruecos fabricará material militar en su territorio junto a socios europeos.' }
-    ]
-  },
-  {
-    id: 'GEO_ADUANAS_CEUTA_MELILLA',
-    category: 'ESPAÑA',
-    title: 'ADUANAS DE CEUTA Y MELILLA',
-    desc: 'Los comerciantes del norte piden normalizar el comercio fronterizo con las ciudades autónomas.',
-    condition: (m) => true,
-    options: [
-      { text: 'Abrir aduanas comerciales para reactivar el comercio', stats: { eco: +2 }, cost: 0, loyaltyImpact: {}, news: 'Marruecos abre sus aduanas con Ceuta y Melilla y se reactiva el comercio fronterizo.' },
-      { text: 'Mantenerlas cerradas como palanca de presión', stats: { apr: +1 }, cost: 0, loyaltyImpact: {}, news: 'Marruecos mantiene cerradas las aduanas con Ceuta y Melilla como palanca de presión sobre Madrid.' }
-    ]
-  },
-  {
-    id: 'REGULACION_REFORMA_FISCAL',
-    category: 'FISCAL',
-    title: 'REFORMA FISCAL',
-    desc: 'El FMI y la oposición reclaman un nuevo reparto de la carga tributaria.',
-    condition: (m) => true,
-    options: [
-      { text: 'Impuestos progresivos y a artículos de lujo', stats: { eco: -1, apr: +3, est: +1 }, cost: -400, loyaltyImpact: { USFP: +10, PPS: +10, UC: -10 }, news: 'El Gobierno aprueba impuestos progresivos y a los artículos de lujo y recauda 400 M€.' },
-      { text: 'Bajar el impuesto de sociedades para atraer inversión', stats: { eco: +4, apr: -2 }, cost: 200, loyaltyImpact: { RNI: +10, UC: +10, USFP: -10 }, news: 'El Gobierno baja el impuesto de sociedades para atraer inversión extranjera.' }
-    ]
-  },
-  {
-    id: 'ESCANDALO_ENRIQUECIMIENTO_ILICITO',
-    category: 'JUSTICIA',
-    title: 'LEY CONTRA EL ENRIQUECIMIENTO ILÍCITO',
-    desc: 'Un escándalo de contratos públicos reabre el debate sobre una ley anticorrupción.',
-    condition: (m) => true,
-    options: [
-      { text: 'Aprobarla con una agencia independiente', stats: { apr: +6, est: +2, con: -1 }, cost: 0, loyaltyImpact: { PJD: +10, PPS: +10, RNI: -10, PAM: -10 }, news: 'El Gobierno aprueba la ley contra el enriquecimiento ilícito con una agencia independiente.' },
-      { text: 'Archivar el proyecto', stats: { apr: -6, est: -2 }, cost: 0, loyaltyImpact: { RNI: +5, PAM: +5 }, news: 'El Gobierno archiva la ley anticorrupción y la oposición clama contra la impunidad.' }
-    ]
-  },
-  {
-    id: 'SPECIAL_GIGAFACTORIA_BATERIAS',
-    category: 'INVERSIÓN',
-    title: 'GIGAFACTORÍA DE BATERÍAS',
-    desc: 'Un consorcio internacional quiere instalar una gran fábrica de baterías para coches eléctricos.',
-    condition: (m) => true,
-    options: [
-      { text: 'Ofrecer incentivos generosos al consorcio asiático', stats: { eco: +5, apr: +2, con: +1 }, cost: 250, loyaltyImpact: {}, news: 'Un consorcio asiático levantará en Marruecos una gigafactoría de baterías con incentivos públicos.' },
-      { text: 'Exigir contenido local y socios europeos', stats: { eco: +2, apr: +1 }, cost: 0, loyaltyImpact: {}, news: 'Rabat exige contenido local y socios europeos para la gigafactoría de baterías.' }
-    ]
-  },
-  {
-    id: 'TENSION_MIGRACION_SUBSAHARIANA',
-    category: 'MIGRACIÓN',
-    title: 'MIGRACIÓN SUBSAHARIANA',
-    desc: 'Miles de migrantes viven sin papeles en las ciudades del norte y presionan hacia Europa.',
-    condition: (m) => true,
-    options: [
-      { text: 'Regularizarlos con permisos de trabajo', stats: { eco: +1, apr: -3, est: +1 }, cost: 100, loyaltyImpact: { PJD: -10, PPS: +10 }, news: 'Marruecos regulariza a miles de migrantes subsaharianos con permisos de trabajo.' },
-      { text: 'Endurecer controles y repatriaciones', stats: { apr: +2, est: +1, eco: -1 }, cost: 0, loyaltyImpact: { PJD: +5 }, news: 'Marruecos endurece los controles y acelera las repatriaciones de migrantes.' }
-    ]
-  },
-  {
-    id: 'REGULACION_REFORMA_ELECTORAL',
-    category: 'POLÍTICA',
-    title: 'REFORMA ELECTORAL',
-    desc: 'Los grandes partidos quieren cambiar el cociente electoral; los pequeños temen desaparecer.',
-    condition: (m) => true,
-    options: [
-      { text: 'Cambiar el cociente a favor de los grandes partidos', stats: { est: +3, apr: -2 }, cost: 0, loyaltyImpact: { RNI: +15, PAM: +15, PJD: -25, PPS: -15, USFP: -15 }, news: 'La Cámara aprueba un nuevo cociente electoral que favorece a los grandes partidos.' },
-      { text: 'Mantener el cociente actual sobre inscritos', stats: { est: -1 }, cost: 0, loyaltyImpact: { PJD: +10, PPS: +10, USFP: +10, RNI: -8 }, news: 'El Gobierno mantiene el cociente actual y calma a los partidos pequeños.' }
-    ]
-  },
-  {
-    id: 'PROTESTAS_AMNISTIA_RIF',
-    category: 'DERECHOS',
-    title: 'AMNISTÍA PARA LAS PROTESTAS DEL RIF',
-    desc: 'Se multiplican las peticiones de gracia para condenados por las protestas del norte.',
-    condition: (m) => true,
-    options: [
-      { text: 'Pedir al Rey un indulto amplio', stats: { apr: +5, est: +3, con: -2 }, cost: 0, loyaltyImpact: { USFP: +10, PPS: +10, PJD: +10 }, news: 'El Gobierno pide al Rey un indulto amplio para los condenados por las protestas del Rif.' },
-      { text: 'Mantener las condenas', stats: { apr: -3, con: +2 }, cost: 0, loyaltyImpact: {}, news: 'El Gobierno mantiene las condenas de las protestas del Rif y se enfría el diálogo con la región.' }
-    ]
-  },
-  {
-    id: 'SPECIAL_GASODUCTO_NIGERIA',
-    category: 'ENERGÍA',
-    title: 'GASODUCTO NIGERIA–MARRUECOS',
-    desc: 'El proyecto energético africano necesita financiación para dar el salto.',
-    condition: (m) => true,
-    options: [
-      { text: 'Financiación pública del tramo marroquí', stats: { eco: +4, apr: +1 }, cost: 700, loyaltyImpact: {}, news: 'El Estado financiará el tramo marroquí del gasoducto Nigeria–Marruecos.' },
-      { text: 'Esperar a inversores privados del Golfo', stats: { eco: +1 }, cost: 0, loyaltyImpact: {}, news: 'El Gobierno espera a los inversores del Golfo para financiar el gasoducto africano.' }
-    ]
+  function availMin(m, pf) {
+    const co = m.coalIds || [];
+    const list = MIN.filter(x => x.portfolio === pf && (co.includes(x.party) || x.party === 'TEC'));
+    co.forEach(p => { if (!list.some(x => x.party === p)) list.push(shadowOf(p, pf)); });
+    if (!list.some(x => x.party === 'TEC')) list.push(tecOf(pf));
+    return list;
   }
-];
 
+  // ---------------- DECISIONES DE GOBIERNO (equivalentes a las de España, con sus propios dilemas) ----------------
+  // t: texto · tes: M€ (− gasto, + ingreso) · P: efectos · ES: efectos en España · rel: relación bilateral · loy: lealtad de socios
+  const DECS = [
+    { cat: 'SOCIEDAD', title: 'REFORMA DEL CÓDIGO DE FAMILIA (MUDAWANA)', desc: 'Las organizaciones de mujeres exigen más derechos en herencia, custodia y matrimonio; los sectores conservadores y religiosos se oponen.', opts: [
+      { t: 'Aprobar una reforma profunda e igualitaria', P: { apr: 4, est: -3, palace: -2 }, loy: { USFP: 15, PPS: 20, PJD: -30, MP: -10, PI: -15 } },
+      { t: 'Limitarse a retoques técnicos tras consultar al Consejo de Ulemas', P: { apr: -3, est: 2, palace: 3 }, loy: { PJD: 10, PI: 10, USFP: -15, PPS: -20 } }] },
+    { cat: 'ECONOMÍA', title: 'CANNABIS LEGAL EN EL RIF', desc: 'Las cooperativas piden extender la producción legal de cannabis medicinal e industrial y regularizar a miles de agricultores.', opts: [
+      { t: 'Ampliar la producción legal a todo el Rif (−150 M€)', tes: -150, P: { eco: 3, apr: 3, est: 2 }, loy: { PAM: 15, PJD: -15, PI: -5 } },
+      { t: 'Mantener el modelo restrictivo', P: { apr: -2, est: -2 }, loy: { PAM: -10, PJD: 8 } }] },
+    { cat: 'PROTESTAS', title: 'ESTADIOS FRENTE A HOSPITALES Y ESCUELAS', desc: 'Los jóvenes protestan: piden que el dinero de las grandes obras deportivas se destine a sanidad y educación.', opts: [
+      { t: 'Reorientar fondos a hospitales y escuelas (−600 M€)', tes: -600, P: { apr: 8, est: 4, eco: -1 }, loy: { USFP: 10, PPS: 10, RNI: -8 } },
+      { t: 'Mantener el calendario de obras del Mundial 2030', P: { apr: -7, est: -4, eco: 3 }, ES: { eco: 1 }, rel: 2, loy: { RNI: 8, PI: 5 } }] },
+    { cat: 'SUR', title: 'PROVINCIAS DEL SUR Y PLAN DE AUTONOMÍA', desc: 'El Palacio pide reforzar la apuesta por el Sáhara en el plano económico y diplomático.', opts: [
+      { t: 'Acelerar inversiones en Dakhla y el puerto atlántico (−500 M€)', tes: -500, P: { eco: 3, apr: 2, palace: 4 }, loy: { PI: 10 } },
+      { t: 'Ofensiva diplomática en busca de nuevos reconocimientos (−120 M€)', tes: -120, P: { palace: 5, apr: 1 }, loy: { PI: 8 } }] },
+    { cat: 'LABORAL', title: 'SALARIO MÍNIMO Y DIÁLOGO SOCIAL', desc: 'Los sindicatos amenazan con huelgas generales si no se actualizan los salarios ante la inflación.', opts: [
+      { t: 'Subir el SMIG un 10 % y firmar el acuerdo social (−350 M€)', tes: -350, P: { apr: 6, est: 3, eco: -2 }, loy: { USFP: 15, PPS: 15, UC: -10, RNI: -5 } },
+      { t: 'Congelar salarios y dar incentivos fiscales a las empresas', P: { eco: 3, apr: -6, est: -3 }, loy: { RNI: 10, UC: 10, USFP: -15 } }] },
+    { cat: 'AGUA', title: 'SEQUÍA ESTRUCTURAL', desc: 'Los embalses están al mínimo histórico. Hay que elegir entre priorizar el consumo humano o el campo exportador.', opts: [
+      { t: 'Acelerar desaladoras y restringir cultivos de alto consumo (−500 M€)', tes: -500, P: { eco: 1, est: 3, apr: -1 }, loy: { MP: -10 } },
+      { t: 'Priorizar la exportación agrícola con trasvases', P: { eco: 3, est: -4, apr: -2 }, loy: { MP: 10, RNI: 5 } }] },
+    { cat: 'PRECIOS', title: 'REFORMA DE LA CAJA DE COMPENSACIÓN', desc: 'Los subsidios universales al butano y al pan pesan cada vez más en las cuentas públicas.', opts: [
+      { t: 'Sustituirlos por ayuda directa a las familias (−300 M€)', tes: -300, P: { eco: 2, apr: -3, est: -2 }, loy: { RNI: 8, PPS: -8 } },
+      { t: 'Mantener los subsidios universales (−250 M€)', tes: -250, P: { apr: 4, est: 2, eco: -2 }, loy: { PPS: 8, USFP: 8 } }] },
+    { cat: 'DEFENSA', title: 'MODERNIZACIÓN MILITAR', desc: 'Las FAR piden renovar drones y defensa antiaérea ante la carrera de armamentos regional.', opts: [
+      { t: 'Comprar drones y sistemas antiaéreos en el exterior (−600 M€)', tes: -600, P: { mil: 7, palace: 3, apr: -1 } },
+      { t: 'Producir en Marruecos con socios europeos (−350 M€)', tes: -350, P: { mil: 4, eco: 2 }, ES: { eco: 1 }, rel: 3 }] },
+    { cat: 'ESPAÑA', title: 'ADUANAS DE CEUTA Y MELILLA', desc: 'Los comerciantes del norte piden normalizar el comercio fronterizo con las ciudades autónomas.', opts: [
+      { t: 'Abrir aduanas comerciales para reactivar el comercio', P: { eco: 2 }, ES: { eco: 1 }, rel: 6 },
+      { t: 'Mantenerlas cerradas como palanca de presión', P: { apr: 1 }, ES: { est: -2 }, rel: -6 }] },
+    { cat: 'FISCAL', title: 'REFORMA FISCAL', desc: 'El FMI y la oposición reclaman un nuevo reparto de la carga tributaria.', opts: [
+      { t: 'Impuestos progresivos y a artículos de lujo (+400 M€)', tes: 400, P: { eco: -1, apr: 3, est: 1 }, loy: { USFP: 10, PPS: 10, UC: -10 } },
+      { t: 'Bajar el impuesto de sociedades para atraer inversión (−200 M€)', tes: -200, P: { eco: 4, apr: -2 }, loy: { RNI: 10, UC: 10, USFP: -10 } }] },
+    { cat: 'JUSTICIA', title: 'LEY CONTRA EL ENRIQUECIMIENTO ILÍCITO', desc: 'Un escándalo de contratos públicos reabre el debate sobre una ley anticorrupción.', opts: [
+      { t: 'Aprobarla con una agencia independiente', P: { apr: 6, est: 2, palace: -1 }, loy: { PJD: 10, PPS: 10, RNI: -10, PAM: -10 } },
+      { t: 'Archivar el proyecto', P: { apr: -6, est: -2 }, loy: { RNI: 5, PAM: 5 } }] },
+    { cat: 'INVERSIÓN', title: 'GIGAFACTORÍA DE BATERÍAS', desc: 'Un consorcio internacional quiere instalar una gran fábrica de baterías para coches eléctricos.', opts: [
+      { t: 'Ofrecer incentivos generosos al consorcio asiático (−250 M€)', tes: -250, P: { eco: 5, apr: 2, palace: 1 } },
+      { t: 'Exigir contenido local y socios europeos', P: { eco: 2, apr: 1 }, ES: { eco: 1 }, rel: 3 }] },
+    { cat: 'MIGRACIÓN', title: 'MIGRACIÓN SUBSAHARIANA', desc: 'Miles de migrantes viven sin papeles en las ciudades del norte y presionan hacia Europa.', opts: [
+      { t: 'Regularizarlos con permisos de trabajo (−100 M€)', tes: -100, P: { eco: 1, apr: -3, est: 1 }, ES: { est: 2 }, rel: 4, loy: { PJD: -10, PPS: 10 } },
+      { t: 'Endurecer controles y repatriaciones', P: { apr: 2, est: 1, eco: -1 }, loy: { PJD: 5 } }] },
+    { cat: 'POLÍTICA', title: 'REFORMA ELECTORAL', desc: 'Los grandes partidos quieren cambiar el cociente electoral; los pequeños temen desaparecer.', opts: [
+      { t: 'Cambiar el cociente a favor de los grandes partidos', P: { est: 3, apr: -2 }, loy: { RNI: 15, PAM: 15, PJD: -25, PPS: -15, USFP: -15 } },
+      { t: 'Mantener el cociente actual sobre inscritos', P: { est: -1 }, loy: { PJD: 10, PPS: 10, USFP: 10, RNI: -8 } }] },
+    { cat: 'DERECHOS', title: 'AMNISTÍA PARA LAS PROTESTAS DEL RIF', desc: 'Se multiplican las peticiones de gracia para condenados por las protestas del norte.', opts: [
+      { t: 'Pedir al Rey un indulto amplio', P: { apr: 5, est: 3, palace: -2 }, loy: { USFP: 10, PPS: 10, PJD: 10 } },
+      { t: 'Mantener las condenas', P: { apr: -3, palace: 2 } }] },
+    { cat: 'ENERGÍA', title: 'GASODUCTO NIGERIA–MARRUECOS', desc: 'El proyecto energético africano necesita financiación para dar el salto.', opts: [
+      { t: 'Financiación pública del tramo marroquí (−700 M€)', tes: -700, P: { eco: 4, apr: 1 }, ES: { eco: 1 }, rel: 3 },
+      { t: 'Esperar a inversores privados del Golfo', P: { eco: 1 } }] }
+  ];
+  const STN = { eco: 'Eco', est: 'Estab', apr: 'Aprob', mil: 'Mil', palace: 'Palacio' };
 
-// =====================================================================
-// 3. CAMPAIGN_HEADLINES — preguntas de campaña (CQ) y debate (cdeb)
-//  · score = round(3 × impulso + Δaprobación original), acotado a -5…+15.
-//  · El debate original era probabilístico: aquí se usa el valor esperado.
-//  · El coste en M€ de las opciones originales no tiene campo aquí.
-// =====================================================================
-const CAMPAIGN_HEADLINES = [
-  {
-    id: 1,
-    newspaper: 'HESPRESS',
-    headline: 'POLÉMICA POR EL PRECIO DEL PAN',
-    desc: 'La oposición te acusa de abandonar a las clases populares. ¿Cómo respondes?',
-    options: [
-      { text: 'Anunciar subsidios', score: +10, textResult: 'El anuncio calma a los barrios populares y te devuelve la iniciativa en campaña.' },
-      { text: 'Culpar a la inflación mundial', score: -5, textResult: 'Suena a excusa: la oposición explota tu falta de respuestas.' }
-    ]
-  },
-  {
-    id: 2,
-    newspaper: 'LE MATIN',
-    headline: 'ESCÁNDALO EN UN MINISTERIO',
-    desc: 'Un diario revela contratos dudosos en un departamento. ¿Cómo reaccionas?',
-    options: [
-      { text: 'Cesar al ministro y abrir investigación', score: +5, textResult: 'La rapidez de tu reacción limita el daño y proyecta imagen de firmeza.' },
-      { text: 'Negarlo todo', score: -5, textResult: 'Nuevas filtraciones desmienten tu versión y el escándalo se agranda.' }
-    ]
-  },
-  {
-    id: 3,
-    newspaper: 'AKHBAR AL YAOUM',
-    headline: 'HUELGA DE DOCENTES',
-    desc: 'Los sindicatos paralizan las escuelas en plena campaña. ¿Qué haces?',
-    options: [
-      { text: 'Aceptar subida salarial', score: +10, textResult: 'Los docentes vuelven a las aulas y tú sales como el Gobierno que escucha.' },
-      { text: 'Mantener la línea dura', score: -5, textResult: 'El conflicto se alarga y las familias te responsabilizan del caos escolar.' }
-    ]
-  },
-  {
-    id: 4,
-    newspaper: 'TELQUEL',
-    headline: 'ENTREVISTA DE LA OPOSICIÓN',
-    desc: 'Tu rival arrasa en la televisión nacional. ¿Cómo contraatacas?',
-    options: [
-      { text: 'Contraprogramar con un gran acto', score: +6, textResult: 'El mitin llena la plaza y desvía la atención de la entrevista de tu rival.' },
-      { text: 'Ignorarlo', score: -5, textResult: 'La entrevista domina el debate público durante días sin respuesta tuya.' }
-    ]
-  },
-  {
-    id: 5,
-    newspaper: 'LE360',
-    headline: 'APOYO DE UN LÍDER RELIGIOSO',
-    desc: 'Un influyente personaje te ofrece su respaldo público. ¿Lo aceptas?',
-    options: [
-      { text: 'Aceptar el apoyo', score: +10, textResult: 'El respaldo te abre puertas en el electorado más conservador.' },
-      { text: 'Rechazarlo por prudencia', score: 0, textResult: 'Evitas polémicas, pero renuncias a un impulso electoral valioso.' }
-    ]
-  },
-  {
-    id: 6,
-    newspaper: 'LE MATIN',
-    headline: 'ENCUESTA FILTRADA',
-    desc: 'Un sondeo interno te da por perdedor. ¿Cómo lo gestionas?',
-    options: [
-      { text: 'Desmentirlo con datos', score: +3, textResult: 'Tus cifras frenan el rumor, aunque no logran movilizar a tus votantes.' },
-      { text: 'Pedir el voto útil', score: +5, textResult: 'El llamamiento al voto útil moviliza a tu electorado, pero alimenta el relato de debilidad.' }
-    ]
-  },
-  {
-    id: 7,
-    newspaper: 'TELQUEL',
-    headline: 'DEBATE CARA A CARA',
-    desc: 'Millones de espectadores siguen el debate decisivo. ¿Qué estrategia eliges?',
-    options: [
-      { text: 'Agresivo: ir a la yugular', score: -1, textResult: 'El tono duro genera titulares, pero divide al público y el resultado es incierto.' },
-      { text: 'Presidencial: balance de gestión', score: +4, textResult: 'Proyectas solvencia y los sondeos instantáneos te dan una ligera ventaja.' },
-      { text: 'Cercano: hablar de lo cotidiano', score: +3, textResult: 'Conectas con los problemas del día a día y ganas simpatía entre los indecisos.' }
-    ]
+  const shuffle = n => { const a = Array.from({ length: n }, (_, i) => i); for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  function nextDec(m) {
+    if (!m.deck || !m.deck.length) m.deck = shuffle(DECS.length);
+    m.dec = m.deck.pop();
   }
-];
 
-
-// =====================================================================
-// 4. PRESS_NEWS_BANK — sucesos «Última hora» de la pestaña Prensa (EVS)
-//    «Protestas juveniles» está en HOUSING_EVENTS.
-// =====================================================================
-const PRESS_NEWS_BANK = [
-  {
-    id: 'NEWS_1',
-    newspaper: 'HESPRESS',
-    headline: 'SEQUÍA Y MALAS COSECHAS',
-    desc: 'Seis años de sequía hunden el campo y el pan se encarece.',
-    options: [
-      { text: 'Importar cereal y subsidiar el pan', stats: { apr: +4, eco: -1 }, cost: 400, news: 'El Gobierno importa cereal y subsidia el pan para contener los precios.' },
-      { text: 'Racionar el agua y dejar que ajuste el mercado', stats: { apr: -6, est: -3, eco: +1 }, news: 'El Gobierno raciona el agua y deja que el mercado ajuste: crece el malestar rural.' }
-    ]
-  },
-  {
-    id: 'NEWS_2',
-    newspaper: 'LE MATIN',
-    headline: 'BOOM DE LOS FOSFATOS',
-    desc: 'El precio mundial de los fosfatos se dispara.',
-    options: [
-      { text: 'Contrato preferente con España (+500 M€)', stats: { eco: +2 }, cost: -500, news: 'OCP firma un contrato preferente con España y la relación bilateral sale reforzada.' },
-      { text: 'Vender al mejor postor (+800 M€)', stats: { eco: +3 }, cost: -800, news: 'OCP vende al mejor postor y Madrid recibe con frialdad la decisión.' }
-    ]
-  },
-  {
-    id: 'NEWS_3',
-    newspaper: 'TELQUEL',
-    headline: 'PRESIÓN MIGRATORIA EN CEUTA Y MELILLA',
-    desc: 'Cientos de personas se concentran junto a la valla.',
-    options: [
-      { text: 'Reforzar la contención', stats: {}, cost: 200, news: 'Marruecos refuerza la contención en la valla y Madrid agradece la colaboración.' },
-      { text: 'Relajar controles para presionar a Madrid', stats: { apr: +3 }, news: 'Marruecos relaja los controles fronterizos y tensa la relación con Madrid.' }
-    ]
-  },
-  {
-    id: 'NEWS_4',
-    newspaper: 'AKHBAR AL YAOUM',
-    headline: 'TERREMOTO EN EL ATLAS',
-    desc: 'Un seísmo devasta varias provincias de montaña.',
-    options: [
-      { text: 'Pedir ayuda urgente a España (+1.000 M€)', stats: { apr: +3 }, cost: -1000, news: 'España envía ayuda urgente a las provincias del Atlas devastadas por el terremoto.' },
-      { text: 'Gestionarlo en solitario', stats: { apr: -2, est: -2 }, cost: 700, news: 'El Gobierno afronta en solitario la reconstrucción del Atlas, con críticas por la lentitud.' }
-    ]
+  // ---------------- ESTADO ----------------
+  // «mil» es un valor derivado de las tres armas (así funciona con el resto del modo multijugador)
+  function wrap(m) {
+    const d = Object.getOwnPropertyDescriptor(m, 'mil');
+    if (d && d.get) return m;
+    delete m.mil;
+    Object.defineProperty(m, 'mil', {
+      enumerable: true, configurable: true,
+      get() { return Math.round((this.army.tierra + this.army.mar + this.army.aire) / 3); },
+      set(v) { const a = this.army, dl = v - (a.tierra + a.mar + a.aire) / 3; Object.keys(a).forEach(b => { a[b] = clamp(a[b] + dl); }); }
+    });
+    return m;
   }
-];
-
-
-// =====================================================================
-// 5. MINISTRY_DECISIONS_BANK
-//  · Decisiones tomadas de pais-marruecos.js (secciones y decretos) y de
-//    marruecos.js (POL y programas militares PROGS).
-//  · Defensa: Δmil = (suma de efectos sobre tierra/mar/aire) / 3.
-//  · Decretos reales del Reino (LF 2026, Generación Verde, AMO, Mundial 2030…).
-// =====================================================================
-const MINISTRY_DECISIONS_BANK = {
-  sanidad: [
-    { title: 'Generalización de la AMO a toda la población (protección social)', cost: 400, stats: { apr: +5, est: +2 } },
-    { title: 'Grupos Sanitarios Territoriales: reforma hospitalaria regional', cost: 300, stats: { apr: +2, est: +1, eco: +1 } },
-    { title: 'Plan de choque hospitalario tras las protestas de Agadir', cost: 200, stats: { apr: +4, est: +2 } },
-    { title: 'Contratación de médicos y enfermeros (27.000 plazas sociales)', cost: 300, stats: { emp: +2, apr: +2 } },
-    { title: 'Nuevos CHU en Agadir, Guelmim y Laâyoune', cost: 350, stats: { apr: +3, est: +1 } },
-    { title: 'Industria nacional de medicamentos y vacunas', cost: 250, stats: { eco: +2, est: +1 } }
-  ],
-  educacion: [
-    { title: 'Hoja de ruta 2022-2026: Escuelas Pioneras', cost: 300, stats: { apr: +2, eco: +1 } },
-    { title: 'Nuevo estatuto del profesorado', cost: 350, stats: { apr: +1, est: +2, emp: +1 } },
-    { title: 'Generalización de la educación preescolar', cost: 250, stats: { apr: +2, emp: +1 } },
-    { title: 'Becas universitarias y residencias estudiantiles', cost: 200, stats: { apr: +3, est: +1 } },
-    { title: 'Transporte escolar y comedores en el medio rural', cost: 150, stats: { apr: +2, est: +1 } },
-    { title: 'Institutos de Alto Rendimiento (Cités d\'Excellence)', cost: 200, stats: { eco: +2, apr: +1 } }
-  ],
-  infraestructuras: [
-    { title: 'Extensión de la alta velocidad Kenitra–Marrakech (Al Boraq)', cost: 500, stats: { eco: +4, apr: +2 } },
-    { title: 'Estadios y trenes del Mundial 2030 (con España y Portugal)', cost: 600, stats: { apr: +4, eco: +3, est: -1 } },
-    { title: 'Puerto Atlántico de Dakhla', cost: 450, stats: { eco: +3, est: +1 } },
-    { title: 'Puerto Nador West Med', cost: 300, stats: { eco: +3 } },
-    { title: 'Autopista del Agua: transferencia Sebú–Bou Regreg', cost: 400, stats: { eco: +2, est: +2 } },
-    { title: 'Autovía Tiznit–Dakhla y carreteras rurales', cost: 350, stats: { eco: +2, apr: +2 } }
-  ],
-  interior: [
-    { title: 'Refuerzo de la DGSN y la Gendarmería Real', cost: 200, stats: { est: +3, apr: -1 } },
-    { title: 'Vigilancia de fronteras y lucha contra la migración irregular', cost: 150, stats: { est: +2, apr: -2 } },
-    { title: 'Regionalización avanzada: más competencias a las 12 regiones', cost: 120, stats: { est: +2, apr: +1 } },
-    { title: 'Registro Social Unificado y carné nacional electrónico', cost: 150, stats: { eco: +1, est: +1 } },
-    { title: 'Reforma electoral: listas regionales y censo digital', cost: 60, stats: { est: +2, apr: +1 } }
-  ],
-  defensa: [
-    { title: 'Servicio militar obligatorio (12 meses)', cost: 100, stats: { mil: +3, apr: -3, est: +1 } },
-    { title: 'Caza F-16 Block 70/72 y modernización de la Real Fuerza Aérea', cost: 500, stats: { mil: +3 } },
-    { title: 'Helicópteros de ataque AH-64 Apache', cost: 350, stats: { mil: +2 } },
-    { title: 'Artillería de precisión HIMARS y carros modernizados', cost: 300, stats: { mil: +2 } },
-    { title: 'Drones de combate y defensa antiaérea (Barak MX, Stinger)', cost: 350, stats: { mil: +2, est: +1 } },
-    { title: 'Fragatas FREMM y Sigma para la Marina Real', cost: 450, stats: { mil: +3, est: +1 } },
-    { title: 'Ciberdefensa e inteligencia (DGED y DGSE)', cost: 200, stats: { mil: +2, est: +1 } },
-    { title: 'Polo industrial de defensa en Berrechid (Tata, Embraer)', cost: 400, stats: { mil: +2, eco: +2 } },
-    { title: 'Ejercicio African Lion con EE. UU.', cost: 100, stats: { mil: +2 } },
-    { title: 'Despliegue de las FAR en el Muro Sur del Sáhara', cost: 150, stats: { mil: +1, est: +1 } }
-  ],
-  economia: [
-    { title: 'Ayuda Social Directa a las familias vulnerables', cost: 400, stats: { apr: +4, est: +2 } },
-    { title: 'Fondo Mohammed VI para la inversión y Carta de Inversión', cost: 300, stats: { eco: +3, emp: +2 } },
-    { title: 'Reforma gradual de la Caja de Compensación (gas butano)', cost: -200, stats: { eco: +3, apr: -4, est: -1 } },
-    { title: 'Reforma fiscal: impuesto de sociedades al 20 % y IRPF más bajo', cost: 150, stats: { eco: +2, apr: +2 } },
-    { title: 'Subvención al butano, harina y azúcar', cost: 300, stats: { apr: +3, est: +2 } },
-    { title: 'Emisión de bonos soberanos en mercados internacionales', cost: -300, stats: { eco: -1, con: -1 } },
-    { title: 'Plan Marruecos Digital 2030', cost: 200, stats: { eco: +3, emp: +2 } }
-  ],
-  vivienda: [
-    { title: 'Programa Ciudades Sin Chabolas', cost: 300, stats: { apr: +3, est: +2 } },
-    { title: 'Ayuda directa a la vivienda para la clase media', cost: 250, stats: { apr: +4, emp: +1 } },
-    { title: 'Reconstrucción del Alto Atlas tras el terremoto de Al Hauz', cost: 350, stats: { apr: +4, est: +2 } },
-    { title: 'Vivienda social en el eje Casablanca–Rabat', cost: 300, stats: { apr: +3, emp: +2 } }
-  ],
-  territorio: [
-    { title: 'Generación Verde 2020-2030: apoyo a la clase media rural', cost: 300, stats: { apr: +3, eco: +2 } },
-    { title: 'Plan de reconstitución de la cabaña ganadera tras la sequía', cost: 250, stats: { apr: +3, est: +2 } },
-    { title: 'Riego por goteo y ahorro de agua agrícola', cost: 300, stats: { eco: +2, est: +1 } },
-    { title: 'Acuerdo de pesca con la UE (renovación)', cost: -50, stats: { eco: +1, est: -1 } },
-    { title: 'Cumbre con la oposición', cost: 0, stats: { est: +2, apr: +1 } },
-    { title: 'Ronda de contactos con el Istiqlal', cost: 100, stats: { est: +1 } },
-    { title: 'Pacto con el grupo UC–MDS', cost: 80, stats: { est: +1 } }
-  ],
-  trabajo: [
-    { title: 'Programa Forsa y Intelaka: crédito y empleo para jóvenes', cost: 250, stats: { emp: +4, apr: +2, est: +1 } },
-    { title: 'Subida del SMIG y diálogo social con los sindicatos', cost: 300, stats: { est: +3, apr: +2, eco: -1 } },
-    { title: 'Reforma de las pensiones (CMR y RCAR)', cost: 250, stats: { est: +1, apr: -3, eco: +2 } },
-    { title: 'Ley orgánica de huelga', cost: 0, stats: { est: +3, apr: -3 } },
-    { title: 'Programa Awrach de obras públicas temporales', cost: 200, stats: { emp: +3, apr: +2 } }
-  ],
-  justicia: [
-    { title: 'Reforma del Código Penal y de procedimiento', cost: 80, stats: { est: +2, apr: +1 } },
-    { title: 'Digitalización de los tribunales', cost: 120, stats: { est: +1, eco: +1 } },
-    { title: 'Ley contra el enriquecimiento ilícito', cost: 0, stats: { apr: +3, est: -1 } },
-    { title: 'Reforma de la ley de partidos', cost: 0, stats: { est: +2 } }
-  ],
-  exteriores: [
-    { title: 'Ofensiva diplomática por el Plan de Autonomía del Sáhara', cost: 100, stats: { apr: +3, est: +2 } },
-    { title: 'Cooperación Sur-Sur con la Unión Africana', cost: 150, stats: { eco: +2, apr: +1 } },
-    { title: 'Cooperación de seguridad con Israel (Acuerdos de Abraham)', cost: 80, stats: { mil: +2, est: -2, apr: -2 } },
-    { title: 'Iniciativa Atlántica para los países del Sahel', cost: 120, stats: { eco: +2, est: +1 } },
-    { title: 'Acuerdo migratorio y de seguridad con la UE', cost: -150, stats: { est: +1, apr: -1 } }
-  ],
-  transicion_ecologica: [
-    { title: 'Complejo solar Noor Uarzazate: nueva fase', cost: 450, stats: { eco: +3, apr: +1 } },
-    { title: 'Oferta Marruecos de hidrógeno verde', cost: 400, stats: { eco: +4 } },
-    { title: 'Gasoducto Nigeria–Marruecos', cost: 500, stats: { eco: +3, est: +1 } },
-    { title: 'Interconexión eléctrica con España, Portugal y Reino Unido', cost: 400, stats: { eco: +3 } },
-    { title: 'Desaladoras de Casablanca y Dajla', cost: 450, stats: { eco: +2, est: +2 } },
-    { title: 'Programa Nacional de Agua Potable y Riego 2020-2027', cost: 350, stats: { est: +3, eco: +2 } },
-    { title: 'Reserva de emergencia contra la sequía', cost: 250, stats: { est: +3, apr: +2 } }
-  ],
-  cultura: [
-    { title: 'Campaña de comunicación del Gobierno', cost: 60, stats: { apr: +3 } },
-    { title: 'Diálogo con la juventud (GenZ 212)', cost: 0, stats: { apr: +4, est: +2 } },
-    { title: 'Año Nuevo Amazigh (Yennayer) como fiesta oficial', cost: 40, stats: { apr: +2, est: +1 } },
-    { title: 'Fondo de apoyo a la industria audiovisual y festivales', cost: 100, stats: { apr: +1, eco: +1 } }
-  ],
-  igualdad: [
-    { title: 'Reforma de la Moudawana (Código de Familia)', cost: 0, stats: { apr: +3, est: -2 } },
-    { title: 'Programa de apoyo a viudas y familias monoparentales', cost: 150, stats: { apr: +3, est: +1 } },
-    { title: 'Ley de lucha contra la violencia de género', cost: 50, stats: { apr: +2, est: +1 } }
-  ]
-};
-
-
-// =====================================================================
-// 6. HOUSING_EVENTS — protestas sociales
-// =====================================================================
-const HOUSING_EVENTS = [
-  {
-    id: 'HOUS_1',
-    category: 'PROTESTAS SOCIALES',
-    title: 'ESTADIOS FRENTE A HOSPITALES Y ESCUELAS',
-    desc: 'Los jóvenes protestan: piden que el dinero de las grandes obras deportivas se destine a sanidad y educación.',
-    options: [
-      { text: 'Reorientar fondos a hospitales y escuelas', stats: { apr: +8, est: +4, eco: -1 }, cost: 600, loyaltyImpact: { USFP: +10, PPS: +10, RNI: -8 }, news: 'El Gobierno reorienta fondos de las obras del Mundial a hospitales y escuelas tras las protestas.' },
-      { text: 'Mantener el calendario de obras del Mundial 2030', stats: { apr: -7, est: -4, eco: +3 }, cost: 0, loyaltyImpact: { RNI: +8, PI: +5 }, news: 'El Gobierno mantiene el calendario del Mundial 2030 y las protestas juveniles se endurecen.' }
-    ]
-  },
-  {
-    id: 'HOUS_2',
-    category: 'PROTESTAS SOCIALES',
-    title: 'PROTESTAS JUVENILES',
-    desc: 'Miles de jóvenes salen a la calle exigiendo sanidad, educación y empleo.',
-    options: [
-      { text: 'Abrir diálogo y reformas', stats: { apr: +6, est: +4 }, cost: 300, loyaltyImpact: {}, news: 'El Gobierno abre un diálogo con los jóvenes y anuncia reformas en sanidad, educación y empleo.' },
-      { text: 'Mano dura y detenciones', stats: { est: -2, apr: -7, mil: +2 }, cost: 0, loyaltyImpact: {}, news: 'Las fuerzas del orden disuelven las protestas con detenciones y crece la indignación.' }
-    ]
+  // Datos extra para que Marruecos tenga los mismos indicadores que España
+  function ex(m) {
+    if (m.milOp == null) { m.milOp = 60; m.tension = 20; m.posture = 'bal'; }
+    if (m.emp == null) m.emp = 48; if (m.debt == null) m.debt = 68; if (m.leg == null) m.leg = 1;
+    if (!m.wk) m.wk = { w: Math.floor((m.day || 1) / 7), n: 0 }; if (m.decN == null) m.decN = 0;
+    return m;
   }
-];
+  const prima = m => Math.round(Math.max(20, Math.min(900, 40 + (55 - m.eco) * 2.4 + Math.max(0, m.debt - 60) * 1.5 + (50 - m.est) * 0.9)));
+  const M = () => { const s = gameState.mp; return s && s.partner === 'MA' && s.P && s.P.army ? wrap(s.P) : null; };
+  const UI = { tab: 'main', sel: null };   // estado de pantalla (local de cada jugador, no se sincroniza)
+  const pending = m => !!(m && m.setup && !m.setup.done);
+  const localMode = () => !!(gameState.mp && gameState.mp.mode !== 'online');
 
+  const addSt = (m, k, v) => { if (k === 'mil') Object.keys(m.army).forEach(b => { m.army[b] = clamp(m.army[b] + v); }); else if (m[k] != null) m[k] = clamp(m[k] + v); };
 
-// =====================================================================
-// 7. REAL_MINISTERS
-//  · El efecto «Palacio» de los ministros originales se ha omitido.
-//  · Sin candidatos para: trabajo, vivienda, igualdad.
-// =====================================================================
-const REAL_MINISTERS = [
-  // --- ECONOMÍA ---
-  {
-    id: 'fettah_rni', name: 'Nadia Fettah Alaoui', party: 'RNI', portfolio: 'economia',
-    desc: '+1.5% Economía',
-    pros: '+1.5% Economía',
-    cons: '-1.0% Aprobación (ajustes impopulares)',
-    effects: { eco: 1.5, apr: -1.0 }
-  },
-  {
-    id: 'mezzour_pi', name: 'Ryad Mezzour', party: 'PI', portfolio: 'economia',
-    desc: '+2.0% Economía (automoción y aeronáutica)',
-    pros: '+2.0% Economía (automoción y aeronáutica)',
-    cons: '-0.5% Aprobación',
-    effects: { eco: 2.0, apr: -0.5 }
-  },
-  // --- INTERIOR ---
-  {
-    id: 'laftit_otr', name: 'Abdelouafi Laftit', party: 'OTR', portfolio: 'interior',
-    desc: '+2.0% Estabilidad',
-    pros: '+2.0% Estabilidad',
-    cons: '-1.0% Aprobación (mano dura)',
-    effects: { est: 2.0, apr: -1.0 }
-  },
-  // --- DEFENSA ---
-  {
-    id: 'loudiyi_otr', name: 'Abdellatif Loudiyi', party: 'OTR', portfolio: 'defensa',
-    desc: '+2.0% Lealtad militar',
-    pros: '+2.0% Lealtad militar',
-    cons: 'Sin control parlamentario',
-    effects: { mil: 2.0 }
-  },
-  // --- EXTERIORES ---
-  {
-    id: 'bourita_otr', name: 'Nasser Bourita', party: 'OTR', portfolio: 'exteriores',
-    desc: '+0.5% Economía',
-    pros: '+0.5% Economía',
-    cons: 'Diplomacia opaca para la coalición',
-    effects: { eco: 0.5 }
-  },
-  // --- JUSTICIA ---
-  {
-    id: 'ouahbi_pam', name: 'Abdellatif Ouahbi', party: 'PAM', portfolio: 'justicia',
-    desc: '+1.0% Estabilidad',
-    pros: '+1.0% Estabilidad',
-    cons: '-1.0% Aprobación (polémicas constantes)',
-    effects: { est: 1.0, apr: -1.0 }
-  },
-  // --- EDUCACIÓN ---
-  {
-    id: 'berrada_rni', name: 'Mohamed Saad Berrada', party: 'RNI', portfolio: 'educacion',
-    desc: '+1.0% Aprobación (reforma escolar)',
-    pros: '+1.0% Aprobación (reforma escolar)',
-    cons: '-0.5% Estabilidad (huelgas docentes)',
-    effects: { apr: 1.0, est: -0.5 }
-  },
-  // --- SANIDAD ---
-  {
-    id: 'aittaleb_rni', name: 'Khalid Aït Taleb', party: 'RNI', portfolio: 'sanidad',
-    desc: '+1.5% Aprobación (red hospitalaria)',
-    pros: '+1.5% Aprobación (red hospitalaria)',
-    cons: '-0.5% Economía (coste del sistema)',
-    effects: { apr: 1.5, eco: -0.5 }
-  },
-  // --- TERRITORIO (Agricultura, Pesca y Desarrollo Rural) ---
-  {
-    id: 'sadiki_rni', name: 'Mohammed Sadiki', party: 'RNI', portfolio: 'territorio',
-    desc: '+1.0% Economía, +0.5% Estabilidad',
-    pros: '+1.0% Economía, +0.5% Estabilidad',
-    cons: '-0.5% Aprobación (sequía)',
-    effects: { eco: 1.0, est: 0.5, apr: -0.5 }
-  },
-  // --- TRANSICIÓN ECOLÓGICA (Equipamiento y Agua · Transición Energética) ---
-  {
-    id: 'baraka_pi', name: 'Nizar Baraka', party: 'PI', portfolio: 'transicion_ecologica',
-    desc: '+1.5% Economía (obra pública)',
-    pros: '+1.5% Economía (obra pública)',
-    cons: 'Peso propio del Istiqlal en el Gobierno',
-    effects: { eco: 1.5 }
-  },
-  {
-    id: 'benali_otr', name: 'Leila Benali', party: 'OTR', portfolio: 'transicion_ecologica',
-    desc: '+1.5% Economía, +0.5% Estabilidad',
-    pros: '+1.5% Economía, +0.5% Estabilidad',
-    cons: '-0.5% Aprobación',
-    effects: { eco: 1.5, est: 0.5, apr: -0.5 }
-  },
-  // --- CULTURA (Juventud, Cultura y Comunicación · Habices y Asuntos Islámicos) ---
-  {
-    id: 'bensaid_pam', name: 'Mehdi Bensaid', party: 'PAM', portfolio: 'cultura',
-    desc: '+1.0% Aprobación (juventud)',
-    pros: '+1.0% Aprobación (juventud)',
-    cons: '-0.5% Estabilidad',
-    effects: { apr: 1.0, est: -0.5 }
-  },
-  {
-    id: 'toufiq_otr', name: 'Ahmed Toufiq', party: 'OTR', portfolio: 'cultura',
-    desc: '+1.0% Estabilidad',
-    pros: '+1.0% Estabilidad',
-    cons: 'Poco margen para reformas',
-    effects: { est: 1.0 }
+  // Crea la partida de Marruecos. Empieza en el mismo día que España.
+  function initMorocco(name) {
+    const day = gameState.daysInOffice || 1;
+    const seats = {}; MPARTIES.forEach(p => { seats[p.id] = p.seats; });
+    const m = {
+      name: name || 'Jefe de Gobierno', day, eco: 52, est: 60, apr: 55, tes: 9000, cap: 30, palace: 60,
+      bud: Object.fromEntries(BUD.map(b => [b.id, 50])),
+      army: { tierra: 55, mar: 35, aire: 40 },
+      // formación de Gobierno: 1) escaños, 2) pactómetro. Hasta que termina, la partida no arranca.
+      setup: { phase: 'seats', seats, leader: 'RNI', coal: ['RNI'], done: false },
+      seats: Object.assign({}, seats), leader: 'RNI', coalIds: ['RNI'], coal: {}, min: {}, minority: false,
+      deck: [], dec: null, decCd: 0,
+      reg: REG.map(() => ({ est: 50 + Math.floor(Math.random() * 25), crisis: 0 })),
+      cd: {}, evt: null, next: day + 25, log: ['Comienza tu mandato al frente del Gobierno de Marruecos.']
+    };
+    wrap(m); ex(m);
+    gameState.morocco = m;
+    if (window.MP && typeof MP.setAdapter === 'function') {
+      MP.setAdapter({
+        me: 'MA', name: 'Marruecos', flag: '🇲🇦',
+        tes: () => m.tes, pay: v => { m.tes -= v; }, gain: v => { m.tes += v; },
+        cap: () => m.cap, spendCap: v => { m.cap -= v; },
+        mil: () => Math.round((m.army.tierra + m.army.mar + m.army.aire) / 3),
+        st: (k, v) => addSt(m, k, v),
+        pause: () => { if (typeof setGameSpeed === 'function') setGameSpeed(0); },
+        toast: t => { lg(m, t); if (gameState.activeTab === 'morocco') render(); },
+        redraw: () => { if (gameState.activeTab === 'morocco') render(); }
+      });
+    }
+    return m;
   }
-];
+  const lg = (m, t) => { m.log.unshift('Día ' + m.day + ' · ' + t); m.log.length = Math.min(m.log.length, 12); };
+  const diff = () => { try { return diffCfg(); } catch (e) { return { mult: 1, attr: 0, expense: 0 }; } };
+  const coalSeats = m => (m.coalIds || []).reduce((t, id) => t + ((m.seats || {})[id] || 0), 0);
 
-
-// =====================================================================
-// 8. GOAL_POOL
-//  · «Deuda Bajo Control» (deuda ≤ 60 % del PIB) omitida: no hay
-//    equivalente en el estado de la plantilla.
-//  · «Confianza del Palacio» usa la métrica `con`.
-// =====================================================================
-const GOAL_POOL = [
-  { id: 'eco',     icon: 'fa-chart-line',     title: 'Milagro Económico',           desc: 'Mantén la Economía ≥ 70%',             check: s => s.metrics.eco >= 70 },
-  { id: 'est',     icon: 'fa-shield-halved',  title: 'Paz Social',                  desc: 'Mantén la Estabilidad ≥ 65%',          check: s => s.metrics.est >= 65 },
-  { id: 'apr',     icon: 'fa-heart',          title: 'Jefe de Gobierno Querido',    desc: 'Mantén la Aprobación ≥ 65%',           check: s => s.metrics.apr >= 65 },
-  { id: 'emp',     icon: 'fa-briefcase',      title: 'Pleno Empleo',                desc: 'Mantén el Empleo ≥ 70%',               check: s => s.metrics.emp >= 70 },
-  { id: 'mil',     icon: 'fa-person-military-pointing', title: 'Cuarteles en Calma', desc: 'Mantén la fuerza de las FAR ≥ 60%',   check: s => s.metrics.mil >= 60 },
-  { id: 'caja',    icon: 'fa-vault',          title: 'Superávit',                   desc: 'Acumula una tesorería ≥ 15.000 M€',    check: s => (Number(s.treasury) || 0) >= 15000 },
-  { id: 'palacio', icon: 'fa-crown',          title: 'Confianza del Palacio',       desc: 'Confianza del Palacio ≥ 75%',          check: s => s.metrics.con >= 75 },
-  { id: 'doble',   icon: 'fa-scale-balanced', title: 'Doble Confianza',             desc: 'Aprobación ≥ 60% y Estabilidad ≥ 60%', check: s => s.metrics.apr >= 60 && s.metrics.est >= 60 },
-  { id: 'todo',    icon: 'fa-star',           title: 'Marruecos Equilibrado',       desc: 'Todas las métricas ≥ 55%',             check: s => Object.values(s.metrics).every(v => v >= 55) }
-];
-
-
-// =====================================================================
-// 9. GOAL_ACTIONS
-//  · Las 7 acciones de gobierno originales + las acciones de ingreso de
-//    las secciones Tesorería y Finanzas (cost 0 + gain). Su efecto sobre
-//    la deuda (debt) se ha omitido.
-//  · La recompensa de misión (goalReward: 10 cap, 300 M€) no tiene campo.
-// =====================================================================
-const GOAL_ACTIONS = [
-  { id: 'tv',        icon: 'fa-tv',                  title: 'Comparecencia televisada',                 cap: 15, cost: 0,   cd: 30,  fx: { apr: 6, est: 2 },         news: 'El Jefe de Gobierno comparece en prime time y remonta en las encuestas.' },
-  { id: 'ue',        icon: 'fa-earth-europe',        title: 'Cumbre en Bruselas',                       cap: 20, cost: 0,   cd: 45,  fx: { eco: 6, apr: 2 },         news: 'Bruselas desbloquea fondos y elogia las reformas del Gobierno.' },
-  { id: 'pacto',     icon: 'fa-handshake',           title: 'Pacto social y político',                  cap: 25, cost: 0,   cd: 60,  fx: { est: 6, apr: 3 },         news: 'Gobierno, sindicatos y oposición firman un pacto histórico.' },
-  { id: 'empleo',    icon: 'fa-hammer',              title: 'Plan de choque del empleo',                cap: 10, cost: 300, cd: 40,  fx: { emp: 8, eco: 3 },         news: 'El Gobierno lanza un plan de choque con 300 M€ contra el paro.' },
-  { id: 'army',      icon: 'fa-medal',               title: 'Reforma de las FAR',                       cap: 15, cost: 250, cd: 50,  fx: { mil: 8, apr: -3 },        news: 'Se modernizan las Fuerzas Armadas Reales; el Ejército responde con lealtad.' },
-  { id: 'ahorro',    icon: 'fa-piggy-bank',          title: 'Recorte del gasto público',                cap: 0,  cost: 0,   cd: 60,  fx: { apr: -5, est: -2 }, gain: 600,  news: 'Austeridad: el Gobierno recorta gasto y ahorra 600 M€, a costa de la calle.' },
-  { id: 'trono',     icon: 'fa-crown',               title: 'Audiencia con el Rey y Discurso del Trono', cap: 12, cost: 0,  cd: 90,  fx: { con: 8, apr: 2 },         news: 'El Rey recibe al Jefe de Gobierno y respalda su hoja de ruta.' },
-  { id: 'privatizar', icon: 'fa-building-columns',   title: 'Privatizar participaciones públicas',      cap: 3,  cost: 0,   cd: 120, fx: { apr: -3, eco: 1, con: -1 }, gain: 900,  news: 'El Gobierno vende participaciones de empresas públicas e ingresa 900 M€.' },
-  { id: 'amnistia',  icon: 'fa-file-invoice-dollar', title: 'Amnistía fiscal parcial',                  cap: 2,  cost: 0,   cd: 90,  fx: { apr: -2, est: -1 },       gain: 500,  news: 'Una amnistía fiscal parcial hace aflorar capitales y llena las arcas con 500 M€.' },
-  { id: 'iva',       icon: 'fa-receipt',             title: 'Cobrar el IVA de forma más estricta',      cap: 2,  cost: 0,   cd: 60,  fx: { apr: -2, eco: -1 },       gain: 350,  news: 'Hacienda refuerza la recaudación del IVA y suma 350 M€.' },
-  { id: 'ocp',       icon: 'fa-industry',            title: 'Dividendos de OCP (fosfatos)',             cap: 2,  cost: 0,   cd: 120, fx: { eco: 1, apr: -1 },        gain: 400,  news: 'El Estado exige a OCP un dividendo extraordinario de 400 M€.' },
-  { id: 'mre',       icon: 'fa-plane-arrival',       title: 'Remesas de los MRE: plan de atracción',    cap: 3,  cost: 0,   cd: 90,  fx: { eco: 1, con: 1 },         gain: 250,  news: 'Un plan de incentivos atrae 250 M€ de remesas de los marroquíes del exterior.' },
-  { id: 'fmi',       icon: 'fa-hand-holding-dollar', title: 'Préstamo del FMI (línea de precaución y liquidez)', cap: 4, cost: 0, cd: 150, fx: { apr: -3, con: -1 }, gain: 1500, news: 'El FMI concede a Marruecos una línea de liquidez de 1.500 M€, con condiciones.' },
-  { id: 'reffiscal', icon: 'fa-scale-unbalanced',    title: 'Reforma fiscal (Ley marco 69-19)',         cap: 4,  cost: 0,   cd: 150, fx: { apr: -2, eco: 1 },        gain: 300,  news: 'La reforma fiscal ensancha la base tributaria y recauda 300 M€ más.' }
-];
-
-
-// =====================================================================
-// 10. FOCUS_TREE
-//  · Se omiten los efectos ES / rel del foco d2.
-// =====================================================================
-const FOCUS_TREE = [
-  { id: 'e1', b: 'eco', title: 'Reforma fiscal (Ley marco 69-19)',           days: 365, now: { eco: 4 },            spirit: { name: 'Hacienda Eficiente',           daily: {},                     money: 120 } },
-  { id: 'e2', b: 'eco', title: 'Plan de Aceleración Industrial',             days: 420, req: 'e1', now: { emp: 3 },  spirit: { name: 'Polos Industriales',           daily: { eco: .05, emp: .04 }, money: 0 } },
-  { id: 'e3', b: 'eco', title: 'Fondos europeos y del Golfo',                days: 480, req: 'e2', now: { apr: 2 }, cash: 1500, spirit: null },
-  { id: 'e4', b: 'eco', title: 'Marca «Maroc»',                              days: 540, req: 'e3', now: {},         spirit: { name: 'Marca Marruecos',              daily: { eco: .06, apr: .03 }, money: 150 } },
-  { id: 's1', b: 'soc', title: 'Protección social generalizada',             days: 365, now: { apr: 3 },            spirit: { name: 'Cobertura Universal',          daily: { est: .03 },           money: -80 } },
-  { id: 's2', b: 'soc', title: 'Pacto educativo',                            days: 420, req: 's1', now: {},         spirit: { name: 'Capital Humano',               daily: { emp: .04, eco: .02 }, money: -60 } },
-  { id: 's3', b: 'soc', title: 'Vivienda y ciudades nuevas',                 days: 480, req: 's2', now: { apr: 4 }, spirit: { name: 'Acceso a la Vivienda',         daily: { apr: .05 },           money: -70 } },
-  { id: 's4', b: 'soc', title: 'Estado Social',                              days: 540, req: 's3', now: { est: 4 }, spirit: { name: 'Bienestar Social',             daily: { est: .05, apr: .04 }, money: -110 } },
-  { id: 'g1', b: 'seg', title: 'Modernización policial (DGSN)',              days: 365, now: { est: 4 },            spirit: { name: 'Policía Moderna',              daily: { est: .03 },           money: -50 } },
-  { id: 'g2', b: 'seg', title: 'Ciberseguridad nacional',                    days: 420, req: 'g1', now: {},         spirit: { name: 'Escudo Digital',               daily: { est: .03, eco: .02 }, money: -50 } },
-  { id: 'g3', b: 'seg', title: 'FAR profesionales',                          days: 480, req: 'g2', now: { mil: 6 }, spirit: { name: 'Tropa Profesional',            daily: { mil: .05 },           money: -90 } },
-  { id: 'g4', b: 'seg', title: 'Pacto de defensa con EE. UU. (African Lion)', days: 540, req: 'g3', now: { mil: 4 }, spirit: { name: 'Socio Estratégico de EE. UU.', daily: { mil: .04, est: .03 }, money: -100 } },
-  { id: 'd1', b: 'dip', title: 'Diplomacia africana',                        days: 365, now: { apr: 2 },            spirit: { name: 'Voz en África',                daily: { apr: .03 },           money: 0 } },
-  { id: 'd2', b: 'dip', title: 'Eje con Bruselas y Madrid',                  days: 420, req: 'd1', now: {}, cash: 1000, spirit: { name: 'Socio Fiable',               daily: { eco: .04 },           money: 0 } },
-  { id: 'd3', b: 'dip', title: 'Asociación con EE. UU. y el Golfo',          days: 480, req: 'd2', now: { est: 3, mil: 3 }, spirit: null },
-  { id: 'd4', b: 'dip', title: 'Iniciativa Atlántica y liderazgo africano',  days: 540, req: 'd3', now: {},         spirit: { name: 'Potencia Regional',            daily: { apr: .05, eco: .04 }, money: 100 } }
-];
-
-
-// =====================================================================
-// 11. FOCUS_LINKS
-// =====================================================================
-const FOCUS_LINKS = [
-  { t: 'Economía hundida destruye empleo',   on: s => s.eco < 40, fx: { emp: -.08 } },
-  { t: 'Economía fuerte crea empleo',        on: s => s.eco > 65, fx: { emp: .04 } },
-  { t: 'Paro alto erosiona la aprobación',   on: s => s.emp < 40, fx: { apr: -.08, est: -.04 } },
-  { t: 'Pleno empleo mejora la aprobación',  on: s => s.emp > 65, fx: { apr: .04 } },
-  { t: 'Inestabilidad frena la economía',    on: s => s.est < 40, fx: { eco: -.06 } },
-  { t: 'Impopularidad alimenta el malestar', on: s => s.apr < 35, fx: { est: -.05 } },
-  { t: 'Ejército descontento desestabiliza', on: s => s.mil < 30, fx: { est: -.04 } },
-  { t: 'Estabilidad alta atrae inversión',   on: s => s.est > 70, fx: { eco: .03 } }
-];
-
-
-// =====================================================================
-// 12. SHOCK_POOL
-//  · Efectos sobre `debt` omitidos (prima de riesgo).
-// =====================================================================
-const SHOCK_POOL = [
-  { cat: 'EMERGENCIAS', min: 'interior', title: 'INCENDIOS FORESTALES EN EL RIF', desc: 'Varias provincias del norte arden a la vez y piden ayuda urgente al Estado.',
-    options: [
-      { text: 'Desplegar medios extraordinarios', cost: 250, stats: { est: 3, apr: 2 },  news: 'El Estado despliega medios extraordinarios y controla los incendios del Rif.' },
-      { text: 'Dejar que actúen las provincias',  cost: 0,   stats: { est: -4, apr: -5 }, news: 'Las provincias del norte quedan solas ante las llamas y crece la indignación.' }
-    ] },
-  { cat: 'LABORAL', min: 'trabajo', title: 'HUELGA GENERAL', desc: 'Los sindicatos convocan un paro nacional contra la política laboral.',
-    options: [
-      { text: 'Abrir mesa de negociación', cost: 100, stats: { emp: 3, apr: 2, eco: -2 },  news: 'El Gobierno abre una mesa de negociación y se desconvoca el paro general.' },
-      { text: 'Mantener la postura',       cost: 0,   stats: { est: -5, apr: -6, eco: -3 }, news: 'El paro general paraliza el país mientras el Gobierno mantiene su postura.' }
-    ] },
-  { cat: 'CORRUPCIÓN', min: 'justicia', title: 'ESCÁNDALO DE CORRUPCIÓN', desc: 'Un informe de la Cour des comptes señala a un alto cargo de tu entorno.',
-    options: [
-      { text: 'Cesar al implicado',       cost: 0, stats: { apr: -4 },                 news: 'El Gobierno cesa al alto cargo señalado por la Cour des comptes.' },
-      { text: 'Negar y cerrar filas',     cost: 0, stats: { apr: -9, est: -3, con: -2 }, news: 'El Gobierno cierra filas y el escándalo de corrupción llega hasta el Palacio.' }
-    ] },
-  { cat: 'MERCADOS', min: 'economia', title: 'DISPARO DE LA PRIMA DE RIESGO', desc: 'Los inversores desconfían de la deuda marroquí y exigen intereses más altos.',
-    options: [
-      { text: 'Anunciar recortes',   cost: 0, stats: { eco: 3, apr: -5, emp: -2 }, news: 'El Gobierno anuncia recortes y los mercados respiran, pero la calle protesta.' },
-      { text: 'Aguantar el pulso',   cost: 0, stats: { eco: -6, emp: -2 },          news: 'El Gobierno aguanta el pulso a los mercados y la deuda se encarece.' }
-    ] },
-  { cat: 'CIBERSEGURIDAD', min: 'defensa', title: 'CIBERATAQUE A MINISTERIOS', desc: 'Atacantes desconocidos paralizan sistemas críticos del Estado.',
-    options: [
-      { text: 'Contratar respuesta de emergencia', cost: 80, stats: { est: 2, mil: 1 },  news: 'Una respuesta de emergencia restablece los sistemas de los ministerios atacados.' },
-      { text: 'Resolverlo con medios propios',     cost: 0,  stats: { eco: -5, est: -3 }, news: 'Los ministerios siguen paralizados días después del ciberataque.' }
-    ] },
-  { cat: 'ENERGÍA', min: 'transicion_ecologica', title: 'CRISIS ENERGÉTICA Y DEL BUTANO', desc: 'La energía se dispara y las familias no llegan a fin de mes.',
-    options: [
-      { text: 'Subsidiar la factura', cost: 450, stats: { eco: 2, apr: 3 },         news: 'El Gobierno subsidia la factura energética y alivia a las familias.' },
-      { text: 'Dejar actuar al mercado', cost: 0, stats: { eco: -6, emp: -3, apr: -3 }, news: 'Se dispara el precio del butano y las familias recortan gastos básicos.' }
-    ] },
-  { cat: 'MILITAR', min: 'defensa', title: 'RUIDO DE SABLES', desc: 'Mandos militares critican en privado tu gestión y hay malestar en los cuarteles.',
-    options: [
-      { text: 'Ascensos y mejoras salariales', cost: 200, stats: { mil: 6, apr: -1 },  news: 'El Gobierno aprueba ascensos y mejoras salariales para calmar los cuarteles.' },
-      { text: 'Ignorar el malestar',           cost: 0,   stats: { mil: -8, est: -2 }, news: 'El malestar militar se agranda ante el silencio del Gobierno.' }
-    ] },
-  { cat: 'ECONOMÍA', min: 'exteriores', title: 'REMESAS RÉCORD DE LOS MRE', desc: 'Los marroquíes del exterior envían cifras históricas de divisas.',
-    options: [
-      { text: 'Canalizarlas a inversión',  cost: 100,  stats: { eco: 3, emp: 1 }, news: 'El Gobierno canaliza las remesas récord de los MRE hacia proyectos de inversión.' },
-      { text: 'Gastarlas en consumo',      cost: -200, stats: { apr: 2 },         news: 'Las remesas récord de los MRE alimentan el consumo de las familias.' }
-    ] }
-];
-
-
-// =====================================================================
-// 13. INTL_ACTIONS — sección «Unión Europea» (efectos sobre métricas
-//     propias y sobre España omitidos). cost < 0 = ingreso.
-// =====================================================================
-const INTL_ACTIONS = [
-  { id: 'pesca',   title: 'Renovar el acuerdo pesquero UE–Marruecos',   cap: 3, cost: -300, rel: 3, cd: 120 },
-  { id: 'asoc',    title: 'Asociación avanzada con la UE',              cap: 5, cost: 0,    rel: 4, cd: 180 },
-  { id: 'migra',   title: 'Pacto migratorio con Bruselas',              cap: 4, cost: -500, rel: 4, cd: 120 },
-  { id: 'energia', title: 'Corredor de energía verde con Europa',       cap: 5, cost: 400,  rel: 3, cd: 150 },
-  { id: 'visados', title: 'Negociar visados Schengen',                  cap: 3, cost: 0,    rel: 2, cd: 120 },
-  { id: 'cables',  title: 'Conectar los cables eléctricos con España',  cap: 4, cost: 300,  rel: 3, cd: 120 }
-];
-
-
-// =====================================================================
-// 14. PROJECTS
-//  · Se omite `done: { ES, rel }` del Mundial y el efecto «Palacio».
-// =====================================================================
-const PROJECTS = [
-  { id: 'tgv', icon: 'fa-train', title: 'Alta velocidad Kenitra–Marrakech', spirit: { name: 'Red Ferroviaria Al Boraq', daily: { eco: .04, emp: .02 }, money: 60 },
-    phases: [
-      { n: 'Estudios, trazado y licitación',      cost: 300,  days: 30,  now: {},                run: {} },
-      { n: 'Obra civil y vías',                   cost: 2300, days: 120, now: { emp: 2, eco: 1 }, run: { emp: .02, eco: .01 } },
-      { n: 'Material móvil y puesta en servicio', cost: 900,  days: 45,  now: { eco: 2, emp: 1 }, run: {} }
-    ] },
-  { id: 'nador', icon: 'fa-ship', title: 'Puerto Nador West Med', spirit: { name: 'Hub Mediterráneo', daily: { eco: .05, emp: .02 }, money: 90 },
-    phases: [
-      { n: 'Licitación y dragado',          cost: 250, days: 30,  now: {},                run: {} },
-      { n: 'Diques, muelles y terminales',  cost: 850, days: 110, now: { emp: 1, eco: 1 }, run: { emp: .015, eco: .01 } },
-      { n: 'Zona logística y apertura',     cost: 300, days: 40,  now: { eco: 3 },         run: {} }
-    ] },
-  { id: 'agua', icon: 'fa-droplet', title: 'Desaladoras y Plan Nacional del Agua', spirit: { name: 'Seguridad Hídrica', daily: { est: .03, eco: .02, apr: .01 }, money: -40 },
-    phases: [
-      { n: 'Estudios y evaluación ambiental',              cost: 200,  days: 30,  now: {},                 run: {} },
-      { n: 'Plantas y conducciones (Casablanca, Dakhla)',  cost: 1100, days: 100, now: { emp: 1 },          run: { emp: .012 } },
-      { n: 'Interconexión de presas y puesta en marcha',   cost: 350,  days: 45,  now: { est: 3, apr: 2 },  run: {} }
-    ] },
-  { id: 'solar', icon: 'fa-solar-panel', title: 'Complejo solar Noor y red eléctrica', spirit: { name: 'Independencia Energética', daily: { eco: .05 }, money: 120 },
-    phases: [
-      { n: 'Concursos y permisos',              cost: 250,  days: 40,  now: {},                run: {} },
-      { n: 'Parques solares, eólicos y líneas', cost: 1500, days: 130, now: { eco: 1, emp: 1 }, run: { emp: .015, eco: .01 } },
-      { n: 'Almacenamiento y exportación',      cost: 500,  days: 50,  now: { eco: 3 },         run: {} }
-    ] },
-  { id: 'viv', icon: 'fa-house', title: 'Vivienda social y ciudades nuevas', spirit: { name: 'Parque Público', daily: { apr: .04, est: .02 }, money: -60 },
-    phases: [
-      { n: 'Cesión de suelo y proyecto',  cost: 150, days: 30,  now: {},         run: {} },
-      { n: 'Construcción de viviendas',   cost: 900, days: 100, now: { emp: 1 }, run: { emp: .015 } },
-      { n: 'Adjudicación y entrega',      cost: 250, days: 35,  now: { apr: 5 }, run: {} }
-    ] },
-  { id: 'digi', icon: 'fa-microchip', title: 'Maroc Digital 2030', spirit: { name: 'Estado Digital', daily: { eco: .03, emp: .03 }, money: 40 },
-    phases: [
-      { n: 'Diseño y contratación',              cost: 120, days: 25, now: {},                run: {} },
-      { n: 'Redes, centros de datos y sistemas', cost: 800, days: 80, now: { eco: 1 },         run: { eco: .01 } },
-      { n: 'Migración y formación',              cost: 300, days: 40, now: { eco: 2, emp: 2 }, run: {} }
-    ] },
-  { id: 'mundial', icon: 'fa-futbol', title: 'Estadio Hassan II y Mundial 2030', spirit: { name: 'Legado Mundialista', daily: { apr: .04, eco: .03 }, money: 50 },
-    phases: [
-      { n: 'Diseño y licitación',          cost: 120, days: 30,  now: {},                run: {} },
-      { n: 'Obra del estadio y accesos',   cost: 750, days: 120, now: { emp: 1, apr: 1 }, run: { emp: .015 } },
-      { n: 'Pruebas e inauguración',       cost: 200, days: 35,  now: { apr: 5 },         run: {} }
-    ] },
-  { id: 'dakhla', icon: 'fa-anchor', title: 'Puerto Atlántico de Dakhla', spirit: { name: 'Eje Atlántico', daily: { eco: .04 }, money: 70 },
-    phases: [
-      { n: 'Estudios y financiación',          cost: 200, days: 30,  now: {},                run: {} },
-      { n: 'Obras portuarias y zona franca',   cost: 950, days: 110, now: { emp: 1 },         run: { emp: .015, eco: .01 } },
-      { n: 'Conexión viaria y apertura',       cost: 300, days: 40,  now: { eco: 2 },         run: {} }
-    ] }
-];
-
-
-// =====================================================================
-// 15. ACHIEVEMENTS
-//  · «Superviviente» sigue la plantilla (completar una legislatura): la
-//    versión original (sobrevivir a una moción de censura) no tiene
-//    estado equivalente.
-//  · VERIFICAR rutas de estado en 'cred' (banco central) y 'year' (días
-//    en el cargo): no aparecen entre las claves que documenta la plantilla.
-// =====================================================================
-const ACHIEVEMENTS = [
-  { id: 'm1',    icon: 'fa-flag',            title: 'Primer Mandato',          desc: 'Cumple tu primera misión',                  ok: s => s.goals && s.goals.done >= 1 },
-  { id: 'm5',    icon: 'fa-list-check',      title: 'Gestor Eficaz',           desc: 'Cumple 5 misiones',                         ok: s => s.goals && s.goals.done >= 5 },
-  { id: 'f1',    icon: 'fa-diagram-project', title: 'Visión de Estado',        desc: 'Completa un foco nacional',                 ok: s => s.focus && s.focus.done.length >= 1 },
-  { id: 'fb',    icon: 'fa-sitemap',         title: 'Doctrina Completa',       desc: 'Completa una rama entera de focos',         ok: s => s.focus && Object.keys(FOCUS_BRANCHES).some(b => FOCUS_TREE.filter(f => f.b === b).every(f => s.focus.done.includes(f.id))) },
-  { id: 'p3',    icon: 'fa-helmet-safety',   title: 'Constructor de Marruecos', desc: 'Termina 3 proyectos de Estado',            ok: s => s.proj && s.proj.done.length >= 3 },
-  { id: 'rich',  icon: 'fa-vault',           title: 'Caja Fuerte',             desc: 'Llega a 15.000 M€ en Tesorería',            ok: s => (Number(s.treasury) || 0) >= 15000 },
-  { id: 'all',   icon: 'fa-star',            title: 'País de Primera',         desc: 'Todas las métricas ≥ 70% a la vez',         ok: s => s.metrics && ['eco', 'est', 'emp', 'apr', 'mil'].every(k => s.metrics[k] >= 70) },
-  { id: 'abyss', icon: 'fa-skull',           title: 'Al Borde del Abismo',     desc: 'Emite más de 6.000 M€ de deuda nueva',      ok: s => s.debt && s.debt.amount >= 6000 },
-  { id: 'cred',  icon: 'fa-building-columns', title: 'Banco Creíble',          desc: 'Credibilidad de Bank Al-Maghrib ≥ 85%',     ok: s => s.bde && s.bde.cred >= 85 },
-  { id: 'surv',  icon: 'fa-shield',          title: 'Superviviente',           desc: 'Completa una legislatura',                  ok: s => s.campaign && s.campaign.history.length >= 1 },
-  { id: 'year',  icon: 'fa-calendar-check',  title: 'Primer Año de Mandato',   desc: 'Cumple un año en el poder',                 ok: s => (s.daysInOffice || 0) >= 365 }
-];
-
-
-// =====================================================================
-// 16. BDE_GOVS — gobernadores de Bank Al-Maghrib
-//     (IDs de la plantilla: Berrada -> tecnico · Jouahri -> indep)
-// =====================================================================
-const BDE_GOVS = [
-  { id: 'tecnico', name: 'Salma Berrada',      tag: 'Tecnócrata ortodoxa',  cred: 10,  desc: 'Prioriza la inflación y el equilibrio exterior. Los mercados la adoran, la calle menos.' },
-  { id: 'afin',    name: 'Youssef Tazi',       tag: 'Afín al Gobierno',     cred: -10, desc: 'Informes amables y crédito fácil; los inversores desconfían.' },
-  { id: 'indep',   name: 'Abdellatif Jouahri', tag: 'Wali histórico',       cred: 15,  desc: 'Al frente del banco desde 2003: los mercados y el Palacio le respetan; informes sobrios y poco complacientes.' }
-];
-
-
-// =====================================================================
-// 17. BDE_ACTIONS — acciones de Bank Al-Maghrib
-//  · El tipo director, la banda del dírham y los meses de reservas del
-//    original no existen en el estado B de la plantilla: se omiten.
-//  · Condiciones `when` originales (rate>1, band<8, res>2, cred>25)
-//    sustituidas por () => true.
-//  · Las acciones que ingresaban liquidez usan registerFinancialTransaction.
-// =====================================================================
-const BDE_ACTIONS = [
-  { id: 'rate_down', icon: 'fa-arrow-trend-down', label: 'Bajar el tipo director (−25 pb)', desc: 'Abarata el crédito: más actividad y empleo, algo más de inflación.', cost: 0, cd: 45, when: () => true,
-    run: B => { B.cred -= 1; focusMetricAdd('eco', 2); focusMetricAdd('emp', 1); } },
-  { id: 'rate_up', icon: 'fa-arrow-trend-up', label: 'Subir el tipo director (+25 pb)', desc: 'Frena la inflación y refuerza la moneda, a costa de la actividad.', cost: 0, cd: 45, when: () => true,
-    run: B => { B.cred += 2; B.shock -= 10; focusMetricAdd('eco', -1); focusMetricAdd('apr', -1); focusMetricAdd('est', 1); } },
-  { id: 'band', icon: 'fa-arrows-left-right', label: 'Flexibilizar la banda del dírham', desc: 'Amplía la banda de fluctuación: más competitividad exterior, algo de volatilidad.', cost: 0, cd: 90, when: () => true,
-    run: B => { B.cred += 1; focusMetricAdd('eco', 2); focusMetricAdd('apr', -2); } },
-  { id: 'interv', icon: 'fa-vault', label: 'Intervenir con las reservas de divisas', desc: 'Defiende el dírham quemando 0,4 meses de reservas (−300 M€).', cost: 300, cd: 60, when: () => true,
-    run: B => { B.cred += 4; B.shock -= 50; focusMetricAdd('est', 2); } },
-  { id: 'pymes', icon: 'fa-store', label: 'Programa de finanzas para pymes', desc: 'Crédito garantizado a las pymes (−350 M€).', cost: 350, cd: 75, when: () => true,
-    run: B => { B.cred += 1; focusMetricAdd('eco', 2); focusMetricAdd('emp', 3); } },
-  { id: 'informe', icon: 'fa-file-lines', label: 'Encargar un informe de solvencia', desc: 'Auditoría externa que calma a los mercados (−150 M€).', cost: 150, cd: 60, when: () => true,
-    run: B => { B.cred += 4; B.shock -= 15; } },
-  { id: 'dividendo', icon: 'fa-hand-holding-dollar', label: 'Adelantar el beneficio de Bank Al-Maghrib', desc: 'Liquidez inmediata (+500 M€), pero huele a presión política.', cost: 0, cd: 180, when: () => true,
-    run: B => { B.cred -= 10; B.shock += 20; registerFinancialTransaction('Adelanto de beneficios de Bank Al-Maghrib', 500, 'economia'); } },
-  { id: 'monetiza', icon: 'fa-print', label: 'Que el banco central financie el déficit', desc: 'Financiación monetaria de +900 M€. Inflación y desconfianza garantizadas.', cost: 0, cd: 150, when: () => true,
-    run: B => { B.cred -= 15; B.shock += 60; focusMetricAdd('apr', -4); focusMetricAdd('eco', -2); registerFinancialTransaction('Financiación monetaria de Bank Al-Maghrib', 900, 'economia'); } }
-];
-
-
-// =====================================================================
-// EXTRA — PERFIL ECONÓMICO, NOMBRES MINISTERIALES Y GUERRA (opcional)
-//  Cifras reales del Reino (Ley de Finanzas 2026, 1 € ≈ 10,5 MAD), a la escala del juego:
-//  PIB 1.847 mil M MAD ≈ 176.000 M€; deuda pública ≈ 70 % del PIB; déficit 3 % del PIB.
-//  LF 2026: Educación 97,1 mil M MAD · Defensa 157,2 · Inversión 114,8 · Salud 42,4 · intereses 41,6.
-// =====================================================================
-const COUNTRY_ECON = {
-  currency: 'DH',                // el motor muestra DH (dírham) en lugar de €
-  // Términos que el motor usa en titulares y textos (Moncloa / Banco de España en España)
-  terms: { gov: 'Rabat', place: 'el Palacio Real', cabinet: 'Gabinete de Gobierno', bank: 'Bank Al-Maghrib', nation: 'Marruecos', adj: 'marroquí', firms: 'marroquíes', capital: 'Rabat', curName: 'Dírham marroquí', sovereign: true },
-  k: 0.10,                       // escala respecto a España (PIB 176.000 / 1.700.000)
-  budget: 10000, budgetStep: 100, // PGE a repartir (M€)
-  pib: 176000, debt: 123000,      // PIB y deuda pública heredada (≈ 70 % del PIB)
-  macroPib: 10030, revPct: 0.30, pensPct: 0.04, otherPct: 0.18,
-  baseRate: 3.6,                  // coste medio de financiación (bonos a 10 años ≈ 3,5-4 %)
-  debtMax: 30000, cashCap: 9000,
-  preset: { sanidad: 800, educacion: 1800, defensa: 3600, vivienda: 500, infraestructuras: 2100, deuda: 1200 },
-  hint: 'Referencia real (Ley de Finanzas 2026): Defensa 157,2 · Educación 97,1 · Inversión pública 114,8 · Salud 42,4 · Intereses 41,6 (miles de millones de MAD). Déficit previsto: 3 % del PIB. Se propone un reparto a escala; modifícalo si quieres.',
-  labels: { sanidad: 'Salud y Protección Social', educacion: 'Educación Nacional y Enseñanza Superior', defensa: 'Defensa e Interior (FAR, Gendarmería, DGSN)', vivienda: 'Vivienda y Solidaridad Social', infraestructuras: 'Equipamiento, Agua e Industria', deuda: 'Amortización de la Deuda' },
-  pct: { sanidad: 8, educacion: 18, infraestructuras: 21, interior: 7, defensa: 29, economia: 12, vivienda: 5 },
-  names: {
-    economia: 'Ministerio de Economía y Finanzas', interior: 'Ministerio del Interior', defensa: 'Administración de la Defensa Nacional',
-    vivienda: 'Ministerio de Ordenación del Territorio, Urbanismo y Vivienda', territorio: 'Ministerio de Agricultura, Pesca y Aguas y Bosques',
-    sanidad: 'Ministerio de Salud y Protección Social', educacion: 'Ministerio de Educación Nacional, Preescolar y Deportes',
-    trabajo: 'Ministerio de Inclusión Económica, Pequeña Empresa y Empleo', justicia: 'Ministerio de Justicia',
-    exteriores: 'Ministerio de Asuntos Exteriores y Cooperación Africana', transicion_ecologica: 'Ministerio de Transición Energética y Desarrollo Sostenible',
-    cultura: 'Ministerio de Juventud, Cultura y Comunicación', igualdad: 'Ministerio de Solidaridad, Inserción Social y Familia',
-    infraestructuras: 'Ministerio de Equipamiento y Agua'
-  },
-  descs: {
-    sanidad: 'Hospitales públicos, AMO y protección social universal.', educacion: 'Escuela pública, universidad y formación profesional.',
-    infraestructuras: 'Alta velocidad Al Boraq, autopistas, presas y puertos.', interior: 'DGSN, Gendarmería Real, Fuerzas Auxiliares y walis.',
-    defensa: 'Fuerzas Armadas Reales, adquisiciones y operaciones.', economia: 'Servicio de la deuda, Tesorería General y recaudación (DGI).',
-    vivienda: 'Vivienda social, Ciudades Sin Chabolas y ayudas directas.'
-  },
-  war: {
-    id: 504, name: 'Marruecos', lat: 32, lon: -6, allied: '^$', own: { t: 44, m: 26, a: 42 },
-    add: [[724, 'España', 48, 'UE·OTAN', 1, 50, 0, 40, -4]],
-    drop: [732],
-    rel: { 724: 50, 12: 10, 250: 78, 840: 85, 620: 70, 478: 55, 818: 70, 682: 78, 784: 80, 376: 62, 364: 12, 792: 62, 643: 40, 156: 55, 275: 45, 434: 45, 788: 55 }
+  // ---------------- INVESTIDURA (igual que la de España, con 395 escaños y mayoría de 198) ----------------
+  const seatTotal = s => MPARTIES.reduce((t, p) => t + (s.seats[p.id] || 0), 0);
+  function redOk(s, id) {
+    const c = PBY(id); if (!c) return { ok: false };
+    for (const mid of s.coal) {
+      const mem = PBY(mid); if (!mem) continue;
+      if ((c.red || []).includes(mid)) return { ok: false, why: c.id + ' rechaza pactar con ' + mem.id };
+      if ((mem.red || []).includes(id)) return { ok: false, why: mem.id + ' se niega a gobernar junto a ' + c.id };
+    }
+    return { ok: true };
   }
-};
+  function votes(s) {
+    const lead = PBY(s.leader); let yes = 0, no = 0, abst = 0;
+    MPARTIES.forEach(p => {
+      const n = s.seats[p.id] || 0;
+      if (s.coal.includes(p.id)) { yes += n; return; }
+      const hostile = lead && ((p.red || []).includes(lead.id) || (lead.red || []).includes(p.id) || Math.abs(p.order - lead.order) >= 5);
+      if (hostile) no += n; else abst += n;
+    });
+    return { yes, no, abst, first: yes >= MAJ, second: yes > no };
+  }
 
-const COUNTRY_MAP = {
-  title: 'Mapa de las 12 Regiones de Marruecos',
-  paths: [
-    { id: 'TTA', name: 'Tánger-Tetuán-Alhucemas', d: 'M 287.5,20.0 L 300.3,18.0 L 330.8,33.8 L 339.1,34.5 L 333.6,43.8 L 311.9,50.0 L 292.3,46.3 L 278.2,38.8 Z', spectrumPref: 5.0, regionalist: false, desc: 'Tánger-Tetuán-Alhucemas · Norte mediterráneo, puerto Tanger Med y frontera con Ceuta' },
-    { id: 'ORI', name: 'Oriental', d: 'M 339.1,34.5 L 368.0,37.5 L 374.9,48.0 L 389.5,112.5 L 366.2,125.0 L 342.3,90.0 L 339.1,65.0 L 333.6,43.8 Z', spectrumPref: 4.2, regionalist: false, desc: 'Oriental · Oujda, Nador y la frontera con Argelia' },
-    { id: 'FME', name: 'Fez-Mequinez', d: 'M 292.3,46.3 L 311.9,50.0 L 333.6,43.8 L 339.1,65.0 L 342.3,90.0 L 307.5,91.2 L 296.7,82.5 L 288.0,65.0 Z', spectrumPref: 4.6, regionalist: false, desc: 'Fez-Mequinez · Capital espiritual, agricultura y universidades' },
-    { id: 'RSK', name: 'Rabat-Salé-Kenitra', d: 'M 278.2,38.8 L 292.3,46.3 L 288.0,65.0 L 296.7,82.5 L 266.2,86.3 L 263.4,68.8 Z', spectrumPref: 4.4, regionalist: false, desc: 'Rabat-Salé-Kenitra · Sede del Gobierno y la Cámara de Representantes' },
-    { id: 'BMK', name: 'Beni Mellal-Jenifra', d: 'M 296.7,82.5 L 307.5,91.2 L 296.7,112.5 L 274.9,127.5 L 259.7,122.5 L 259.7,101.3 L 266.2,86.3 Z', spectrumPref: 4.8, regionalist: true, desc: 'Beni Mellal-Jenifra · Agricultura de regadío y fosfatos (Khouribga)' },
-    { id: 'CAS', name: 'Casablanca-Settat', d: 'M 263.4,68.8 L 215.1,98.8 L 242.3,102.5 L 259.7,101.3 L 266.2,86.3 Z', spectrumPref: 4.0, regionalist: false, desc: 'Casablanca-Settat · Motor económico y financiero del país' },
-    { id: 'MAR', name: 'Marrakech-Safi', d: 'M 204.2,151.3 L 215.1,98.8 L 242.3,102.5 L 259.7,101.3 L 259.7,122.5 L 274.9,127.5 L 255.3,138.8 L 244.5,145.0 L 229.2,145.0 Z', spectrumPref: 4.5, regionalist: false, desc: 'Marrakech-Safi · Turismo, fosfatos (OCP en Safi) y Alto Atlas' },
-    { id: 'DRA', name: 'Drâa-Tafilalet', d: 'M 342.3,90.0 L 366.2,125.0 L 338.0,155.0 L 296.7,180.0 L 276.9,190.0 L 266.2,165.0 L 255.3,138.8 L 274.9,127.5 L 296.7,112.5 L 307.5,91.2 Z', spectrumPref: 5.4, regionalist: true, desc: 'Drâa-Tafilalet · Oasis y sur profundo, región con mayor pobreza rural' },
-    { id: 'SOU', name: 'Souss-Massa', d: 'M 194.4,181.3 L 204.2,151.3 L 229.2,145.0 L 244.5,145.0 L 255.3,138.8 L 266.2,165.0 L 276.9,190.0 L 253.2,202.5 L 220.5,190.0 Z', spectrumPref: 4.7, regionalist: false, desc: 'Souss-Massa · Agadir, agroexportación y pesca' },
-    { id: 'GUE', name: 'Guelmim-Uad Nun', d: 'M 194.4,181.3 L 220.5,190.0 L 253.2,202.5 L 227.7,215.0 L 227.7,223.3 L 135.7,216.3 Z', spectrumPref: 5.2, regionalist: true, desc: 'Guelmim-Uad Nun · Puerta del Sáhara y comercio caravanero' },
-    { id: 'LAA', name: 'Laâyoune-Saguia el Hamra', d: 'M 135.7,216.3 L 227.7,223.3 L 227.7,265.0 L 227.7,290.0 L 94.4,287.5 L 100.9,261.8 L 129.2,236.3 Z', spectrumPref: 5.6, regionalist: true, desc: 'Laâyoune-Saguia el Hamra · Provincias del Sur, fosfatos de Bou Craa' },
-    { id: 'DAK', name: 'Dakhla-Río de Oro', d: 'M 94.4,287.5 L 227.7,290.0 L 133.5,380.0 L 46.5,381.5 L 69.4,322.5 Z', spectrumPref: 5.8, regionalist: true, desc: 'Dakhla-Río de Oro · Puerto Atlántico de Dakhla, pesca y energía' }
-  ]
-};
+  // ---------------- ACCIONES (se ejecutan SIEMPRE en el anfitrión) ----------------
+  const toast = t => { try { MP.toast(t); } catch (e) { console.log(t); } };
+  const need = (m, cap, cost) => { if (m.cap < cap) { toast('Capital político insuficiente.'); return false; } if (m.tes < cost) { toast('Fondos insuficientes.'); return false; } return true; };
+  const redraw = () => { try { render(); } catch (e) { /* sin pantalla */ } };
+  const SETUP_FNS = ['seat', 'sphase', 'leader', 'coalTog', 'govStart'];
 
+  function breakCoalition(m, p) {
+    delete m.coal[p]; m.coalIds = (m.coalIds || []).filter(x => x !== p);
+    Object.keys(m.min || {}).forEach(pf => { const mi = minOf(m.min[pf]); if (mi && mi.party === p) m.min[pf] = null; });
+    addSt(m, 'apr', -4); addSt(m, 'est', -3); addSt(m, 'palace', -4);
+    m.minority = coalSeats(m) < MAJ;
+    lg(m, 'CRISIS DE GOBIERNO: ' + p + ' abandona la coalición y sus ministros son cesados.');
+    toast('Marruecos: ' + p + ' rompe la coalición de gobierno.');
+  }
 
-// =====================================================================
-//  COUNTRY_INTL — Relaciones Exteriores de Marruecos (sustituye a los socios de España)
-//  · partners : socios/bloques. ally (relación >=70) y tense (<=30) dan bonus/penalización
-//               diaria a las métricas (daily) y mensual en M€ (money, opcional).
-//  · base     : relación inicial (0-100).   · links : efecto bloque (acercarte a X mueve a Y).
-//  · map      : códigos numéricos de país (ISO) del mapa de Guerra que sincroniza cada socio.
-//  · actions  : acciones diplomáticas por socio. cap=capital político, cost=gasto M€,
-//               inc=ingreso M€, cd=días de espera, fx=relaciones que cambia, now=métricas.
-//  · monthly  : cada mes, si la métrica m supera gt o baja de lt, mueve relaciones (fx).
-//  · pop      : crisis diplomáticas aleatorias (cond recibe el objeto de relaciones).
-// =====================================================================
-const COUNTRY_INTL = {
-  blocksText: 'EEUU↔China, Francia↔Argelia, España↔Bruselas',
-  partners: {
-    es: { name: 'España',          icon: 'fa-handshake',          ally: { name: 'Frontera Norte Estable',     daily: { est: .04, eco: .02 }, money: 80 },  tense: { name: 'Tensión por Ceuta y Melilla',  daily: { est: -.05 }, money: -40 } },
-    fr: { name: 'Francia',         icon: 'fa-landmark',           ally: { name: 'Eje Rabat–París',            daily: { eco: .04, est: .02 }, money: 60 },  tense: { name: 'Distanciamiento con París',    daily: { eco: -.04 }, money: -40 } },
-    us: { name: 'Estados Unidos',  icon: 'fa-flag-usa',           ally: { name: 'Aliado Estratégico No-OTAN', daily: { mil: .05, eco: .02 } },            tense: { name: 'Frialdad con Washington',      daily: { mil: -.04 } } },
-    dz: { name: 'Argelia',         icon: 'fa-fire-flame-simple',  ally: { name: 'Frontera Oriental Abierta',  daily: { eco: .04, est: .03 }, money: 50 },  tense: { name: 'Frontera Cerrada con Argel',   daily: { est: -.05, mil: -.02 }, money: -40 } },
-    ue: { name: 'Unión Europea',   icon: 'fa-earth-europe',       ally: { name: 'Socio Avanzado de Bruselas', daily: { eco: .05 }, money: 120 },        tense: { name: 'Fricción con Bruselas',        daily: { eco: -.05 }, money: -60 } },
-    gc: { name: 'Países del Golfo',icon: 'fa-coins',              ally: { name: 'Inversión del Golfo',        daily: { eco: .04, emp: .02 }, money: 100 }, tense: { name: 'Retirada de Inversión del Golfo', daily: { eco: -.04 }, money: -60 } },
-    cn: { name: 'China',           icon: 'fa-dragon',             ally: { name: 'Socio Comercial Asiático',   daily: { eco: .04 }, money: 60 },         tense: { name: 'Guerra Comercial con Pekín',   daily: { eco: -.04 }, money: -40 } },
-    af: { name: 'África',          icon: 'fa-earth-africa',       ally: { name: 'Liderazgo Africano',         daily: { apr: .03, est: .02 } },            tense: { name: 'Aislamiento Africano',         daily: { apr: -.03 } } }
-  },
-  base: { es: 50, fr: 78, us: 85, dz: 12, ue: 70, gc: 78, cn: 55, af: 55 },
-  links: { us: { cn: -.3 }, cn: { us: -.3 }, fr: { ue: .2, dz: -.1 }, ue: { fr: .15 }, es: { ue: .15 } },
-  map: {
-    es: [724], fr: [250], us: [840], dz: [12], cn: [156],
-    gc: [682, 784, 414, 634, 512, 48],
-    af: [478, 434, 788, 818, 686, 384, 566, 288, 404, 716],
-    ue: [620, 380, 276, 56, 528, 300, 40, 246, 752, 208, 372, 616, 203, 642, 100, 191, 196, 233, 428, 440, 442, 348, 703, 705, 470]
-  },
-  actions: {
-    es: [
-      { id: 'cum', title: 'Cumbre bilateral con Madrid',               cap: 8, cd: 60,  fx: { es: 10, ue: 2 } },
-      { id: 'cab', title: 'Conectar los cables eléctricos con España', cost: 300, cap: 4, cd: 120, fx: { es: 8, ue: 1 }, now: { eco: 1 } },
-      { id: 'mig', title: 'Pacto de cooperación migratoria',           cost: 30, cd: 60, fx: { es: 10, dz: -2 }, now: { est: 2 } }
-    ],
-    fr: [
-      { id: 'cum', title: 'Cumbre Rabat–París',                        cap: 8, cd: 50,  fx: { fr: 10, ue: 2 } },
-      { id: 'inv', title: 'Inversión industrial francesa',             cap: 5, inc: 150, cd: 90, fx: { fr: 8 }, now: { emp: 1 } }
-    ],
-    us: [
-      { id: 'arm', title: 'Comprar material militar',                  cost: 500, cd: 60, fx: { us: 10, cn: -3 }, now: { mil: 3 } },
-      { id: 'sah', title: 'Pedir apoyo sobre el Sáhara',               cap: 10, cd: 90, fx: { us: 8, dz: -3 } }
-    ],
-    dz: [
-      { id: 'dia', title: 'Mensaje de distensión a Argel',             cap: 12, cd: 90, fx: { dz: 10, es: -2 }, now: { est: 1 } },
-      { id: 'fro', title: 'Reforzar la frontera oriental',             cap: 6, cd: 60,  fx: { dz: -8 }, now: { mil: 2, est: 1 } }
-    ],
-    ue: [
-      { id: 'pesca',   title: 'Renovar el acuerdo pesquero UE–Marruecos', cap: 3, inc: 300, cd: 120, fx: { ue: 3 } },
-      { id: 'asoc',    title: 'Asociación avanzada con la UE',            cap: 5, cd: 180, fx: { ue: 4 } },
-      { id: 'migra',   title: 'Pacto migratorio con Bruselas',            cap: 4, inc: 500, cd: 120, fx: { ue: 4 } },
-      { id: 'energia', title: 'Corredor de energía verde con Europa',     cap: 5, cost: 400, cd: 150, fx: { ue: 3 }, now: { eco: 1 } },
-      { id: 'visados', title: 'Negociar visados Schengen',                cap: 3, cd: 120, fx: { ue: 2 } }
-    ],
-    gc: [
-      { id: 'fon', title: 'Fondo de inversión del Golfo',              cap: 6, inc: 250, cd: 90, fx: { gc: 8 }, now: { eco: 1 } },
-      { id: 'vis', title: 'Visita de Estado a las monarquías',         cap: 8, cd: 60,  fx: { gc: 12 } }
-    ],
-    cn: [
-      { id: 'inv',  title: 'Atraer fábricas chinas (Tánger Med)',      cap: 8, cd: 60,  fx: { cn: 10, us: -4 }, now: { eco: 2 } },
-      { id: 'ruta', title: 'Adhesión a la Ruta de la Seda',            cap: 12, cd: 90, fx: { cn: 12, us: -6, ue: -2 }, now: { emp: 1 } }
-    ],
-    af: [
-      { id: 'gas', title: 'Gasoducto Nigeria–Marruecos',               cost: 300, cd: 90, fx: { af: 12, dz: -3 }, now: { eco: 2 } },
-      { id: 'ua',  title: 'Cumbre Atlántica Africana',                 cap: 8, cd: 60,  fx: { af: 10 } }
-    ]
-  },
-  monthly: [
-    { m: 'eco', gt: 70, fx: { ue: .8, fr: .6 },   why: 'Credibilidad económica' },
-    { m: 'eco', lt: 30, fx: { ue: -1, fr: -.8 },  why: 'Economía débil ante los socios' },
-    { m: 'est', lt: 30, fx: { ue: -.8, af: -.5 }, why: 'Inestabilidad interna' },
-    { m: 'mil', gt: 70, fx: { us: .5, dz: -.5 },  why: 'Capacidad de disuasión' },
-    { m: 'mil', lt: 35, fx: { us: -1, dz: -.8 },  why: 'Ejército debilitado: menos respeto exterior' }
-  ],
-  pop: [
-    { id: 'usb', cond: r => r.us >= 65, title: 'WASHINGTON OFRECE CAZAS Y EJERCICIOS CONJUNTOS', desc: 'Su aliado estratégico propone un gran ejercicio militar y la venta de nuevo material. Argel y Pekín lo miran con recelo.',
-      options: [{ text: 'Aceptar el paquete militar', intl: { us: 10, cn: -3, dz: -2 }, cost: 400, stats: { mil: 3, apr: -2 }, news: 'Marruecos acepta nuevo material y ejercicios con Estados Unidos.' }, { text: 'Declinar y mantener el equilibrio', intl: { us: -8, cn: 2 }, stats: { apr: 2 }, news: 'Rabat rechaza ampliar la cooperación militar con Washington.' }] },
-    { id: 'dzf', cond: r => r.dz <= 25, title: 'ARGEL ENDURECE LA FRONTERA Y LA RETÓRICA', desc: 'Argelia refuerza sus tropas en la frontera y acusa a Rabat de provocación. Crece la tensión en el Oriental.',
-      options: [{ text: 'Proponer una mediación internacional', intl: { dz: 8, ue: 3 }, cost: 100, stats: { est: 2 }, news: 'Marruecos propone una mediación para rebajar la tensión con Argelia.' }, { text: 'Responder con una exhibición de fuerza', intl: { dz: -8, us: 2 }, stats: { mil: 3, est: -3, apr: 2 }, news: 'Rabat responde con maniobras en el Oriental.' }] },
-    { id: 'ues', cond: r => r.ue <= 32, title: 'BRUSELAS CUESTIONA EL ACUERDO PESQUERO', desc: 'El Parlamento Europeo amenaza con bloquear el acuerdo y congelar fondos de cooperación.',
-      options: [{ text: 'Ofrecer garantías y cooperación migratoria', intl: { ue: 12 }, cost: 200, news: 'Marruecos ofrece garantías a Bruselas para salvar el acuerdo.' }, { text: 'Buscar socios alternativos', intl: { ue: -8, cn: 5, gc: 4 }, stats: { eco: -2, apr: 2 }, news: 'Rabat diversifica socios ante la presión europea.' }] },
-    { id: 'esm', cond: r => r.es <= 35, title: 'MADRID ENDURECE EL CONTROL EN CEUTA Y MELILLA', desc: 'España refuerza las vallas y reclama más cooperación policial a Rabat.',
-      options: [{ text: 'Reforzar la cooperación policial', intl: { es: 12, dz: -2 }, cost: 150, stats: { est: 2 }, news: 'Marruecos y España refuerzan la cooperación en la frontera.' }, { text: 'Plantar cara y alzar el tono', intl: { es: -8 }, stats: { apr: 3, est: -2 }, news: 'Rabat responde con dureza a las medidas de Madrid.' }] },
-    { id: 'gco', cond: r => r.gc >= 70, title: 'EL GOLFO OFRECE UN GRAN FONDO DE INVERSIÓN', desc: 'Las monarquías del Golfo proponen financiar puertos, energía y turismo a cambio de condiciones políticas.',
-      options: [{ text: 'Aceptar las condiciones', intl: { gc: 8, us: -1 }, income: 600, stats: { eco: 3, emp: 2, apr: -2 }, news: 'Marruecos recibe una inyección de inversión del Golfo.' }, { text: 'Negociar sin ataduras políticas', intl: { gc: -4 }, income: 200, stats: { eco: 1, apr: 2 }, news: 'Rabat pacta una inversión del Golfo sin condiciones políticas.' }] }
-  ]
-};
+  const R = {
+    // --- formación de Gobierno ---
+    seat: (id, v) => { const m = M(), s = m && m.setup, p = PBY(id); if (!s || s.done || !p) return; s.seats[id] = clamp(Math.round(+v) || 0, 0, p.max); redraw(); },
+    sphase: ph => {
+      const m = M(), s = m && m.setup; if (!s || s.done) return;
+      if (ph === 'coal') { if (seatTotal(s) !== TOTAL) return toast('Los escaños deben sumar ' + TOTAL + '.'); s.phase = 'coal'; }
+      else s.phase = 'seats';
+      redraw();
+    },
+    leader: id => {
+      const m = M(), s = m && m.setup; if (!s || s.done || !PBY(id)) return;
+      s.leader = id; s.coal = s.coal.filter(x => x === id || (!(PBY(x).red || []).includes(id) && !(PBY(id).red || []).includes(x)));
+      if (!s.coal.includes(id)) s.coal.unshift(id);
+      redraw();
+    },
+    coalTog: id => {
+      const m = M(), s = m && m.setup; if (!s || s.done || !PBY(id) || id === s.leader) return;
+      if (s.coal.includes(id)) s.coal = s.coal.filter(x => x !== id);
+      else if (redOk(s, id).ok) s.coal.push(id);
+      redraw();
+    },
+    govStart: () => {
+      const m = M(), s = m && m.setup; if (!s || s.done) return;
+      if (seatTotal(s) !== TOTAL) return toast('Los escaños deben sumar ' + TOTAL + '.');
+      const v = votes(s); if (!(v.first || v.second)) return toast('Investidura fallida: busca más apoyos.');
+      m.seats = Object.assign({}, s.seats); m.leader = s.leader;
+      const order = [s.leader].concat(s.coal.filter(x => x !== s.leader));
+      m.coalIds = order.slice(); m.coal = {}; order.forEach(id => { if (id !== s.leader) m.coal[id] = 80; });
+      const biggest = MPARTIES.slice().sort((a, b) => (s.seats[b.id] || 0) - (s.seats[a.id] || 0))[0].id;
+      m.palace = s.leader === biggest ? 60 : 48;       // el Rey prefiere encargar el Gobierno al partido más votado
+      m.minority = coalSeats(m) < MAJ;
+      const sov = { interior: 'laftit', exteriores: 'bourita', defensa: 'loudiyi', awqaf: 'toufiq' };
+      m.min = {}; let k = 0;
+      MINISTRIES.forEach(x => {
+        if (sov[x.id]) { m.min[x.id] = sov[x.id]; return; }
+        const party = order[k % order.length]; k++;
+        const av = availMin(m, x.id).filter(a => a.party === party);
+        m.min[x.id] = av.length ? av[0].id : null;
+      });
+      m.deck = shuffle(DECS.length); m.dec = null; m.decCd = 4;
+      s.done = true; s.phase = 'done';
+      lg(m, PBY(s.leader).leader + ' (' + s.leader + ') forma Gobierno' + (m.minority ? ' en minoría' : ' con mayoría') + ' (' + coalSeats(m) + '/' + TOTAL + ').');
+      toast('Marruecos ha formado Gobierno.');
+      redraw();
+    },
+    // --- gobierno ---
+    minister: (pf, id) => {
+      const m = M(); if (!m || !m.min || !MINISTRIES.some(x => x.id === pf)) return;
+      if (!id) { m.min[pf] = null; return redraw(); }
+      const mi = availMin(m, pf).find(x => x.id === id); if (!mi) return;
+      const sov = MINISTRIES.find(x => x.id === pf).sov, old = minOf(m.min[pf]);
+      if (sov && mi.party !== 'TEC' && !(old && old.party !== 'TEC')) { addSt(m, 'palace', -4); lg(m, 'El Palacio ve con recelo un ministro de partido en ' + MINISTRIES.find(x => x.id === pf).title + '.'); }
+      else if (sov && mi.party === 'TEC' && old && old.party !== 'TEC') addSt(m, 'palace', 2);
+      m.min[pf] = id; lg(m, 'Nombramiento: ' + mi.name + ' (' + pname(mi.party) + ') en ' + MINISTRIES.find(x => x.id === pf).title + '.'); redraw();
+    },
+    pick: i => {
+      const m = M(), d = m && m.dec != null ? DECS[m.dec] : null, o = d && d.opts[i]; if (!o) return;
+      if (o.tes && o.tes < 0 && m.tes < -o.tes) return toast('Fondos insuficientes.');
+      if (o.tes) m.tes += o.tes;
+      Object.keys(o.P || {}).forEach(k => addSt(m, k, o.P[k]));
+      Object.keys(o.loy || {}).forEach(p => { if (p in m.coal) m.coal[p] = clamp(m.coal[p] + o.loy[p]); });
+      if (o.ES || o.rel) MP.cross(o.ES, o.rel, 'Marruecos: ' + d.title.toLowerCase() + '.');
+      lg(m, d.title + ' → ' + o.t.replace(/ \(.*\)$/, '') + '.'); m.dec = null; m.decCd = 4; ex(m); m.decN++; m.wk.n++; redraw();
+    },
+    invest: i => { const m = M(); if (!m || !m.reg[i] || !need(m, 2, 250)) return; m.tes -= 250; m.cap -= 2; m.reg[i].est = clamp(m.reg[i].est + 15); lg(m, 'Plan de inversión en ' + REG[i][1] + '.'); redraw(); },
+    repress: i => { const m = M(); if (!m || !m.reg[i]) return; m.reg[i].est = clamp(m.reg[i].est + 10); m.reg[i].crisis = 0; m.apr = clamp(m.apr - 3); lg(m, 'Las fuerzas del orden toman ' + REG[i][1] + '.'); redraw(); },
+    neg: p => { const m = M(), k = 'n' + p; if (!m || !m.coal || !(p in m.coal) || (m.cd[k] || 0) > 0 || !need(m, 4, 0)) return; m.cap -= 4; m.cd[k] = 20; m.coal[p] = clamp(m.coal[p] + 18); lg(m, 'Negociación con ' + p + ': refuerza su apoyo.'); redraw(); },
+    aud: () => { const m = M(); if (!m || (m.cd.aud || 0) > 0 || !need(m, 5, 0)) return; m.cap -= 5; m.cd.aud = 40; m.palace = clamp(m.palace + 10); lg(m, 'Audiencia con el Rey: sube la confianza del Palacio.'); redraw(); },
+    pol: id => {
+      const m = M(), x = POL.find(p => p.id === id), k = 'p' + id;
+      if (!m || !x || (m.cd[k] || 0) > 0 || !need(m, x.cap, x.cost)) return;
+      m.cap -= x.cap; m.tes -= x.cost; m.cd[k] = x.cd; Object.keys(x.P).forEach(s => { m[s] = clamp(m[s] + x.P[s]); });
+      if (x.ES || x.rel) MP.cross(x.ES, x.rel, 'Marruecos aprueba: ' + x.t + '.');
+      lg(m, 'Decreto: ' + x.t + '.'); redraw();
+    },
+    bud: (id, v) => { const m = M(); if (!m || !(id in m.bud)) return; m.bud[id] = clamp(Math.round(+v)); redraw(); },
+    prog: id => {
+      const m = M(), x = PROGS.find(p => p.id === id); if (!m || !x || (m.cd['g' + id] || 0) > 0 || !need(m, x.cap, x.cost)) return;
+      m.cap -= x.cap; m.tes -= x.cost; m.cd['g' + id] = x.cd; ex(m);
+      Object.keys(x.A).forEach(b => { m.army[b] = clamp(m.army[b] + x.A[b]); });
+      m.milOp = clamp(m.milOp + (x.op || 0)); if (x.apr) m.apr = clamp(m.apr + x.apr); if (x.est) m.est = clamp(m.est + x.est); if (x.eco) m.eco = clamp(m.eco + x.eco);
+      if (x.tension) m.tension = clamp(m.tension + x.tension);
+      if (x.ES || x.rel) { try { MP.cross(x.ES || {}, x.rel || 0, x.rel < 0 ? 'Marruecos refuerza su frontera: tensión con España.' : x.rel > 0 ? 'Maniobras conjuntas hispano-marroquíes.' : ''); } catch (e) { /* sin España */ } }
+      lg(m, 'Programa militar: ' + x.t + '.'); redraw();
+    },
+    posture: p => { const m = M(); if (!m || !POSTURES[p] || m.posture === p) return; if (!need(m, 1, 0)) return; m.cap -= 1; m.posture = p; lg(m, 'Nueva doctrina militar: ' + POSTURES[p][0] + '.'); redraw(); },
+    army: b => { const m = M(); if (!m || !(b in m.army) || (m.cd['a' + b] || 0) > 0 || !need(m, 3, 400)) return; m.cap -= 3; m.tes -= 400; m.cd['a' + b] = 30; m.army[b] = clamp(m.army[b] + 6); lg(m, 'Modernización de las fuerzas: ' + b + '.'); redraw(); },
+    evt: i => {
+      const m = M(), e = m && m.evt != null ? EVS[m.evt] : null, o = e && e.opts[i]; if (!o) return;
+      if (o.tes) m.tes += o.tes;
+      Object.keys(o.P || {}).forEach(s => { m[s] = clamp(m[s] + o.P[s]); });
+      if (o.ES || o.rel || o.ask) MP.cross(o.ES, o.rel, 'Marruecos: ' + e.title + '.', o.ask);
+      lg(m, e.title + ' → ' + o.t.replace(/ \(.*\)$/, '') + '.'); m.evt = null; redraw();
+    }
+  };
+
+  // Envoltorio de la interfaz: el jugador 2 reenvía la orden al anfitrión; el anfitrión solo
+  // puede actuar si es el turno de Marruecos (modo mismo dispositivo).
+  const repaint = () => { if (MP.isGuest()) MP.repaint(); else redraw(); };
+  // =====================================================================
+  //  ELECCIONES, CAMPAÑA, MOCIÓN DE CENSURA Y REBELIONES (igual que España)
+  // =====================================================================
+  const CAMP_DAYS = 90;
+  // --- Fuerzas armadas: tipos de programa, doctrina y opinión pública ---
+  const PROGS = [
+    { id: 'recl', t: 'Servicio militar obligatorio', ic: 'fa-person-rifle', cost: 150, cap: 2, cd: 45, A: { tierra: 9 }, op: -8, apr: -3, est: 1, d: 'Más tropa de golpe, pero muy impopular entre los jóvenes.' },
+    { id: 'prof', t: 'Profesionalización de la tropa', ic: 'fa-user-graduate', cost: 500, cap: 3, cd: 60, A: { tierra: 6 }, op: 6, apr: 1, d: 'Ejército profesional y mejor valorado.' },
+    { id: 'blind', t: 'Modernizar carros y artillería', ic: 'fa-truck-monster', cost: 450, cap: 3, cd: 45, A: { tierra: 7 }, op: 0, d: 'Potencia terrestre sin efectos sociales.' },
+    { id: 'flota', t: 'Flota y guardia costera', ic: 'fa-ship', cost: 600, cap: 3, cd: 45, A: { mar: 9 }, op: 2, est: 1, d: 'Controla el Estrecho y las costas: más estabilidad.' },
+    { id: 'caza', t: 'Aviación de combate', ic: 'fa-jet-fighter', cost: 900, cap: 4, cd: 60, A: { aire: 9 }, op: -2, tension: 4, d: 'Prestigio y disuasión, pero tensa la relación con España.' },
+    { id: 'drones', t: 'Drones y defensa antiaérea', ic: 'fa-satellite-dish', cost: 500, cap: 3, cd: 45, A: { aire: 6 }, op: 1, d: 'Defiende el espacio aéreo con poco desgaste político.' },
+    { id: 'ciber', t: 'Ciberdefensa e inteligencia', ic: 'fa-user-secret', cost: 300, cap: 2, cd: 40, A: { tierra: 2, mar: 2, aire: 2 }, op: -3, est: 1, d: 'Refuerza las tres armas, pero la vigilancia genera rechazo.' },
+    { id: 'indus', t: 'Industria nacional de defensa', ic: 'fa-industry', cost: 700, cap: 4, cd: 90, A: { tierra: 3, aire: 3 }, op: 4, eco: 2, d: 'Empleo, tecnología y orgullo nacional.' },
+    { id: 'manio', t: 'Maniobras conjuntas con España', ic: 'fa-handshake', cost: 200, cap: 2, cd: 60, A: { tierra: 2, mar: 2, aire: 2 }, op: 2, tension: -12, ES: { mil: 1 }, rel: 4, d: 'Baja la tensión y los dos ejércitos ganan.' },
+    { id: 'front', t: 'Despliegue en la frontera de Ceuta y Melilla', ic: 'fa-tower-observation', cost: 250, cap: 2, cd: 40, A: { tierra: 3 }, op: 3, tension: 10, ES: { est: -1 }, rel: -5, d: 'Popular en casa, pero tensa a España.' }
+  ];
+  const POSTURES = { def: ['Defensiva', 'Gasto contenido y buena imagen pública. Baja la tensión con España.'], bal: ['Equilibrada', 'Sin efectos añadidos.'], det: ['Disuasoria', 'Proyecta poder, pero erosiona la opinión pública y sube la tensión con España.'] };
+  const CACTS = [
+    { id: 'mitin', t: 'Mitin multitudinario', ic: 'fa-people-group', cost: 0.5, cd: 5, mom: 1.2, apr: 0.5, d: 'Plaza llena y titulares favorables.' },
+    { id: 'spot', t: 'Campaña de spots en TV y redes', ic: 'fa-tv', cost: 2, cd: 10, mom: 2.5, d: 'Inversión publicitaria masiva.' },
+    { id: 'gira', t: 'Gira por las regiones', ic: 'fa-bus', cost: 1, cd: 7, mom: 1.5, d: 'Más cercanía con el electorado.' },
+    { id: 'entrevista', t: 'Entrevista en horario de máxima audiencia', ic: 'fa-microphone', cost: 0, cd: 12, mom: 0.8, apr: 1, d: 'Gratis, pero con impacto modesto.' },
+    { id: 'ataque', t: 'Ataque a la oposición', ic: 'fa-fire', cost: 0.3, cd: 8, mom: 2, apr: -2, risk: 0.3, d: 'Efectivo pero arriesgado: 30% de que se vuelva en tu contra.' },
+    { id: 'fondos', t: 'Cena de donantes y recaudación', ic: 'fa-sack-dollar', cost: 0, cd: 15, mom: 0, fund: 0.8, apr: -0.3, d: 'Consigues 0,8 M€ más para la campaña.' },
+    { id: 'promesa', t: 'Promesa electoral estrella', ic: 'fa-handshake', cost: 0, cd: 25, mom: 3, pledge: true, d: 'Sube mucho, pero la paga el Estado: 300 M€ por promesa cumplida (máx. 3).' }
+  ];
+  const CQ = [
+    { t: 'Polémica por el precio del pan', d: 'La oposición te acusa de abandonar a las clases populares.', o: [['Anunciar subsidios (−200 M€)', -200, 3, 1], ['Culpar a la inflación mundial', 0, -2, -2]] },
+    { t: 'Escándalo en un ministerio', d: 'Un diario revela contratos dudosos en un departamento.', o: [['Cesar al ministro y abrir investigación', 0, 1, 2], ['Negarlo todo', 0, -3, -4]] },
+    { t: 'Huelga de docentes', d: 'Los sindicatos paralizan las escuelas en plena campaña.', o: [['Aceptar subida salarial (−250 M€)', -250, 2.5, 2], ['Mantener la línea dura', 0, -1, -3]] },
+    { t: 'Entrevista de la oposición', d: 'Tu rival arrasa en la televisión nacional.', o: [['Contraprogramar con un gran acto (−1 M€ del partido)', 0, 2, 0, -1], ['Ignorarlo', 0, -2, 0]] },
+    { t: 'Apoyo de un líder religioso', d: 'Un influyente personaje te ofrece su respaldo público.', o: [['Aceptar el apoyo', 0, 3, 1], ['Rechazarlo por prudencia', 0, -0.5, 1]] },
+    { t: 'Encuesta filtrada', d: 'Un sondeo interno te da por perdedor.', o: [['Desmentirlo con datos', 0, 1, 0], ['Pedir el voto útil', 0, 2, -1]] }
+  ];
+  const pauseGame = () => { try { if (typeof setGameSpeed === 'function') setGameSpeed(0); } catch (e) { /* ya en pausa */ } };
+  const clg = (c, t) => { c.log.unshift(t); c.log.length = Math.min(c.log.length, 8); };
+  function calc(m, noise) {
+    const gov = m.coalIds || [], lead = m.leader, c = m.camp || { mom: 0 };
+    const perf = (m.apr - 50) * 0.003 + (m.eco - 50) * 0.0015 + ((m.emp == null ? 50 : m.emp) - 50) * 0.001 + c.mom * 0.0025;
+    const raw = MPARTIES.map(p => { const base = (m.seats[p.id] || 0) / TOTAL, k = p.id === lead ? 1 : gov.includes(p.id) ? 0.5 : -0.35; return Math.max(0.004, base + perf * k * (base > 0.03 ? 1 : 0.3) + (noise ? (Math.random() - 0.5) * 0.03 : 0)); });
+    const sum = raw.reduce((a, b) => a + b, 0); return MPARTIES.map((p, i) => [p.id, raw[i] / sum]);
+  }
+  function seatsFrom(sh) {
+    const fl = sh.map(([id, s]) => [id, Math.floor(s * TOTAL), s * TOTAL - Math.floor(s * TOTAL)]);
+    const left = TOTAL - fl.reduce((t, x) => t + x[1], 0); fl.slice().sort((a, b) => b[2] - a[2]).slice(0, left).forEach(x => { x[1]++; });
+    const out = {}; fl.forEach(x => { out[x[0]] = x[1]; }); return out;
+  }
+  function startElection(m, why) {
+    m.phase = 'camp'; m.motion = null; m.rebel = null; m.dec = null; m.evt = null;
+    // Financiación real: subvención por escaño del partido en las elecciones anteriores (Maruecos: tramo fijo + por escaño/voto) más recursos propios
+    const sub = 0.1 + (m.seats[m.leader] || 0) * 0.088;               // M€ (≈ 0,9 MDH por escaño + 1 MDH fijo)
+    m.camp = { day: 0, mom: 0, cd: {}, pledges: 0, spent: 0, polls: [], log: [why], debate: false, debateOpen: false, q: null, fund: sub + 0.5, limit: 15, sub };
+    lg(m, why); toast('Marruecos: elecciones generales. Comienza la campaña de 90 días.'); pauseGame();
+  }
+  function poll(m) {
+    const sh = calc(m, true).sort((a, b) => b[1] - a[1]), c = m.camp;
+    c.polls.unshift({ d: c.day, a: sh[0][0], av: sh[0][1] * 100, b: sh[1][0], bv: sh[1][1] * 100 }); c.polls.length = Math.min(c.polls.length, 4);
+    clg(c, 'Barómetro: ' + sh[0][0] + ' ' + (sh[0][1] * 100).toFixed(1) + '% · ' + sh[1][0] + ' ' + (sh[1][1] * 100).toFixed(1) + '%.');
+  }
+  function campTick(m) {
+    const c = m.camp; c.day++;
+    Object.keys(c.cd).forEach(k => { if (c.cd[k] > 0) c.cd[k]--; });
+    c.mom = clamp(c.mom * 0.96 + (m.apr - 50) * 0.003, -40, 40);
+    if (c.day % 15 === 0) poll(m);
+    if (c.day === 80 && !c.debate) { c.debateOpen = true; clg(c, 'Debate cara a cara: decide tu estrategia.'); pauseGame(); return; }
+    if ([10, 22, 34, 46, 58, 70].indexOf(c.day) >= 0) { c.q = Math.floor(Math.random() * CQ.length); pauseGame(); return; }
+    if (c.day >= CAMP_DAYS) endCamp(m);
+  }
+  function endCamp(m) {
+    const c = m.camp; if (c.pledges) m.tes -= 300 * c.pledges;
+    m.res = { old: Object.assign({}, m.seats), nw: seatsFrom(calc(m, true)) }; m.phase = 'night';
+    lg(m, 'Jornada electoral: las urnas han hablado.'); toast('Marruecos: noche electoral.'); pauseGame();
+  }
+  function fallGov(m, why) {
+    const s = Object.assign({}, m.seats), lead = MPARTIES.filter(p => p.id !== m.leader).sort((a, b) => (s[b.id] || 0) - (s[a.id] || 0))[0].id;
+    m.setup = { phase: 'coal', seats: s, leader: lead, coal: [lead], done: false };
+    m.apr = clamp(m.apr - 5); m.dec = null; m.evt = null; m.rebel = null; m.motion = null; lg(m, why); pauseGame();
+  }
+  const rebelSeats = m => Object.keys(m.coal || {}).filter(p => m.coal[p] < 35).reduce((t, p) => t + (m.seats[p] || 0), 0);
+  function voteMotion(m) {
+    const yes = (TOTAL - coalSeats(m)) + rebelSeats(m); m.motion = null;
+    if (yes >= MAJ) { toast('Marruecos: la moción de censura prospera.'); fallGov(m, 'La moción de censura TRIUNFA (' + yes + ' votos de ' + MAJ + '). El Gobierno cae y se abre una nueva ronda de consultas.'); }
+    else { addSt(m, 'palace', 8); addSt(m, 'apr', 4); lg(m, 'La moción de censura FRACASA (' + yes + '/' + MAJ + '): el Gobierno sale reforzado.'); }
+  }
+  Object.assign(R, {
+    speed: n => { n = +n; if (n >= 0 && n <= 3) { try { setGameSpeed(n); } catch (e) { /* sin reloj */ } const m = M(); if (m) m.spd = n; } },
+    cact: id => {
+      const m = M(), c = m && m.camp, x = CACTS.find(a => a.id === id);
+      if (!m || m.phase !== 'camp' || !c || !x || c.debateOpen || c.q != null || (c.cd[id] || 0) > 0) return;
+      if (x.pledge && c.pledges >= 3) return; if (x.cost && c.fund < x.cost) return toast('Fondos del partido insuficientes.');
+      if (x.cost && c.spent + x.cost > c.limit) return toast('Superarías el límite legal de gasto electoral.');
+      c.fund -= x.cost; c.spent += x.cost; c.cd[id] = x.cd; if (x.pledge) c.pledges++; if (x.fund) c.fund += x.fund;
+      let r = x.mom;
+      if (x.risk && Math.random() < x.risk) { r = -3; addSt(m, 'apr', -2); clg(c, 'Tu ataque se vuelve en tu contra.'); } else { if (x.apr) addSt(m, 'apr', x.apr); clg(c, x.t + '.'); }
+      c.mom = clamp(c.mom + r, -40, 40); redraw();
+    },
+    cq: i => {
+      const m = M(), c = m && m.camp, q = c && c.q != null ? CQ[c.q] : null, o = q && q.o[i]; if (!o) return;
+      m.tes += o[1]; if (o[4]) c.fund = Math.max(0, c.fund + o[4]); c.mom = clamp(c.mom + o[2], -40, 40); addSt(m, 'apr', o[3]); clg(c, q.t + ' → ' + o[0].replace(/ \(.*\)$/, '') + '.'); c.q = null;
+      if (!gameState.gameSpeed) R.speed(1); redraw();
+    },
+    cdeb: i => {
+      const m = M(), c = m && m.camp; if (!c || !c.debateOpen) return;
+      const S = [{ b: 0.45, w: 7, l: -6 }, { b: 0.55, w: 5, l: -3 }, { b: 0.5, w: 6, l: -4 }][i]; if (!S) return;
+      const p = clamp(S.b + (m.apr - 50) / 250 + (m.palace - 50) / 500, 0.15, 0.85), win = Math.random() < p;
+      c.mom = clamp(c.mom + (win ? S.w : S.l), -40, 40); addSt(m, 'apr', win ? 2 : -2);
+      clg(c, win ? 'Ganas el debate: los sondeos instantáneos te dan ventaja.' : 'Pierdes el debate: tu rival sale reforzado.'); c.debate = true; c.debateOpen = false;
+      if (!gameState.gameSpeed) R.speed(1); redraw();
+    },
+    nightGo: () => {
+      const m = M(), r = m && m.res; if (!r || m.phase !== 'night') return;
+      m.seats = Object.assign({}, r.nw);
+      const lead = MPARTIES.slice().sort((a, b) => (m.seats[b.id] || 0) - (m.seats[a.id] || 0))[0].id;
+      m.setup = { phase: 'coal', seats: Object.assign({}, m.seats), leader: lead, coal: [lead], done: false };
+      m.min = {}; m.coal = {}; m.coalIds = [lead]; m.leader = lead; m.phase = 'gov'; m.afterElec = true; m.camp = null; m.res = null; m.dec = null;
+      lg(m, 'Se constituye la nueva Cámara: toca formar Gobierno.'); redraw();
+    },
+    mot: i => {
+      const m = M(); if (!m || !m.motion) return;
+      if (i === 0) {
+        if (!need(m, 3, 500)) return; m.tes -= 500; m.cap -= 3;
+        Object.keys(m.coal).forEach(p => { if (m.coal[p] < 35) m.coal[p] = clamp(m.coal[p] + 25); }); lg(m, 'Compras apoyos: los socios díscolos vuelven al redil.');
+      } else if (i === 1) {
+        if (m.palace >= 55) startElection(m, 'El Rey disuelve la Cámara de Representantes a petición del Jefe de Gobierno: elecciones anticipadas.');
+        else { addSt(m, 'palace', -10); addSt(m, 'apr', -3); lg(m, 'El Rey se niega a disolver la Cámara: pierdes su confianza.'); }
+      } else voteMotion(m);
+      redraw();
+    },
+    reb: i => {
+      const m = M(), rb = m && m.rebel; if (!rb || !m.reg[rb.i]) return; const g = m.reg[rb.i], nm = REG[rb.i][1];
+      if (i === 0) { if (!need(m, 3, 0)) return; m.cap -= 3; g.est = clamp(g.est + 25); g.crisis = 0; addSt(m, 'apr', -8); addSt(m, 'mil', -5); lg(m, 'El ejército sofoca la rebelión en ' + nm + '.'); }
+      else if (i === 1) { if (!need(m, 0, 400)) return; m.tes -= 400; g.est = clamp(g.est + 20); g.crisis = 0; addSt(m, 'palace', -5); lg(m, 'Negocias con los rebeldes de ' + nm + ' y les concedes autonomía.'); }
+      else { addSt(m, 'eco', -4); addSt(m, 'est', -6); g.est = clamp(g.est - 10); lg(m, 'Ignoras la rebelión en ' + nm + ': el país se resiente.'); }
+      m.rebel = null; redraw();
+    }
+  });
+  // al formar Gobierno tras unas elecciones empieza una nueva legislatura
+  const _gs = R.govStart;
+  R.govStart = () => { const m = M(), was = m && m.setup && !m.setup.done; _gs(); if (m && was && m.setup.done) { if (m.afterElec) { m.afterElec = false; m.leg = Math.min(3, (m.leg || 1) + 1); m.termStart = m.day; } m.motion = null; } };
+
+  const A = {};
+  Object.keys(R).forEach(f => {
+    A[f] = (...a) => {
+      if (MP.isGuest()) return MP.sendMA(f, a);
+      if (SETUP_FNS.indexOf(f) >= 0) {   // la formación de Gobierno no depende del turno en el mismo dispositivo
+        if (!localMode()) return toast('Marruecos lo gestiona el jugador 2.');
+        return R[f](...a);
+      }
+      if (!MP.canAct()) return toast(M() && gameState.mp.mode === 'online' ? 'Marruecos lo gestiona el jugador 2.' : 'Ahora es el turno de España: pasa el mando.');
+      R[f](...a);
+    };
+  });
+  A.speed = n => (MP.isGuest() ? MP.sendMA('speed', [n]) : R.speed(n));
+  A.tab = t => { UI.tab = t; repaint(); };
+  A.reg = i => { UI.sel = i; repaint(); };
+  A.seatLive = (id, v) => { const el = document.getElementById('mseat-' + id); if (el) el.textContent = v + ' ESCAÑOS'; };
+  A.exec = (f, a) => { if (R.hasOwnProperty(f) && Array.isArray(a)) R[f](...a); };   // órdenes del jugador 2 (en el anfitrión)
+
+  // ---------------- INTERFAZ ----------------
+  const bar = (l, v) => { v = Math.round(v); return `<div><div class="flex justify-between text-[10px] text-slate-400"><span>${l}</span><span class="font-mono">${v}</span></div><div class="h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800"><div class="h-full ${v >= 60 ? 'bg-emerald-500' : v >= 35 ? 'bg-amber-500' : 'bg-red-500'}" style="width:${v}%"></div></div></div>`; };
+  const box = (t, inner) => `<div class="hoi-box p-4 rounded-xl space-y-2 font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">${t}</div>${inner}</div>`;
+  const btn = (f, t, off) => `<button ${off ? 'disabled' : `onclick="${f}"`} class="hoi-button px-3 py-1.5 rounded text-[11px] ${off ? 'opacity-50' : ''}">${t}</button>`;
+
+  // Hemiciclo de 395 escaños: los puntos se reparten por ángulo, de izquierda a derecha
+  function hemi(seats) {
+    const counts = [32, 46, 59, 73, 86, 99], radii = [60, 85, 110, 135, 160, 185], pos = [];
+    radii.forEach((r, ri) => { const n = counts[ri]; for (let i = 0; i < n; i++) { const a = Math.PI - Math.PI * i / (n - 1); pos.push({ a, x: 250 + r * Math.cos(a), y: 230 - r * Math.sin(a) }); } });
+    pos.sort((p, q) => q.a - p.a);
+    const colors = []; MPARTIES.slice().sort((p, q) => p.order - q.order).forEach(p => { for (let i = 0; i < (seats[p.id] || 0); i++) colors.push(p.color); });
+    return pos.map((p, i) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.3" fill="${colors[i] || '#3d4f59'}"/>`).join('');
+  }
+
+  // Pantalla de formación de Gobierno: 1) escaños · 2) pactómetro
+  function renderSetup(m, ctx) {
+    const s = m.setup, can = !!ctx.guest || localMode(), total = seatTotal(s), valid = total === TOTAL;
+    const dis = can ? '' : 'disabled';
+    const step = n => `<span class="px-2 py-0.5 rounded text-[10px] ${s.phase === n[0] ? 'bg-amber-500 text-black font-bold' : 'bg-slate-900 text-slate-400 border border-slate-700'}">${n[1]}</span>`;
+    const head = `<div class="border-b border-slate-800 pb-2 flex flex-wrap justify-between items-center gap-2"><div><h2 class="font-hoi-header text-2xl text-amber-400">🇲🇦 FORMACIÓN DEL GOBIERNO DE MARRUECOS</h2><p class="font-hoi-tech text-[11px] text-slate-400 uppercase">Cámara de Representantes · ${TOTAL} escaños · mayoría absoluta ${MAJ}</p></div><div class="flex gap-1.5">${step(['seats', '1 · Escaños'])}${step(['coal', '2 · Pactómetro'])}</div></div>`;
+    const spect = can ? '' : `<div class="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded p-2 font-hoi-tech">Marruecos está formando Gobierno (lo gestiona el jugador 2). La partida empezará cuando termine.</div>`;
+    if (s.phase !== 'coal') {
+      const legend = MPARTIES.map(p => `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-900/90 rounded border border-slate-800 text-[11px]"><span class="w-2 h-2 rounded-full" style="background:${p.color}"></span><span class="text-slate-300">${p.id}:</span><b class="text-slate-100">${s.seats[p.id]}</b></span>`).join('');
+      const sliders = MPARTIES.map(p => `<div class="bg-slate-900/80 p-2 rounded border border-slate-800 space-y-1"><div class="flex justify-between items-center text-[11px] font-hoi-tech"><span class="font-bold flex items-center gap-1.5"><span class="w-2 h-2 rounded-full" style="background:${p.color}"></span><span class="text-slate-200">${p.name}</span><span class="text-[9px] text-amber-400/80 font-normal">(${p.ideo})</span></span><span id="mseat-${p.id}" class="font-bold text-amber-400">${s.seats[p.id]} ESCAÑOS</span></div><input type="range" min="0" max="${p.max}" value="${s.seats[p.id]}" ${dis} oninput="MA.seatLive('${p.id}',this.value)" onchange="MA.seat('${p.id}',this.value)" class="w-full accent-amber-500 h-1 cursor-pointer"></div>`).join('');
+      return `<div class="space-y-4">${head}${spect}
+        <div class="flex justify-end"><div class="bg-slate-900 border border-slate-700 px-3 py-1 rounded font-hoi-tech text-xs"><span class="text-slate-400">TOTAL ESCAÑOS: </span><b class="text-lg ${valid ? 'text-emerald-400' : 'text-red-500'}">${total} / ${TOTAL}</b></div></div>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center hoi-box p-4 rounded">
+          <div class="lg:col-span-6 flex flex-col items-center"><svg viewBox="0 0 500 250" class="w-full max-w-sm">${hemi(s.seats)}</svg><div class="flex flex-wrap gap-1.5 justify-center mt-3 max-w-md font-hoi-tech">${legend}</div></div>
+          <div class="lg:col-span-6 space-y-2 max-h-[340px] overflow-y-auto pr-1">${sliders}</div></div>
+        <div class="flex justify-end"><button ${valid && can ? '' : 'disabled'} onclick="MA.sphase('coal')" class="${valid && can ? 'hoi-button-gold' : 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700'} px-5 py-1.5 text-xs font-hoi-tech rounded">AVANZAR AL PACTÓMETRO <i class="fa-solid fa-arrow-right ml-1.5"></i></button></div></div>`;
+    }
+    const v = votes(s), cs = s.coal.reduce((t, id) => t + (s.seats[id] || 0), 0), blocked = !v.first && !v.second;
+    const stTxt = v.first ? '¡MAYORÍA ABSOLUTA ALCANZADA!' : v.second ? `SEGUNDA VOTACIÓN: ${v.yes} SÍ vs ${v.no} NO (${v.abst} abst.)` : `INVESTIDURA FALLIDA: ${v.yes} SÍ vs ${v.no} NO`;
+    const stCls = v.first ? 'text-emerald-400' : v.second ? 'text-amber-400' : 'text-red-400';
+    const lead = MPARTIES.map(p => `<div ${can ? `onclick="MA.leader('${p.id}')"` : ''} class="p-2 rounded border ${can ? 'cursor-pointer' : ''} flex items-center justify-between ${s.leader === p.id ? 'bg-amber-500/10 border-amber-500' : 'bg-slate-900 border-slate-800'}"><div class="flex items-center gap-2 font-hoi-tech"><span class="w-2 h-2 rounded-full" style="background:${p.color}"></span><div><p class="font-bold text-xs text-slate-100">${p.leader}</p><p class="text-[9px] text-slate-400">${p.name} (${s.seats[p.id]} escaños) — <span class="text-amber-400/80">${p.ideo}</span></p></div></div>${s.leader === p.id ? '<i class="fa-solid fa-circle-check text-amber-400 text-xs"></i>' : ''}</div>`).join('');
+    const part = MPARTIES.map(p => {
+      const isL = p.id === s.leader, on = s.coal.includes(p.id), rc = redOk(s, p.id), blk = !on && !rc.ok;
+      return `<div ${can && !isL && !blk ? `onclick="MA.coalTog('${p.id}')"` : ''} class="p-2 rounded border flex items-center justify-between ${isL ? 'opacity-40 bg-slate-900 border-slate-800' : blk ? 'bg-red-950/20 border-red-900/40 opacity-60' : on ? 'bg-amber-500/10 border-amber-500 cursor-pointer' : 'bg-slate-900 border-slate-800 cursor-pointer'}"><div class="flex items-center gap-2 font-hoi-tech"><input type="checkbox" ${on ? 'checked' : ''} disabled class="accent-amber-500"><div><span class="font-bold text-xs text-slate-200">${p.name}</span>${blk ? `<p class="text-[8px] text-red-400 font-bold">LÍNEA ROJA: ${rc.why}</p>` : ''}</div></div><span class="text-xs font-hoi-tech font-bold ${blk ? 'text-slate-600' : 'text-amber-400'}">+${s.seats[p.id]} escaños</span></div>`;
+    }).join('');
+    return `<div class="space-y-4">${head}${spect}
+      <div class="hoi-box p-3 rounded space-y-1.5"><p class="text-[10px] font-hoi-tech text-slate-400">El Rey nombra al Jefe de Gobierno; puede ser cualquier partido, pero el Palacio ve mejor al más votado. 1ª votación: mayoría absoluta (${MAJ}). 2ª votación: más síes que noes (los partidos hostiles al candidato votan no; el resto se abstiene). Después repartirás los ministerios en el Consejo de Ministros.</p>
+        <div class="flex justify-between items-center text-xs font-hoi-tech"><span>SUMA DE LA COALICIÓN: <b class="text-amber-400 text-sm">${cs}</b> / ${TOTAL}</span><span class="${stCls} font-bold">${stTxt}</span></div>
+        <div class="relative w-full h-2.5 bg-slate-900 rounded overflow-hidden border border-slate-700"><div class="h-full bg-gradient-to-r from-amber-600 to-amber-400" style="width:${cs / TOTAL * 100}%"></div><div class="absolute top-0 bottom-0 w-0.5 bg-red-500" style="left:${MAJ / TOTAL * 100}%"></div></div></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="hoi-box p-3 rounded space-y-2"><h3 class="font-hoi-header text-lg text-slate-200 border-b border-slate-800 pb-1">1. CANDIDATO A JEFE DE GOBIERNO</h3><div class="space-y-1.5 max-h-[320px] overflow-y-auto pr-1">${lead}</div></div>
+        <div class="hoi-box p-3 rounded space-y-2"><h3 class="font-hoi-header text-lg text-slate-200 border-b border-slate-800 pb-1">2. SOCIOS DE GOBIERNO</h3><div class="space-y-1.5 max-h-[320px] overflow-y-auto pr-1">${part}</div></div></div>
+      <div class="flex flex-wrap justify-between items-center gap-2"><button ${can ? '' : 'disabled'} onclick="MA.sphase('seats')" class="hoi-button px-4 py-1.5 text-xs font-hoi-tech text-slate-300 rounded"><i class="fa-solid fa-arrow-left mr-1.5"></i> AJUSTAR ESCAÑOS</button>
+        <button ${blocked || !can ? 'disabled' : ''} onclick="MA.govStart()" class="${blocked || !can ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700' : v.first ? 'hoi-button-gold' : 'bg-amber-600 text-white border border-amber-400 font-bold'} px-5 py-1.5 text-xs font-hoi-tech rounded">${v.first ? 'SOMETER A INVESTIDURA (MAYORÍA ABSOLUTA)' : v.second ? 'GOBERNAR EN MINORÍA (SEGUNDA VOTACIÓN)' : 'SIN MAYORÍA DE INVESTIDURA'}</button></div></div>`;
+  }
+
+  function cabinetHtml(m) {
+    const can = MP.canAct();
+    const cards = MINISTRIES.map(x => {
+      const cur = m.min[x.id] || '', av = availMin(m, x.id), sel = minOf(cur);
+      return `<div class="bg-slate-900/90 p-3 rounded border border-slate-800 space-y-2"><div class="text-xs text-amber-400 font-bold flex items-center gap-2"><i class="fa-solid ${x.icon}"></i> ${x.title}${x.sov ? ' <span class="text-[9px] text-sky-300 font-normal">· soberanía</span>' : ''}</div>
+        <select ${can ? '' : 'disabled'} onchange="MA.minister('${x.id}',this.value)" class="w-full bg-slate-950 border border-slate-700 p-2 rounded text-xs text-slate-200"><option value="">-- Sin ministro asignado --</option>${av.map(a => `<option value="${a.id}" ${cur === a.id ? 'selected' : ''}>${a.name} (${pname(a.party)})</option>`).join('')}</select>
+        ${sel ? `<div class="bg-slate-950 p-2.5 rounded border border-slate-800/80 space-y-1"><div class="flex justify-between border-b border-slate-800/60 pb-1"><span class="text-xs text-amber-400 font-bold">${sel.name}</span><span class="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">${pname(sel.party)}</span></div><div class="text-[11px] font-sans"><div class="text-emerald-400">✔ ${sel.pros}</div><div class="text-rose-400">✖ ${sel.cons}</div></div></div>` : `<div class="text-[10px] text-slate-500 italic text-center font-sans">Asigna un ministro para ver pros y contras.</div>`}${x.sov ? '<div class="text-[10px] text-slate-500 font-sans">El Palacio prefiere un técnico de su confianza.</div>' : ''}</div>`;
+    }).join('');
+    return box('CONSEJO DE MINISTROS DEL GOBIERNO', `<p class="text-[11px] text-slate-400 font-sans">Cada mes los ministros aplican sus efectos de forma atenuada. Los socios con ministerios ganan lealtad; los que no tienen ninguno, la pierden.</p><div class="grid grid-cols-1 md:grid-cols-2 gap-3">${cards}</div>`);
+  }
+
+  function decisionHtml(m) {
+    ex(m);
+    const wk = `<span class="text-[10px] bg-slate-900 border border-slate-700 px-2 py-1 text-slate-300"><i class="fa-regular fa-calendar mr-1"></i>SEMANA: ${m.wk.n} / 10 DECISIONES</span>`;
+    if (m.dec == null) return `<div class="hoi-box p-5 rounded-xl space-y-3 font-hoi-tech"><div class="flex justify-between items-center"><span class="text-[11px] bg-slate-900 border border-amber-500/60 px-2 py-1 text-amber-400">DECISIÓN N.º ${m.decN + 1}</span>${wk}</div><div class="text-xs text-slate-500 py-8 text-center">${m.decCd > 0 ? 'Próxima decisión en ' + m.decCd + ' días.' : 'Sin decisiones pendientes.'}</div></div>`;
+    const d = DECS[m.dec], can = MP.canAct();
+    const chips = o => Object.keys(o.P || {}).map(k => `<span class="${o.P[k] > 0 ? 'text-emerald-400' : 'text-red-400'}">${STN[k] || k} ${o.P[k] > 0 ? '+' : ''}${o.P[k]}</span>`).join(' · ') + (o.ES ? ' · <span class="text-sky-300">efecto en España</span>' : '');
+    return `<div class="hoi-box p-5 rounded-xl space-y-3 font-hoi-tech"><div class="flex justify-between items-center"><span class="text-[11px] bg-slate-900 border border-amber-500/60 px-2 py-1 text-amber-400">DECISIÓN N.º ${m.decN + 1}</span>${wk}</div>
+      <h3 class="font-hoi-header text-xl text-slate-100 uppercase leading-tight">${d.title}</h3>
+      <div class="text-xs text-slate-300 font-sans bg-slate-950 border border-slate-800 rounded p-3">${d.desc}</div>
+      ${d.opts.map((o, i) => `<button ${can ? '' : 'disabled'} onclick="MA.pick(${i})" class="hoi-button w-full p-3 rounded text-xs text-left ${can ? '' : 'opacity-50'}"><div class="flex justify-between gap-2"><span>${o.t}</span>${can ? '' : '<span class="text-[10px] text-red-400">ESPERA TU TURNO</span>'}</div><div class="text-[10px] text-slate-400 mt-1">${chips(o)}${o.tes ? ' · <span class="' + (o.tes > 0 ? 'text-emerald-400' : 'text-red-400') + '">' + (o.tes > 0 ? '+' : '−') + Math.abs(o.tes) + ' M€</span>' : ''}</div></button>`).join('')}</div>`;
+  }
+
+  // ---------- Interfaz idéntica a la de España: barra superior, menú lateral, contenido ----------
+  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const mdate = m => { const d = m.date ? new Date(m.date) : new Date(2023, 0, Math.max(1, m.day || 1)); return d.getDate() + ' ' + MESES[d.getMonth()] + ' ' + d.getFullYear(); };
+  const tcol = v => v >= 60 ? 'text-emerald-400' : v >= 35 ? 'text-amber-400' : 'text-red-400';
+  const bcol = v => v >= 60 ? 'bg-emerald-500' : v >= 35 ? 'bg-amber-500' : 'bg-red-500';
+  function hud(m, mil) {
+    const hs = (ic, l, v) => `<div class="min-w-[74px]"><div class="flex justify-between items-center gap-2 text-[11px]"><span class="text-slate-300"><i class="fa-solid ${ic} mr-1 text-slate-400"></i>${l}</span><b class="${tcol(v)}">${Math.round(v)}%</b></div><div class="h-0.5 bg-slate-800 mt-1"><div class="h-full ${bcol(v)}" style="width:${clamp(v)}%"></div></div></div>`;
+    const kv = (l, v, c) => `<div><div class="text-[9px] tracking-widest text-slate-500">${l}</div><div class="text-base font-bold ${c || 'text-slate-100'}">${v}</div></div>`;
+    return `<div class="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2 bg-slate-950/95 border-b border-slate-800 font-hoi-tech">
+      ${kv('FECHA', mdate(m))}${kv('TESORERÍA', Math.round(m.tes).toLocaleString('es-ES') + ' M€', 'text-amber-300')}${kv('LEGISLATURA', m.leg + '/3')}
+      <div class="flex gap-4 flex-wrap">${hs('fa-chart-line', 'Econ.', m.eco)}${hs('fa-shield-halved', 'Esta.', m.est)}${hs('fa-briefcase', 'Empl.', m.emp)}${hs('fa-heart', 'Apro.', m.apr)}${hs('fa-person-military-rifle', 'Ejér.', mil)}</div>
+      <div class="flex gap-5 ml-auto">${kv('PRIMA', prima(m) + ' pb', prima(m) > 300 ? 'text-red-400' : 'text-amber-300')}${kv('DEUDA/PIB', m.debt.toFixed(1) + ' %', m.debt > 90 ? 'text-red-400' : 'text-amber-300')}</div></div>`;
+  }
+  function sidebar(m) {
+    const it = (k, ic, l, dot) => `<button onclick="MA.tab('${k}')" class="w-full flex items-center gap-2 px-3 py-2.5 text-[11px] font-bold tracking-wider uppercase rounded border ${UI.tab === k ? 'border-amber-500 text-amber-300 bg-amber-500/10' : 'border-slate-800 text-slate-300 bg-slate-900/80 hover:border-slate-600'}"><i class="fa-solid ${ic} w-4 text-center ${UI.tab === k ? 'text-amber-400' : 'text-sky-400'}"></i>${l}${dot ? ' <span class="text-amber-400">●</span>' : ''}</button>`;
+    const gp = t => `<div class="px-1 pt-3 pb-1 text-[10px] font-bold tracking-[.2em] text-slate-400">${t}</div>`;
+    return `<div class="space-y-1.5">
+      <div class="flex items-center gap-2 mb-2"><div class="w-9 h-9 border-2 border-amber-500 rounded flex items-center justify-center text-lg">🇲🇦</div><div><div class="font-hoi-header text-amber-400 text-base leading-none">MAROC STRATEGY</div><div class="text-[9px] text-slate-500 tracking-widest">STRATEGY SIMULATOR</div></div></div>
+      <div class="text-center text-[11px] text-amber-300 border border-slate-800 bg-slate-900/80 rounded py-1.5"><i class="fa-solid fa-landmark mr-1"></i>LEGISLATURA ${m.leg} / 3</div>
+      <div class="border border-slate-800 bg-slate-900/80 rounded p-2"><div class="flex justify-between text-[10px] text-sky-300"><span><i class="fa-solid fa-star mr-1"></i>CAPITAL POLÍTICO</span><b>${Math.floor(m.cap)}/100</b></div><div class="h-1 bg-slate-800 mt-1"><div class="h-full bg-sky-500" style="width:${clamp(m.cap)}%"></div></div></div>
+      ${gp('GOBIERNO')}${it('main', 'fa-landmark', m.phase === 'camp' ? 'Campaña' : 'Decisiones', m.dec != null || m.motion || m.rebel || m.phase === 'night')}${it('dec', 'fa-scroll', 'Dahires (Decretos)')}${it('cab', 'fa-users', 'Ministros')}${it('press', 'fa-bullhorn', 'Prensa', m.evt != null)}
+      ${gp('ECONOMÍA')}${it('eco', 'fa-coins', 'Presupuesto')}
+      ${gp('POLÍTICA')}${it('gov', 'fa-scale-balanced', 'Parlamento y coalición')}
+      ${gp('EXTERIOR')}${it('dip', 'fa-earth-africa', 'Diplomacia')}${it('mil', 'fa-shield', 'Fuerzas armadas')}
+      ${gp('ANÁLISIS')}${it('stats', 'fa-chart-pie', 'Estadísticas')}</div>`;
+  }
+  function motionHtml(m) {
+    if (!m.motion) return '';
+    const can = MP.canAct(), opp = TOTAL - coalSeats(m), reb = rebelSeats(m), left = Math.max(0, m.motion.due - m.day);
+    const b = (i, t, d) => `<button ${can ? '' : 'disabled'} onclick="MA.mot(${i})" class="hoi-button w-full p-3 rounded text-xs text-left ${can ? '' : 'opacity-50'}"><b>${t}</b><div class="text-[10px] text-slate-400 mt-1">${d}</div></button>`;
+    return `<div class="hoi-box p-5 rounded-xl border-red-500/70 space-y-2 font-hoi-tech"><span class="text-[10px] text-red-400 tracking-widest">⚠ MOCIÓN DE CENSURA</span><h3 class="font-hoi-header text-xl text-red-300 uppercase">La oposición quiere derribar al Gobierno</h3>
+      <div class="text-xs text-slate-300 font-sans bg-slate-950 border border-slate-800 rounded p-3">Votos en contra: <b>${opp}</b> de la oposición + <b>${reb}</b> de socios díscolos = <b class="${opp + reb >= MAJ ? 'text-red-400' : 'text-emerald-400'}">${opp + reb}</b> (se necesitan ${MAJ}). Votación en <b>${left}</b> días.</div>
+      ${b(0, 'Comprar apoyos (500 M€ · 3 cap.)', 'Los socios con lealtad baja suben +25.')}${b(1, 'Pedir al Rey la disolución de la Cámara', 'Si Palacio confía en ti (≥55), se convocan elecciones anticipadas.')}${b(2, 'Afrontar el voto ahora', 'Se vota ya con los números actuales.')}</div>`;
+  }
+  function rebelHtml(m) {
+    if (!m.rebel) return '';
+    const can = MP.canAct(), r = REG[m.rebel.i], left = Math.max(0, m.rebel.due - m.day);
+    const b = (i, t, d) => `<button ${can ? '' : 'disabled'} onclick="MA.reb(${i})" class="hoi-button w-full p-3 rounded text-xs text-left ${can ? '' : 'opacity-50'}"><b>${t}</b><div class="text-[10px] text-slate-400 mt-1">${d}</div></button>`;
+    return `<div class="hoi-box p-5 rounded-xl border-red-500/70 space-y-2 font-hoi-tech"><span class="text-[10px] text-red-400 tracking-widest">⚠ REBELIÓN REGIONAL</span><h3 class="font-hoi-header text-xl text-red-300 uppercase">${r[1]} se alza</h3>
+      <div class="text-xs text-slate-300 font-sans bg-slate-950 border border-slate-800 rounded p-3">Los disturbios han derivado en rebelión abierta. Si no actúas en <b>${left}</b> días, el país lo pagará.</div>
+      ${b(0, 'Enviar al ejército (3 cap.)', 'Estabilidad regional +25 · aprobación −8 · poder militar −5.')}${b(1, 'Negociar autonomía (400 M€)', 'Estabilidad regional +20 · Palacio −5.')}${b(2, 'Ignorar', 'Economía −4 · estabilidad −6.')}</div>`;
+  }
+  const momTxt = v => (v >= 15 ? 'Ola a favor' : v >= 5 ? 'Ventaja' : v > -5 ? 'Igualado' : v > -15 ? 'En contra' : 'Desplome') + ' (' + (v > 0 ? '+' : '') + v.toFixed(1) + ')';
+  function campHtml(m) {
+    const c = m.camp, can = MP.canAct(), sh = calc(m, false).sort((a, b) => b[1] - a[1]).slice(0, 4);
+    const head = `<div class="hoi-box p-4 rounded-xl space-y-2 font-hoi-tech"><div class="flex justify-between flex-wrap gap-1"><span class="font-hoi-header text-xl text-amber-400"><i class="fa-solid fa-bullhorn mr-2"></i>CAMPAÑA ELECTORAL</span><span class="text-xs text-slate-300">Día <b class="text-amber-300">${c.day}</b> / ${CAMP_DAYS}</span></div><div class="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800"><div class="h-full bg-amber-500" style="width:${Math.round(c.day / CAMP_DAYS * 100)}%"></div></div></div>`;
+    if (c.debateOpen) return head + `<div class="hoi-box p-5 rounded-xl border-amber-500/60 space-y-2 font-hoi-tech"><h3 class="font-hoi-header text-xl text-amber-400"><i class="fa-solid fa-tv mr-2"></i>DEBATE CARA A CARA</h3><p class="text-xs text-slate-300 font-sans">Millones de espectadores. ¿Qué estrategia eliges?</p>${['Agresivo: ir a la yugular', 'Presidencial: balance de gestión', 'Cercano: hablar de lo cotidiano'].map((t, i) => `<button ${can ? '' : 'disabled'} onclick="MA.cdeb(${i})" class="hoi-button w-full p-3 rounded text-xs text-left ${can ? '' : 'opacity-50'}">${t}</button>`).join('')}</div>`;
+    if (c.q != null) { const q = CQ[c.q]; return head + `<div class="hoi-box p-5 rounded-xl border-sky-500/60 space-y-2 font-hoi-tech"><span class="text-[10px] text-sky-300 tracking-widest">ÚLTIMA HORA DE CAMPAÑA</span><h3 class="font-hoi-header text-xl text-slate-100 uppercase">${q.t}</h3><p class="text-xs text-slate-300 font-sans">${q.d}</p>${q.o.map((o, i) => `<button ${can ? '' : 'disabled'} onclick="MA.cq(${i})" class="hoi-button w-full p-3 rounded text-xs text-left ${can ? '' : 'opacity-50'}">${o[0]}</button>`).join('')}</div>`; }
+    const acts = CACTS.map(x => { const w = c.cd[x.id] || 0, off = !can || w > 0 || (x.cost && c.fund < x.cost) || (x.pledge && c.pledges >= 3); return `<button ${off ? 'disabled' : ''} onclick="MA.cact('${x.id}')" class="hoi-button p-2 rounded text-[11px] text-left ${off ? 'opacity-50' : ''}"><div><i class="fa-solid ${x.ic} mr-1 text-amber-400"></i><b>${x.t}</b> <span class="text-slate-400">· ${x.cost ? x.cost + ' M€' : 'gratis'}${w ? ' · espera ' + w + ' d' : ''}</span></div><div class="text-slate-400 font-sans">${x.d}</div></button>`; }).join('');
+    const fmM = v => v.toFixed(1).replace('.', ',');
+    return head + `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">${box('ESTADO DE LA CAMPAÑA', `<div class="flex justify-between text-xs"><span>Impulso electoral</span><b class="text-amber-300">${momTxt(c.mom)}</b></div><div class="flex justify-between text-xs"><span>Fondos del partido</span><b class="text-amber-300">${fmM(c.fund)} M€</b></div><div class="flex justify-between text-xs"><span>Gastado / límite legal</span><b>${fmM(c.spent)} / ${c.limit} M€</b></div><div class="text-[10px] text-slate-500">Subvención de la legislatura anterior: ${fmM(c.sub)} M€ (por escaño). La campaña no gasta dinero del Estado.</div><div class="flex justify-between text-xs"><span>Promesas</span><b>${c.pledges}</b></div><div class="flex justify-between text-xs"><span>Debate</span><b>${c.debate ? 'Celebrado' : 'Día 80'}</b></div>`)}
+      ${box('INTENCIÓN DE VOTO (estimación)', sh.map(([id, v]) => `<div class="flex justify-between text-[11px] text-slate-300"><span><span class="inline-block w-2 h-2 rounded-full mr-1" style="background:${PBY(id).color}"></span>${id}${id === m.leader ? ' (Gobierno)' : ''}</span><b>${(v * 100).toFixed(1)}%</b></div>`).join(''))}</div>
+      ${box('ACCIONES DE CAMPAÑA', `<div class="grid grid-cols-1 md:grid-cols-2 gap-2">${acts}</div>`)}${box('DIARIO DE CAMPAÑA', c.log.map(l => `<div class="text-[11px] text-slate-400">${l}</div>`).join(''))}`;
+  }
+  function nightHtml(m) {
+    const r = m.res, can = MP.canAct(), rows = MPARTIES.slice().sort((a, b) => (r.nw[b.id] || 0) - (r.nw[a.id] || 0)).map(p => { const d = (r.nw[p.id] || 0) - (r.old[p.id] || 0); return `<div class="flex justify-between text-[11px] text-slate-300"><span><span class="inline-block w-2 h-2 rounded-full mr-1" style="background:${p.color}"></span>${p.id}</span><span><b>${r.nw[p.id] || 0}</b> <span class="${d > 0 ? 'text-emerald-400' : d < 0 ? 'text-red-400' : 'text-slate-500'}">(${d > 0 ? '+' : ''}${d})</span></span></div>`; }).join('');
+    return box('NOCHE ELECTORAL · CÁMARA DE REPRESENTANTES', `<div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-center"><svg viewBox="0 0 500 250" class="w-full max-w-sm mx-auto">${hemi(r.nw)}</svg><div class="space-y-1">${rows}</div></div><button ${can ? '' : 'disabled'} onclick="MA.nightGo()" class="hoi-button-gold w-full py-2.5 text-xs rounded uppercase font-bold ${can ? '' : 'opacity-50'}">Constituir la Cámara y formar Gobierno</button>`);
+  }
+  function situation(m) {
+    const loy = Object.keys(m.coal || {}).map(p => m.coal[p]), mn = loy.length ? Math.round(Math.min.apply(null, loy)) : 100;
+    return `<details class="hoi-box rounded-xl font-hoi-tech"><summary class="cursor-pointer px-4 py-3 flex items-center justify-between text-xs tracking-widest text-amber-400">SITUACIÓN DEL GOBIERNO<span class="flex gap-2 text-[10px] tracking-normal"><span class="px-2 py-0.5 rounded-full border ${mn < 50 ? 'border-red-500/60 text-red-300' : 'border-emerald-500/60 text-emerald-300'}">Socios: mín. ${mn}%</span><span class="px-2 py-0.5 rounded-full border ${m.minority ? 'border-red-500/60 text-red-300' : 'border-emerald-500/60 text-emerald-300'}">${m.minority ? 'GOBIERNO EN MINORÍA' : 'GOBIERNO CON MAYORÍA'}</span></span></summary>
+      <div class="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-3">${bar('Confianza del Palacio', m.palace)}${bar('Aprobación', m.apr)}${Object.keys(m.coal || {}).map(p => bar('Socio ' + p, m.coal[p])).join('')}</div></details>`;
+  }
+
+  // m = estado de Marruecos (del anfitrión, o la copia que recibe el jugador 2)
+  function renderMoroccoTab(m, ctx) {
+    ctx = ctx || {};
+    if (!m) m = M();
+    if (!m || !m.army) return '<div class="hoi-box p-8 text-center text-slate-400 font-hoi-tech">Marruecos solo está disponible en el modo multijugador.</div>';
+    if (pending(m)) return renderSetup(m, ctx);
+    const cdl = k => (m.cd || {})[k] || 0;
+    ex(m);
+    const mil = Math.round((m.army.tierra + m.army.mar + m.army.aire) / 3);
+
+    const map = REG.map((r, i) => { const g = m.reg[i], col = g.est < 35 ? '#ef4444' : g.est < 55 ? '#d9a726' : '#22c55e'; return `<polygon points="${pts(r[2])}" fill="${col}" fill-opacity=".5" stroke="${UI.sel === i ? '#fff' : '#0b0f12'}" stroke-width="${UI.sel === i ? 2.5 : 1}" class="${g.crisis ? 'ma-pulse' : ''}" style="cursor:pointer" onclick="MA.reg(${i})"><title>${r[1]}</title></polygon>`; }).join('');
+    const tabs = [['main', 'Mando y mapa' + (m.dec != null ? ' ●' : '')], ['gov', 'Gobierno'], ['cab', 'Consejo de Ministros'], ['eco', 'Economía'], ['mil', 'Militar'], ['dip', 'Diplomacia']].map(([k, l]) => `<button onclick="MA.tab('${k}')" class="${UI.tab === k ? 'hoi-button-gold' : 'hoi-button'} px-3 py-1.5 rounded text-xs">${l}</button>`).join('');
+
+    let body = '';
+    if (UI.tab === 'gov') {
+      const lead = PBY(m.leader), cs = coalSeats(m);
+      const co = Object.keys(m.coal).map(p => `<div class="flex items-center gap-3"><div class="flex-1">${bar(p + ' · ' + (PBY(p) ? PBY(p).name : p) + ' (' + (m.seats[p] || 0) + ')', m.coal[p])}</div>${btn("MA.neg('" + p + "')", cdl('n' + p) ? cdl('n' + p) + 'd' : 'Negociar · 4 cap.', cdl('n' + p) > 0)}</div>`).join('') || '<div class="text-[11px] text-slate-500">Gobierno de un solo partido.</div>';
+      const pol = POL.map(x => { const off = cdl('p' + x.id) > 0; return `<button ${off ? 'disabled' : `onclick="MA.pol('${x.id}')"`} class="hoi-button p-2 rounded text-[11px] text-left ${off ? 'opacity-50' : ''}"><div><b>${x.t}</b> <span class="text-slate-400">· ${x.cost} M€ · ${x.cap} cap.</span></div><div class="text-slate-400 font-sans">${x.d}</div><div class="text-[10px] text-slate-500">${off ? 'Disponible en ' + cdl('p' + x.id) + ' días' : Object.keys(x.P).map(k => k + ' ' + (x.P[k] > 0 ? '+' : '') + x.P[k]).join(' · ') + (x.ES ? ' · efecto en España' : '')}</div></button>`; }).join('');
+      body = box('CÁMARA DE REPRESENTANTES', `<div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-center"><svg viewBox="0 0 500 250" class="w-full max-w-sm mx-auto">${hemi(m.seats)}</svg><div class="text-[11px] text-slate-300 space-y-1"><div>Jefe de Gobierno: <b class="text-amber-300">${lead ? lead.leader : ''}</b> (${m.leader})</div><div>Coalición: <b>${cs}</b> / ${TOTAL} escaños ${m.minority ? '<span class="text-red-400">· GOBIERNO EN MINORÍA</span>' : '<span class="text-emerald-400">· mayoría</span>'}</div><div class="flex flex-wrap gap-1">${MPARTIES.map(p => `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-900 rounded border border-slate-800"><span class="w-2 h-2 rounded-full" style="background:${p.color}"></span>${p.id} ${m.seats[p.id]}</span>`).join('')}</div></div></div>`)
+        + '<div class="h-3"></div>' + box('COALICIÓN DE GOBIERNO (si un socio cae por debajo de 20, abandona el Gobierno)', co + `<div class="flex items-center gap-3"><div class="flex-1">${bar('Palacio Real', m.palace)}</div>${btn('MA.aud()', cdl('aud') ? cdl('aud') + 'd' : 'Audiencia · 5 cap.', cdl('aud') > 0)}</div>`) + '<div class="h-3"></div>' + box('DECRETOS', `<div class="grid grid-cols-1 md:grid-cols-2 gap-2">${pol}</div>`);
+    } else if (UI.tab === 'dec') {
+      const pol = POL.map(x => { const off = cdl('p' + x.id) > 0; return `<button ${off ? 'disabled' : `onclick="MA.pol('${x.id}')"`} class="hoi-button p-3 rounded text-[11px] text-left ${off ? 'opacity-50' : ''}"><div><b>${x.t}</b> <span class="text-slate-400">· ${x.cost} M€ · ${x.cap} cap.</span></div><div class="text-slate-400 font-sans">${x.d}</div><div class="text-[10px] text-slate-500">${off ? 'Disponible en ' + cdl('p' + x.id) + ' días' : Object.keys(x.P).map(k => (STN[k] || k) + ' ' + (x.P[k] > 0 ? '+' : '') + x.P[k]).join(' · ') + (x.ES ? ' · efecto en España' : '')}</div></button>`; }).join('');
+      body = box('DAHIRES Y DECRETOS DEL GOBIERNO (Boletín Oficial)', `<div class="grid grid-cols-1 md:grid-cols-2 gap-2">${pol}</div>`);
+    } else if (UI.tab === 'press') {
+      const e = m.evt != null ? EVS[m.evt] : null;
+      body = (e ? `<div class="hoi-box p-5 rounded-xl border-sky-500/60 space-y-2 font-hoi-tech"><span class="text-[10px] text-sky-300 tracking-widest">ÚLTIMA HORA</span><b class="block text-sky-300 text-lg">${e.title}</b><p class="text-[11px] text-slate-400 font-sans">${e.desc}</p>${e.opts.map((o, k) => `<button onclick="MA.evt(${k})" class="hoi-button w-full p-3 rounded text-xs text-left">${o.t}</button>`).join('')}</div>` : '')
+        + box('TELETIPO · REGISTRO DE PRENSA', m.log.map(l => `<div class="text-[11px] text-slate-300 border-b border-slate-800/60 py-1"><i class="fa-solid fa-newspaper text-slate-500 mr-2"></i>${l}</div>`).join('') || '<div class="text-[11px] text-slate-500">Sin noticias.</div>');
+    } else if (UI.tab === 'stats') {
+      const regs = REG.map((r, i) => [r[1], m.reg[i].est, m.reg[i].crisis]).sort((a, b) => a[1] - b[1]);
+      body = `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">${box('INDICADORES NACIONALES', bar('Economía', m.eco) + bar('Estabilidad', m.est) + bar('Empleo', m.emp) + bar('Aprobación', m.apr) + bar('Ejército', mil) + bar('Confianza del Palacio', m.palace) + `<div class="text-[11px] text-slate-300 pt-1">Prima de riesgo <b>${prima(m)} pb</b> · Deuda/PIB <b>${m.debt.toFixed(1)}%</b></div>`)}
+        ${box('ESTABILIDAD POR REGIÓN (de peor a mejor)', regs.map(r => bar((r[2] ? '⚠ ' : '') + r[0], r[1])).join(''))}</div>`;
+    } else if (UI.tab === 'cab') {
+      body = cabinetHtml(m);
+    } else if (UI.tab === 'eco') {
+      const inc = 10 * (0.6 + m.eco / 100) - 1 - m.army.tierra / 50 * 1.5, out = BUD.reduce((t, b) => t + m.bud[b.id] / 50 * b.cost, 0), bal = inc - out;
+      body = box('PRESUPUESTO', `<div class="flex justify-between text-xs"><span>Ingresos ${inc.toFixed(1)} M€/día</span><span>Gastos ${out.toFixed(1)} M€/día</span><b class="${bal >= 0 ? 'text-emerald-400' : 'text-red-400'}">Balance ${bal >= 0 ? '+' : ''}${bal.toFixed(1)}</b></div>` + BUD.map(b => `<div><div class="flex justify-between text-[11px]"><span><i class="fa-solid ${b.ic} mr-1 text-amber-400"></i>${b.t}</span><span class="font-mono">${m.bud[b.id]}% · ${(m.bud[b.id] / 50 * b.cost).toFixed(1)} M€/día</span></div><input type="range" min="0" max="100" value="${m.bud[b.id]}" class="w-full" onchange="MA.bud('${b.id}',this.value)"><div class="text-[10px] text-slate-500 font-sans">${b.d}</div></div>`).join(''));
+    } else if (UI.tab === 'mil') {
+      const nm = { tierra: ['fa-person-rifle', 'Ejército de Tierra'], mar: ['fa-ship', 'Marina Real'], aire: ['fa-jet-fighter', 'Fuerza Aérea'] };
+      const pos = Object.keys(POSTURES).map(p => `<button onclick="MA.posture('${p}')" class="${m.posture === p ? 'hoi-button-gold' : 'hoi-button'} p-2 rounded text-[11px] text-left"><b>${POSTURES[p][0]}</b><div class="text-slate-400 font-sans">${POSTURES[p][1]}</div></button>`).join('');
+      const prog = PROGS.map(x => { const w = cdl('g' + x.id), off = w > 0 || m.cap < x.cap || m.tes < x.cost; return `<button ${off ? 'disabled' : ''} onclick="MA.prog('${x.id}')" class="hoi-button p-2 rounded text-[11px] text-left ${off ? 'opacity-50' : ''}"><div><i class="fa-solid ${x.ic} mr-1 text-amber-400"></i><b>${x.t}</b> <span class="text-slate-400">· ${x.cost} M€ · ${x.cap} cap.${w ? ' · espera ' + w + ' d' : ''}</span></div><div class="text-slate-400 font-sans">${x.d}</div><div class="text-[10px] text-slate-500">${Object.keys(x.A).map(k => nm[k][1].split(' ').pop() + ' +' + x.A[k]).join(' · ')}${x.op ? ' · apoyo social ' + (x.op > 0 ? '+' : '') + x.op : ''}${x.tension ? ' · tensión con España ' + (x.tension > 0 ? '+' : '') + x.tension : ''}${x.est ? ' · estabilidad +' + x.est : ''}${x.eco ? ' · economía +' + x.eco : ''}</div></button>`; }).join('');
+      body = `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">${box('FUERZAS ARMADAS REALES · poder ' + mil, Object.keys(m.army).map(b => bar('<i class="fa-solid ' + nm[b][0] + ' mr-1"></i>' + nm[b][1], m.army[b])).join('') + bar('Apoyo social a las FAR', m.milOp) + bar('Calma con España (tensión ' + Math.round(m.tension) + ')', 100 - m.tension) + '<p class="text-[11px] text-slate-500 font-sans">El apoyo social y la doctrina influyen cada día en tu aprobación y en la estabilidad. Una tensión alta con España acaba afectando a ambos países.</p>')}
+        ${box('DOCTRINA MILITAR (1 cap.)', `<div class="grid grid-cols-1 gap-2">${pos}</div>`)}</div>
+        ${box('PROGRAMAS: elige qué tipo de fuerzas quieres', `<div class="grid grid-cols-1 md:grid-cols-2 gap-2">${prog}</div>`)}`;
+    } else if (UI.tab === 'dip') {
+      body = MP.renderMulti();
+    } else {
+      const i = UI.sel, sel = i == null ? '' : `<div class="bg-slate-950 border border-slate-800 rounded p-3 space-y-2"><div class="text-sm text-slate-100"><b>${REG[i][1]}</b></div>${bar('Estabilidad regional', m.reg[i].est)}${m.reg[i].crisis ? '<div class="text-[11px] text-red-400">⚠ Disturbios en curso</div>' : ''}<div class="flex gap-2 flex-wrap">${btn('MA.invest(' + i + ')', 'Invertir 250 M€ · 2 cap.')}${m.reg[i].crisis ? btn('MA.repress(' + i + ')', 'Reprimir (−3 aprobación)') : ''}</div></div>`;
+      const e = m.evt != null ? EVS[m.evt] : null, alerts = m.reg.filter(r => r.est < 35).length;
+      body = `<div class="grid grid-cols-1 xl:grid-cols-2 gap-3">
+        <div class="hoi-box p-4 rounded-xl space-y-2 font-hoi-tech"><div class="flex justify-between items-center text-xs flex-wrap gap-1"><span class="text-amber-400"><i class="fa-solid fa-map-location-dot mr-1"></i>Mapa Provincial de Marruecos</span><span class="text-[10px] text-slate-300">${i == null ? 'PULSA UNA REGIÓN' : REG[i][1].toUpperCase() + ': ' + Math.round(m.reg[i].est) + '% ESTABILIDAD'}</span></div>
+          <div class="bg-slate-950 rounded border border-slate-800"><svg viewBox="0 0 340 330" class="w-full" style="max-height:400px">${map}</svg></div>
+          <div class="flex justify-between text-[10px] bg-slate-900/90 border border-slate-800 rounded px-3 py-2"><span class="text-slate-300">ESTADO TERRITORIAL:</span><b class="${alerts ? 'text-red-400' : 'text-emerald-400'}">${alerts} REGIONES EN ALERTA</b></div>${sel}</div>
+        <div class="space-y-3">${e ? `<div class="hoi-box p-4 rounded-xl border-sky-500/60 space-y-2 font-hoi-tech"><span class="text-[10px] text-sky-300 tracking-widest">ÚLTIMA HORA</span><b class="block text-sky-300 text-sm">${e.title}</b><p class="text-[11px] text-slate-400 font-sans">${e.desc}</p>${e.opts.map((o, k) => `<button onclick="MA.evt(${k})" class="hoi-button w-full p-2 rounded text-[11px] text-left">${o.t}</button>`).join('')}</div>` : ''}${motionHtml(m)}${rebelHtml(m)}${decisionHtml(m)}</div></div>`;
+    }
+
+    if (m.phase === 'camp' && m.camp && UI.tab !== 'dip') body = campHtml(m);
+    else if (m.phase === 'night' && m.res && UI.tab !== 'dip') body = nightHtml(m);
+    const spectator = !ctx.guest && !MP.canAct()
+      ? `<div class="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded p-2 font-hoi-tech">${gameState.mp && gameState.mp.mode === 'online' ? 'Modo espectador: Marruecos lo gobierna el jugador 2.' : 'Ahora manda España. Pasa el mando desde la pestaña Multijugador para gestionar Marruecos.'}</div>` : '';
+    const strip = `<div class="flex flex-wrap items-center justify-between gap-2 hoi-box rounded-xl px-3 py-2 font-hoi-tech"><div class="flex gap-2 text-[11px]"><span class="border border-amber-500/60 text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded"><i class="fa-regular fa-calendar mr-1"></i>${mdate(m).toUpperCase()}</span><span class="border border-slate-700 text-slate-300 px-3 py-1.5 rounded">DÍAS EN EL PODER: <b>${m.day}</b></span></div><div class="flex items-center gap-1">${[0, 1, 2, 3].map(n => { const on = (ctx.guest ? m.spd : gameState.gameSpeed) === n; return `<button onclick="MA.speed(${n})" class="${on ? 'hoi-button-gold' : 'hoi-button'} px-2.5 py-1 rounded text-xs">${['⏸', '▶', '▶▶', '▶▶▶'][n]}</button>`; }).join('')}</div></div>
+      ${m.motion || m.rebel || m.phase === 'camp' || m.phase === 'night' ? `<div onclick="MA.tab('main')" class="cursor-pointer hoi-box rounded-xl px-3 py-2 font-hoi-tech text-[11px] ${m.motion || m.rebel ? 'border-red-500/70 text-red-300' : 'border-amber-500/60 text-amber-300'}">${m.motion ? '⚠ MOCIÓN DE CENSURA en curso · ' : ''}${m.rebel ? '⚠ REBELIÓN REGIONAL · ' : ''}${m.phase === 'camp' ? '🗳 CAMPAÑA ELECTORAL en marcha · ' : ''}${m.phase === 'night' ? '🗳 NOCHE ELECTORAL · ' : ''}pulsa para gestionarlo</div>` : ''}
+      <div class="flex items-center gap-3 hoi-box rounded-xl px-3 py-2 font-hoi-tech text-[11px]"><span class="bg-red-600 text-white px-2 py-0.5 rounded font-bold"><i class="fa-solid fa-tower-broadcast mr-1"></i>TELETIPO MAP</span><span class="text-slate-300 truncate">${m.log[0] || 'Esperando teletipo de noticias…'}</span></div>`;
+    return `${hud(m, mil)}
+      <div class="p-3 grid grid-cols-1 md:grid-cols-[215px_1fr] gap-3">
+        ${sidebar(m)}
+        <div class="space-y-3 min-w-0">${spectator}${strip}${body}${situation(m)}</div></div>`;
+  }
+
+  // ---------------- SIMULACIÓN DIARIA (la llama multijugador.js una vez por día de España) ----------------
+  function monthly(m) {   // efectos mensuales de los ministros y lealtad de los socios
+    const cnt = {};
+    Object.keys(m.min || {}).forEach(pf => {
+      const mi = minOf(m.min[pf]); if (!mi) return;
+      cnt[mi.party] = (cnt[mi.party] || 0) + 1;
+      Object.keys(mi.effects || {}).forEach(k => addSt(m, k, mi.effects[k] * 0.15));
+    });
+    Object.keys(m.coal).forEach(p => { m.coal[p] = clamp(m.coal[p] + (cnt[p] ? Math.min(3, cnt[p]) * 0.8 : -1.5)); });
+  }
+  function moroccoTick() {
+    const m = M();
+    if (!m || (gameState.step !== 4 && gameState.step !== 5)) return;
+    if (pending(m) || m.phase === 'night') return;   // formando Gobierno o noche electoral
+    if (m.phase === 'camp' && m.camp && (m.camp.debateOpen || m.camp.q != null)) return;
+    const cfg = diff();
+    m.day = (m.day || 1) + 1;                       // calendario propio (el de España se reinicia cada legislatura)
+    if (m.termStart == null) m.termStart = m.day;
+    m.spd = gameState.gameSpeed;
+    if (m.phase === 'camp') { ex(m); m.date = gameState.currentDate ? +gameState.currentDate : m.date; return campTick(m); }
+    ex(m); m.date = gameState.currentDate ? +gameState.currentDate : m.date;
+    { const w = Math.floor(m.day / 7); if (m.wk.w !== w) { m.wk.w = w; m.wk.n = 0; } }
+    m.cap = Math.min(100, m.cap + 0.3);
+    m.tes += 10 * (0.6 + m.eco / 100) - 1 - m.army.tierra / 50 * 1.5;
+    if (cfg.expense && m.day % 30 === 0) m.tes -= cfg.expense * 0.25;   // gasto corriente según dificultad
+    BUD.forEach(b => { const l = m.bud[b.id]; m.tes -= l / 50 * b.cost; Object.keys(b.fx).forEach(k => { m[k] = clamp(m[k] + (l - 50) * b.fx[k]); }); });
+    if (m.tes < 0) { m.eco = clamp(m.eco - 0.08); m.apr = clamp(m.apr - 0.06); }
+    m.apr = clamp(m.apr + (m.eco - 50) * 0.002 + (m.est - 50) * 0.002 - 0.01 - (cfg.attr || 0) * 0.5 - m.reg.filter(r => r.crisis).length * 0.04);
+    m.est = clamp(m.est + (m.apr - 50) * 0.002 + (m.palace - 50) * 0.0004 - (m.apr < 35 ? 0.05 : 0) - (m.minority ? 0.02 : 0));
+    m.eco = clamp(m.eco + (Math.random() - 0.5) * 0.1 + (50 - m.eco) * 0.001);
+    m.emp = clamp(m.emp + (m.eco - 50) * 0.002 + (m.est - 50) * 0.0006 + (m.bud.inf - 50) * 0.0004 + (m.bud.agr - 50) * 0.0002 - 0.001);
+    m.apr = clamp(m.apr + (m.emp - 50) * 0.001);
+    { const po = m.posture || 'bal', dm = { def: 0.004, bal: 0, det: -0.006 }[po], dt = { def: -0.15, bal: -0.05, det: 0.2 }[po];
+      m.milOp = clamp(m.milOp + dm); m.tension = clamp(m.tension + dt);
+      m.apr = clamp(m.apr + (m.milOp - 55) * 0.0008); m.est = clamp(m.est + (m.milOp - 55) * 0.0004 + { def: 0.004, bal: 0, det: -0.003 }[po]);
+      if (m.tension > 70 && Math.random() < 0.02) { try { MP.cross({ est: -0.5 }, -2, 'La tensión con Marruecos erosiona la estabilidad española.'); } catch (e) { /* sin España */ } } }
+    m.debt = Math.max(20, Math.min(200, m.debt + (m.tes < 0 ? 0.03 : -0.002) + (prima(m) - 250) / 50000));
+    m.tes -= Math.max(0, prima(m) - 150) / 400;          // coste de la deuda: intereses por prima de riesgo
+    m.palace = clamp(m.palace + (m.apr - 50) * 0.002 - 0.005);
+    Object.keys(m.army).forEach(k => { m.army[k] = clamp(m.army[k] - 0.01); });
+    Object.keys(m.coal).forEach(p => { m.coal[p] = clamp(m.coal[p] + (m.apr - 50) * 0.003 - 0.02); });
+    m.reg.forEach((r, i) => { r.est = clamp(r.est + (m.est - r.est) * 0.01 + (Math.random() - 0.5) * 0.6); if (!r.crisis && r.est < 35 && Math.random() < 0.02) { r.crisis = 1; lg(m, 'Disturbios en ' + REG[i][1] + '.'); } if (r.crisis && r.est > 50) r.crisis = 0; });
+    Object.keys(m.cd).forEach(k => { if (m.cd[k] > 0) m.cd[k]--; });
+    if (m.day % 30 === 0) monthly(m);
+    if (m.dec == null) { if (m.decCd > 0) m.decCd--; if (m.decCd <= 0) { nextDec(m); lg(m, 'Nueva decisión de gobierno: ' + DECS[m.dec].title + '.'); } }
+    if (m.evt == null && m.day >= m.next) { m.evt = Math.floor(Math.random() * EVS.length); m.next = m.day + Math.round((40 + Math.floor(Math.random() * 40)) / Math.max(1, cfg.mult || 1)); lg(m, 'Suceso: ' + EVS[m.evt].title + '.'); }
+    Object.keys(m.coal).filter(p => m.coal[p] < 20).forEach(p => breakCoalition(m, p));
+    if (m.palace < 10) { m.palace = 30; m.apr = clamp(m.apr - 6); m.est = clamp(m.est - 5); lg(m, 'CRISIS CON EL PALACIO: el Rey reprende públicamente al Gobierno.'); toast('Marruecos: crisis con el Palacio.'); }
+    // fin de legislatura
+    if (m.day - m.termStart >= 1460) return startElection(m, 'Fin de la legislatura: el Rey convoca elecciones generales.');
+    // moción de censura (Cámara de Representantes: mayoría absoluta de 198)
+    if (!m.motion && m.day - m.termStart > 60 && m.day >= (m.nextMot || 0)) {
+      m.nextMot = m.day + 15;
+      const opp = TOTAL - coalSeats(m), reb = rebelSeats(m);
+      if (opp + reb >= MAJ - 15 && (m.apr < 40 || reb > 0) && Math.random() < 0.5) { m.motion = { due: m.day + 10 }; lg(m, 'La oposición registra una MOCIÓN DE CENSURA contra el Gobierno.'); toast('Marruecos: moción de censura registrada.'); pauseGame(); }
+    }
+    if (m.motion && m.day >= m.motion.due) voteMotion(m);
+    // rebelión regional
+    if (!m.rebel) { const i = m.reg.findIndex(r => r.crisis && r.est < 12); if (i >= 0 && Math.random() < 0.03) { m.rebel = { i, due: m.day + 12 }; lg(m, 'REBELIÓN en ' + REG[i][1] + ': la región se alza contra el Gobierno.'); toast('Marruecos: rebelión regional.'); pauseGame(); } }
+    else if (m.day >= m.rebel.due) R.reb(2);
+  }
+
+  // ---------------- ENGANCHES CON index.html ----------------
+  const css = document.createElement('style');
+  css.textContent = '.ma-pulse{animation:mapulse 1.1s infinite}@keyframes mapulse{50%{fill-opacity:.95}}';
+  document.head.appendChild(css);
+
+  function syncTab() {   // pestaña «Marruecos» en el menú lateral (solo si hay partida multijugador con Marruecos)
+    const on = !!M() && (gameState.step === 4 || gameState.step === 5);
+    let b = document.getElementById('tab-btn-morocco');
+    if (on && !b) {
+      const mp = document.getElementById('tab-btn-mp'), goals = document.getElementById('tab-btn-goals');
+      const ref = mp || goals; if (!ref || !ref.parentNode) return;
+      b = document.createElement('button'); b.id = 'tab-btn-morocco'; b.className = 'nav-tab-btn'; b.setAttribute('onclick', "switchTab('morocco')");
+      b.innerHTML = '<i class="fa-solid fa-flag text-amber-400 w-4 text-center"></i><span>Marruecos</span>';
+      ref.parentNode.insertBefore(b, ref);
+      const g = ref.closest && ref.closest('.nav-group'); if (g && g.dataset.ids && g.dataset.ids.indexOf('morocco') < 0) g.dataset.ids += ',morocco';
+    }
+    if (b) { b.style.display = on ? '' : 'none'; b.classList.toggle('active', on && gameState.activeTab === 'morocco'); }
+  }
+
+  const _rtc = renderTabContent;
+  renderTabContent = function () { return gameState.activeTab === 'morocco' && M() ? renderMoroccoTab(M(), {}) : _rtc.apply(this, arguments); };
+
+  // La partida no avanza mientras Marruecos forma Gobierno (el reloj se queda en pausa)
+  const _gt = gameTick; let lastWarn = 0;
+  gameTick = function () {
+    const m = M();
+    if (m && pending(m) && gameState.step === 4 && gameState.gameSpeed) {
+      try { setGameSpeed(0); } catch (e) { /* ya en pausa */ }
+      if (Date.now() - lastWarn > 2500) { lastWarn = Date.now(); toast('Marruecos aún está formando Gobierno: la partida empieza cuando termine.'); }
+    }
+    return _gt.apply(this, arguments);
+  };
+
+  const _r = render;
+  const _r0 = _r;
+  // Mismo dispositivo: al llegar a la partida, Marruecos forma su Gobierno en su pestaña antes de empezar
+  const forceSetup = () => {
+    const m = M();
+    if (m && pending(m) && gameState.step === 4 && localMode()) { const ch = gameState.activeTab !== 'morocco'; gameState.activeTab = 'morocco'; gameState.mp.turn = 'P'; return ch; }
+    return false;
+  };
+  render = function () {
+    forceSetup();
+    { const mm = M(); if (mm) mm.spd = gameState.gameSpeed; }
+    if (gameState.activeTab === 'morocco' && !M()) gameState.activeTab = 'main';
+    let r = _r.apply(this, arguments);
+    if (forceSetup()) r = _r.apply(this, arguments);   // la partida local se crea dentro del primer render: se repinta ya en la pestaña de Marruecos
+    try { syncTab(); } catch (e) { console.error(e); }
+    return r;
+  };
+
+  window.MA = A;
+  window.initMorocco = initMorocco;
+  window.renderMoroccoTab = renderMoroccoTab;
+  window.moroccoTick = moroccoTick;
+})();
