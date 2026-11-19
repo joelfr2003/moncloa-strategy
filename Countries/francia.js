@@ -4379,70 +4379,70 @@ const HOUSING_EVENTS = [
 const REAL_MINISTERS = [
   // --- ECONOMÍA Y HACIENDA ---
   { 
-    id: "calvino_psoe", name: "Nadia Calviño", party: "ENS", portfolio: "economia",
+    id: "calvino_psoe", name: "Bruno Le Maire", party: "ENS", portfolio: "economia",
     desc: "+1.5% Crecimiento Económico, +0.5% Confianza UE",
     pros: "+1.5% Crecimiento Económico, +0.5% Confianza UE",
     cons: "-1.0% Sintonía con Socios de Izquierda",
     effects: { eco: 1.5, apr: -1.0 }
   },
   { 
-    id: "cuerpo_psoe", name: "Carlos Cuerpo", party: "ENS", portfolio: "economia",
+    id: "cuerpo_psoe", name: "Antoine Armand", party: "ENS", portfolio: "economia",
     desc: "+1.5% Estabilidad Económica",
     pros: "+1.5% Estabilidad Económica",
     cons: "-0.5% Presión Fiscal y Control de Gasto",
     effects: { eco: 1.5, est: -0.5 }
   },
   { 
-    id: "bravo_pp", name: "Juan Bravo", party: "LR", portfolio: "economia",
+    id: "bravo_pp", name: "Eric Woerth", party: "LR", portfolio: "economia",
     desc: "+1.5% Confianza Empresarial",
     pros: "+1.5% Confianza Empresarial, +1.0% Inversión",
     cons: "-1.0% Aprobación Sindicatos y Empleo Público",
     effects: { eco: 1.5, emp: -1.0 }
   },
   { 
-    id: "espinosa_vox", name: "Iván Espinosa de los Monteros", party: "RN", portfolio: "economia",
+    id: "espinosa_vox", name: "Jean-Philippe Tanguy", party: "RN", portfolio: "economia",
     desc: "+1.5% Recorte de Gasto Público",
     pros: "+1.5% Recorte de Gasto Público",
     cons: "-1.5% Aprobación Popular General",
     effects: { eco: 1.5, apr: -1.5 }
   },
   { 
-    id: "martin_sumar", name: "Carlos Martín Urriza", party: "PS", portfolio: "economia",
+    id: "martin_sumar", name: "Philippe Brun", party: "PS", portfolio: "economia",
     desc: "+1.5% Salarios y Empleo",
     pros: "+1.5% Salarios y Empleo",
     cons: "-1.0% Confianza Empresarial",
     effects: { emp: 1.5, eco: -1.0 }
   },
   { 
-    id: "alvarez_podemos", name: "Nacho Álvarez", party: "LFI", portfolio: "economia",
+    id: "alvarez_podemos", name: "Eric Coquerel", party: "LFI", portfolio: "economia",
     desc: "+2.0% Inversión Social",
     pros: "+2.0% Inversión Social",
     cons: "-1.5% Déficit Público y Crecimiento",
     effects: { emp: 2.0, eco: -1.5 }
   },
   { 
-    id: "salvado_erc", name: "Lluís Salvadó", party: "PS", portfolio: "economia",
+    id: "salvado_erc", name: "Charles de Courson", party: "PS", portfolio: "economia",
     desc: "+1.0% Hacienda Propia",
     pros: "+1.0% Hacienda Propia",
     cons: "-1.0% Estabilidad Estatal",
     effects: { eco: 1.0, est: -1.0 }
   },
   { 
-    id: "giro_junts", name: "Jaume Giró", party: "LIOT", portfolio: "economia",
+    id: "giro_junts", name: "Charles de Courson", party: "LIOT", portfolio: "economia",
     desc: "+1.5% Competitividad Empresarial",
     pros: "+1.5% Competitividad Empresarial",
     cons: "-1.0% Sintonía con Formaciones de Izquierda",
     effects: { eco: 1.5, apr: -1.0 }
   },
   { 
-    id: "matute_bildu", name: "Oskar Matute", party: "EELV", portfolio: "economia",
+    id: "matute_bildu", name: "Manuel Bompard", party: "EELV", portfolio: "economia",
     desc: "+1.5% Protecciones Laborales",
     pros: "+1.5% Protecciones Laborales",
     cons: "-1.5% Confianza Inversora",
     effects: { emp: 1.5, eco: -1.5 }
   },
   { 
-    id: "sagastizabal_pnv", name: "Idoia Sagastizabal", party: "LR", portfolio: "economia",
+    id: "sagastizabal_pnv", name: "Véronique Louwagie", party: "LR", portfolio: "economia",
     desc: "+1.5% Concierto Económico",
     pros: "+1.5% Concierto Económico y Rigor Fiscal",
     cons: "-0.5% Tensión de Reparto Territorial",
@@ -4830,7 +4830,7 @@ const REAL_MINISTERS = [
     effects: { eco: 1.5, est: 0.5 }
   },
   {
-    id: "espinosa_ext_vox", name: "Iván Espinosa de los Monteros", party: "RN", portfolio: "exteriores",
+    id: "espinosa_ext_vox", name: "Jean-Philippe Tanguy", party: "RN", portfolio: "exteriores",
     desc: "+1.0% Soberanía Nacional en Tratados",
     pros: "+1.0% Defensa de Intereses Agrícolas Nacionales",
     cons: "-1.5% Fricción Directa con la Comisión Europea",
