@@ -1,5 +1,5 @@
 // Service worker de Moncloa Strategy. Sube el número de VERSION cuando publiques cambios.
-const VERSION = 'v38';
+const VERSION = 'v39';
 const CACHE = 'moncloa-' + VERSION;
 const COUNTRIES_DIR = 'Countries/';
 
@@ -46,6 +46,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const r = e.request;
   if (r.method !== 'GET' || r.headers.has('range')) return;
+  if (!/^https?:/.test(r.url)) return;   // extensiones del navegador (chrome-extension:) no se guardan en caché
   const url = new URL(r.url);
   // Páginas: red primero, caché si no hay conexión
   if (r.mode === 'navigate') {
