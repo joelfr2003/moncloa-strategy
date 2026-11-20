@@ -1907,6 +1907,7 @@ function startGovernance() {
     cultura: null,
     igualdad: null
   };
+  Object.keys(gameState.abolished || {}).forEach(k => { gameState.ministers[k] = null; });   // los ministerios eliminados siguen eliminados
 
   // EVALUACIÓN DE GOBIERNO EN MINORÍA Y TOLERANCIA DE LA OPOSICIÓN
   const totalCoalitionSeats = gameState.parties
@@ -1959,6 +1960,7 @@ function startGovernance() {
   gameState.lastNews = null;
   gameState.triggeredDynamicEvents = [];
   gameState.activeDynamicEvent = null;
+  gameState.abolished = {};
   gameState.activeNewsPopup = null;
   gameState.pgeTriggered = false;
   gameState.pgePassed = false;
@@ -3044,7 +3046,7 @@ function renderTabContent() {
 }
 
 function renderCabinetTab() {
-  const ministries = [
+  const allMinistries = [
     { id: 'economia', title: (MC.names.economia || 'Ministerio de Economía y Hacienda'), icon: 'fa-chart-pie' },
     { id: 'interior', title: (MC.names.interior || 'Ministerio del Interior y Seguridad'), icon: 'fa-user-shield' },
     { id: 'defensa', title: (MC.names.defensa || 'Ministerio de Defensa Nacional'), icon: 'fa-person-military-rifle' },
@@ -3059,6 +3061,9 @@ function renderCabinetTab() {
     { id: 'cultura', title: (MC.names.cultura || 'Ministerio de Cultura'), icon: 'fa-masks-theater' },
     { id: 'igualdad', title: (MC.names.igualdad || 'Ministerio de Igualdad'), icon: 'fa-venus-mars' }
   ];
+  const abolished = gameState.abolished || {};
+  const ministries = allMinistries.filter(m => !abolished[m.id]);
+  const removed = allMinistries.filter(m => abolished[m.id]);
 
   return `
     <div class="hoi-box p-4 rounded space-y-4 font-hoi-tech">
@@ -3081,6 +3086,7 @@ function renderCabinetTab() {
               <div class="space-y-2">
                 <div class="flex items-center justify-between text-xs text-amber-400 font-bold">
                   <span class="flex items-center gap-2"><i class="fa-solid ${m.icon}"></i> ${m.title}</span>
+                  <button onclick="abolishMinistry('${m.id}')" title="Eliminar este ministerio" class="text-[10px] text-rose-400 hover:text-rose-300 border border-rose-500/40 hover:border-rose-400 rounded px-1.5 py-0.5 font-bold"><i class="fa-solid fa-trash-can mr-1"></i>Eliminar</button>
                 </div>
 
                 <select onchange="updateMinister('${m.id}', this.value)" class="w-full bg-slate-950 border border-slate-700 p-2 rounded text-xs font-hoi-tech text-slate-200 focus:border-amber-400 cursor-pointer">
@@ -3120,8 +3126,44 @@ function renderCabinetTab() {
           `;
         }).join('')}
       </div>
+      ${removed.length ? `
+        <div class="border-t border-slate-800 pt-3 space-y-2">
+          <p class="text-[11px] text-slate-400 uppercase">Ministerios eliminados (sin coste mensual)</p>
+          <div class="flex flex-wrap gap-2">
+            ${removed.map(m => `<button onclick="restoreMinistry('${m.id}')" class="text-[11px] bg-slate-900 border border-slate-700 hover:border-emerald-500/60 text-slate-300 rounded px-2 py-1"><i class="fa-solid ${m.icon} mr-1"></i>${m.title} · <span class="text-emerald-400 font-bold">Restaurar</span></button>`).join('')}
+          </div>
+        </div>` : ''}
     </div>
   `;
+}
+
+// Eliminar un ministerio: desaparece del gabinete, deja de costar dinero cada mes, y tiene un coste político
+const MINISTRY_ABOLISH_HIT = { economia: [6, 4], interior: [6, 4], defensa: [6, 4], sanidad: [6, 4], educacion: [6, 4], justicia: [6, 4], exteriores: [5, 3], trabajo: [4, 2], vivienda: [3, 2], territorio: [3, 2], transicion_ecologica: [3, 2], cultura: [2, 1], igualdad: [2, 1] };
+function abolishMinistry(id) {
+  if (!gameState.ministers) gameState.ministers = {};
+  if (!gameState.abolished) gameState.abolished = {};
+  if (gameState.abolished[id]) return;
+  const name = (MC.names && MC.names[id]) || id;
+  const hit = MINISTRY_ABOLISH_HIT[id] || [3, 2];
+  if (!confirm('¿Eliminar «' + name + '»?\n\nDejará de costar dinero cada mes, pero la opinión pública y la estabilidad lo notarán (−' + hit[0] + ' aprobación, −' + hit[1] + ' estabilidad). Podrás restaurarlo más adelante.')) return;
+  const holder = gameState.ministers[id];
+  gameState.ministers[id] = null;
+  gameState.abolished[id] = true;
+  if (gameState.metrics) {
+    gameState.metrics.apr = Math.max(0, Math.min(100, gameState.metrics.apr - hit[0]));
+    gameState.metrics.est = Math.max(0, Math.min(100, gameState.metrics.est - hit[1]));
+  }
+  // si lo ocupaba un socio de coalición, se lo toma mal
+  if (holder && holder !== gameState.leaderPartyId && Array.isArray(gameState.coalitionIds) && gameState.coalitionIds.includes(holder) && typeof updatePartnerLoyalty === 'function') {
+    try { updatePartnerLoyalty(holder, -15); } catch (e) { /* sin lealtad */ }
+  }
+  gameState.latestNews = ((window.MC && MC.t && MC.t.gov) || 'El Gobierno') + ' suprime ' + name + ' para reducir el gasto público.';
+  if (typeof goalsToast === 'function') goalsToast('<i class="fa-solid fa-trash-can text-rose-400"></i> Ministerio eliminado: <b>' + name + '</b>', '#e11d48');
+  render();
+}
+function restoreMinistry(id) {
+  if (gameState.abolished) delete gameState.abolished[id];
+  render();
 }
 
 function updateMinister(ministryId, ministerId) {
@@ -3485,7 +3527,7 @@ function addTransaction(concept, amount, ministryKey = 'general') {
 
 // Ejecución aleatoria autónoma
 function triggerRandomMinistryAction() {
-  const keys = Object.keys(MINISTRY_DECISIONS_BANK).filter(k => Array.isArray(MINISTRY_DECISIONS_BANK[k]) && MINISTRY_DECISIONS_BANK[k].length);
+  const keys = Object.keys(MINISTRY_DECISIONS_BANK).filter(k => Array.isArray(MINISTRY_DECISIONS_BANK[k]) && MINISTRY_DECISIONS_BANK[k].length && !(gameState.abolished && gameState.abolished[k]));
   if (!keys.length) return;
   const randomMinistryKey = keys[Math.floor(Math.random() * keys.length)];
   const actions = MINISTRY_DECISIONS_BANK[randomMinistryKey];
@@ -4967,82 +5009,76 @@ function checkCoalitionLoyalty() {
   });
 }
 
-function triggerVitoQuilesUAB() {
-  // 1. Congelar el estado del juego
-  gameState.activeDynamicEvent = true;
-  
-  // Si usas un temporizador automático (ej: setInterval / isPaused), paúsalo aquí:
-  if (typeof stopAutoAdvance === 'function') stopAutoAdvance();
-  if (gameState.hasOwnProperty('isPaused')) gameState.isPaused = true;
-
-  // 2. Generar el modal
-  const modal = document.createElement('div');
-  modal.id = 'vito-quiles-modal';
-  modal.className = 'fixed inset-0 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center z-[10000] p-4';
-
-  modal.innerHTML = `
-    <div class="bg-slate-900 border-2 border-amber-500/80 rounded-xl max-w-lg w-full p-6 shadow-2xl relative text-slate-100 font-sans">
-      
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
-        <span class="bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[10px] font-bold px-2.5 py-1 rounded tracking-wider uppercase">
-          <i class="fa-solid fa-bullhorn mr-1"></i> Tensión Universitaria (24 Oct)
-        </span>
-        <span class="text-xs text-slate-400 font-mono">12:00 h</span>
-      </div>
-
-      <h2 class="text-xl font-bold text-slate-100 mb-3 leading-snug">
-        Convocatoria de Vito Quiles en la UAB
-      </h2>
-      <p class="text-slate-300 text-sm leading-relaxed mb-6">
-        Vito Quiles ha convocado a las 12:00 h a los estudiantes de la UAB en la Plaça Cívica. La presencia de colectivos contrapuestos ha elevado el clima de tensión en el campus universitario. ¿Cómo debe actuar el Gobierno?
-      </p>
-
-      <div class="space-y-3">
-        <button onclick="handleVitoQuilesChoice(1)" class="w-full text-left bg-slate-800/90 hover:bg-slate-800 border border-slate-700 hover:border-amber-500/60 p-3.5 rounded-lg transition duration-150 group flex flex-col gap-1">
-          <div class="font-bold text-amber-400 text-sm group-hover:translate-x-1 transition-transform">
-            1. Desplegar un dispositivo de seguridad preventivo
-          </div>
-          <div class="text-xs text-slate-400">
-            Garantiza la seguridad en la Plaça Cívica, pero puede ser visto como una militarización del campus.
-          </div>
-        </button>
-
-        <button onclick="handleVitoQuilesChoice(2)" class="w-full text-left bg-slate-800/90 hover:bg-slate-800 border border-slate-700 hover:border-amber-500/60 p-3.5 rounded-lg transition duration-150 group flex flex-col gap-1">
-          <div class="font-bold text-amber-400 text-sm group-hover:translate-x-1 transition-transform">
-            2. Ignorar la convocatoria y no enviar efectivos
-          </div>
-          <div class="text-xs text-slate-400">
-            Resta trascendencia institucional al acto, pero asume el riesgo de altercado en la universidad.
-          </div>
-        </button>
-      </div>
-
-    </div>
-  `;
-
-  document.body.appendChild(modal);
+// Evento fijo del 24 de octubre (tensión universitaria). Cada país tiene su versión;
+// un fichero de país puede definir la suya con window.COUNTRY_CAMPUS_EVENT = { title, desc, o1: {text, description}, o2: {text, description}, newsA, newsB }.
+function campusEventFor() {
+  var id = String((window.CURRENT_COUNTRY && window.CURRENT_COUNTRY.id) || 'espana').toLowerCase();
+  var gov = (window.MC && MC.t && MC.t.gov) || 'El Gobierno';
+  var T = {
+    espana: {
+      title: 'Convocatoria de Vito Quiles en la UAB',
+      desc: 'Vito Quiles ha convocado a las 12:00 h a los estudiantes de la UAB en la Plaça Cívica. La presencia de colectivos contrapuestos ha elevado el clima de tensión en el campus universitario.',
+      o1: { text: '1. Desplegar un dispositivo de seguridad preventivo', description: 'Garantiza la seguridad en la Plaça Cívica, pero puede ser visto como una militarización del campus.' },
+      o2: { text: '2. Ignorar la convocatoria y no enviar efectivos', description: 'Resta trascendencia institucional al acto, pero asume el riesgo de altercado en la universidad.' },
+      newsA: gov + ' despliega un dispositivo preventivo en la Plaça Cívica de la UAB y la jornada transcurre sin incidentes graves.',
+      newsB: gov + ' ignora la convocatoria en la UAB y la tensión entre colectivos termina en un altercado en el campus.'
+    },
+    marruecos: {
+      title: 'Convocatoria polémica en la Universidad Mohammed V de Rabat',
+      desc: 'Un influencer de tono provocador ha convocado a las 12:00 h a los estudiantes en la explanada de la Facultad de Rabat-Agdal. La presencia de colectivos contrapuestos ha elevado el clima de tensión en el campus.',
+      o1: { text: '1. Desplegar un dispositivo de seguridad preventivo', description: 'Garantiza el orden en la explanada, pero puede verse como una militarización del campus.' },
+      o2: { text: '2. Ignorar la convocatoria y no enviar efectivos', description: 'Resta trascendencia institucional al acto, pero asume el riesgo de un altercado en la universidad.' },
+      newsA: gov + ' despliega un dispositivo preventivo en la Universidad Mohammed V de Rabat y la jornada transcurre sin incidentes graves.',
+      newsB: gov + ' ignora la convocatoria en Rabat y la tensión entre colectivos termina en un altercado en el campus.'
+    },
+    eeuu: {
+      title: 'Acto polémico de un activista en el campus de Berkeley',
+      desc: 'Un activista mediático de gira universitaria ha convocado a las 12:00 h a los estudiantes en Sproul Plaza (UC Berkeley). La presencia de grupos contrapuestos y de manifestantes ha elevado el clima de tensión en el campus.',
+      o1: { text: '1. Reforzar la seguridad con apoyo federal', description: 'Garantiza el orden en Sproul Plaza, pero puede verse como una injerencia federal en un campus.' },
+      o2: { text: '2. Dejar la gestión a la universidad y a la policía local', description: 'Respeta la autonomía del campus y resta trascendencia al acto, pero asume el riesgo de un altercado.' },
+      newsA: gov + ' refuerza la seguridad en Berkeley con apoyo federal y el acto termina sin incidentes graves.',
+      newsB: gov + ' deja la gestión del acto de Berkeley en manos de la universidad y la tensión termina en un altercado en el campus.'
+    }
+  };
+  var key = id.indexOf('marruec') === 0 ? 'marruecos' : /^(eeuu|usa|us|estados)/.test(id) ? 'eeuu' : (id === 'espana' ? 'espana' : 'generic');
+  var t = (window.COUNTRY_CAMPUS_EVENT && typeof window.COUNTRY_CAMPUS_EVENT === 'object') ? window.COUNTRY_CAMPUS_EVENT : T[key];
+  if (!t) t = {
+    title: 'Convocatoria polémica en la principal universidad del país',
+    desc: 'Un agitador mediático ha convocado a las 12:00 h a los estudiantes en el campus de la principal universidad del país. La presencia de colectivos contrapuestos ha elevado el clima de tensión.',
+    o1: { text: '1. Desplegar un dispositivo de seguridad preventivo', description: 'Garantiza el orden en el campus, pero puede verse como una militarización.' },
+    o2: { text: '2. Ignorar la convocatoria y no enviar efectivos', description: 'Resta trascendencia al acto, pero asume el riesgo de un altercado.' },
+    newsA: gov + ' despliega un dispositivo preventivo en el campus y la jornada transcurre sin incidentes graves.',
+    newsB: gov + ' ignora la convocatoria y la tensión termina en un altercado en el campus.'
+  };
+  return t;
 }
 
-function handleVitoQuilesChoice(option) {
-  // 1. Destruir ventana emergente
-  const modal = document.getElementById('vito-quiles-modal');
-  if (modal) modal.remove();
+function triggerVitoQuilesUAB() {
+  // Usa el sistema normal de eventos emergentes: pausa el tiempo, bloquea otros popups y se resuelve con makeDecision
+  if (gameState.activeDynamicEvent) return;
+  var t = campusEventFor();
+  if (gameState.gameSpeed > 0) gameState.prePopupSpeed = gameState.gameSpeed;
+  setGameSpeed(0);
+  gameState.activeDynamicEvent = {
+    id: 'CAMPUS_24OCT',
+    category: 'TENSIÓN UNIVERSITARIA (24 OCT)',
+    title: t.title,
+    desc: t.desc,
+    description: t.desc,
+    options: [
+      { text: t.o1.text, description: t.o1.description, stats: { eco: 0, est: +2, emp: 0, con: 0, apr: -1, mil: 0 }, cost: 0, news: t.newsA },
+      { text: t.o2.text, description: t.o2.description, stats: { eco: 0, est: -2, emp: 0, con: 0, apr: +1, mil: 0 }, cost: 0, news: t.newsB }
+    ]
+  };
+  render();
+}
 
-  // 2. APLICAR IMPACTOS EN EL JUEGO
-  if (option === 1) {
-    if (gameState.hasOwnProperty('approval')) gameState.approval -= 1;
-    if (gameState.hasOwnProperty('stability')) gameState.stability += 2;
-  } else if (option === 2) {
-    if (gameState.hasOwnProperty('approval')) gameState.approval += 1;
-    if (gameState.hasOwnProperty('stability')) gameState.stability -= 2;
-  }
-
-  // 3. REANUDAR Y DESBLOQUEAR EL JUEGO (Solo tras hacer clic)
-  gameState.activeDynamicEvent = false;
-
-  // Actualizar pantalla
-  if (typeof render === 'function') render();
-  if (typeof updateUI === 'function') updateUI();
+// Compatibilidad con partidas guardadas que tuvieran el modal antiguo abierto
+function handleVitoQuilesChoice() {
+  var modal = document.getElementById('vito-quiles-modal'); if (modal) modal.remove();
+  gameState.activeDynamicEvent = null;
+  setGameSpeed(gameState.prePopupSpeed || 1);
+  render();
 }
 
 // Actualiza la lealtad de un socio de coalición y gestiona su salida si llega a 0

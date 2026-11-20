@@ -106,73 +106,86 @@
     if (d.p && typeof d.p === 'object') Object.keys(m.pacts).forEach(k => { if (typeof d.p[k] === 'boolean') m.pacts[k] = d.p[k]; });
   };
 
-  // ---------------- RELOJ COMPARTIDO (anfitrión autoritativo + heartbeat) ----------------
-  // El anfitrión es la fuente de verdad del día. Heartbeat cada 4 s mantiene viva la conexión.
-  const X = { ready: false, sent: false, day: null, day0: null, waiting: false, waitSpd: 1, applying: false, lastRx: 0, hbTimer: null };
+  // ---------------- RELOJ COMPARTIDO (lockstep) ----------------
+  // Cada jugador corre su partida, pero ningún reloj puede ir más de 1 día por delante del otro:
+  //  · el día común de inicio (m.day0) se fija una sola vez y se guarda con la partida (sobrevive a las reconexiones);
+  //  · si vas por delante, el tick se SALTA (no se toca la velocidad, así no hay bloqueos cruzados);
+  //  · pausa y velocidad solo se comparten cuando las cambia una persona (botones o barra espaciadora),
+  //    no cuando las cambia un popup, una campaña o unas elecciones;
+  //  · si se cae la conexión el tiempo se detiene en los dos hasta reconectar.
+  const X = { ready: false, sent: false, day: null, seen: 0, waiting: false, applying: false, shared: 0, pend: null, fast: 1 };
   const inGame = () => gameState.step === 4 || gameState.step === 5;
-  const elapsed = () => (gameState.daysInOffice || 0) - (X.day0 == null ? (gameState.daysInOffice || 0) : X.day0);
-  function stopHeartbeat() { if (X.hbTimer) { clearInterval(X.hbTimer); X.hbTimer = null; } }
-  function startHeartbeat() {
-    stopHeartbeat();
-    X.lastRx = Date.now();
-    X.hbTimer = setInterval(() => {
-      const m = S();
-      if (!m || !m.linked || !link || !link.open) return;
-      try { tx({ t: 'hb', n: elapsed(), role: m.role }); } catch (e) {}
-      if (Date.now() - X.lastRx > 18000) {
-        m.linked = false;
-        log('Conexión perdida (sin respuesta).');
-        toast('Conexión perdida. Reconecta desde Multijugador.', '#ef4444');
-        stopHeartbeat();
-        try { if (link) link.close(); } catch (e) {}
-        link = null;
-        render();
-      }
-    }, 4000);
+  const started = () => { const m = S(); return !!(m && m.day0 != null); };
+  const elapsed = () => { const m = S(); return (gameState.daysInOffice || 0) - (m && m.day0 != null ? m.day0 : (gameState.daysInOffice || 0)); };
+  const inSession = () => { const m = S(); return !!(m && m.role && m.other); };
+  const resetClock = () => { X.ready = false; X.sent = false; X.day = null; X.waiting = false; X.seen = Date.now(); };
+  const MODALS = ['vito-quiles-modal', 'campus-modal', 'xm-modal', 'council-modal', 'crisis-modal', 'election-overlay', 'emergent-alert-modal'];
+  const busy = () => !(gameState.step === 4 || gameState.step === 5) || !!(gameState.pgeActive || gameState.activeDynamicEvent || gameState.activeNewsPopup || gameState.coupActive || gameState.currentCampaignQuestion || MODALS.some(id => document.getElementById(id)));
+  function userSpeedAct() {   // ¿lo ha cambiado una persona con los controles de tiempo?
+    const e = window.event; if (!e || !e.isTrusted) return false;
+    if (e.type === 'keydown') return e.code === 'Space';
+    if (e.type !== 'click') return false;
+    const t = e.target && e.target.closest ? e.target.closest('[onclick]') : null;
+    return !!(t && /setGameSpeed|CAMP\.speed|togglePause/.test(t.getAttribute('onclick') || ''));
   }
-  const resetClock = () => { X.ready = false; X.sent = false; X.day = null; X.day0 = null; X.waiting = false; stopHeartbeat(); };
   const _sg = setGameSpeed;
   function localSpeed(v) { X.applying = true; try { _sg(v); } finally { X.applying = false; } }
   setGameSpeed = function (v) {
     const m = S();
-    if (m && m.linked && !X.applying) {
-      if (v > 0 && !(X.ready && inGame())) { localSpeed(0); toast('Reloj compartido: esperando al otro jugador.', '#d9a726'); return; }
-      X.waiting = false; tx({ t: 'spd', v });
+    if (m && inSession() && !X.applying) {
+      if (v > 0 && !started()) { localSpeed(0); toast('Reloj compartido: esperando a que el otro jugador llegue a la partida.', '#d9a726'); return; }
+      if (v > 0 && !m.linked) { localSpeed(0); toast('Sin conexión con ' + oname() + ': el tiempo está detenido hasta reconectar.', '#d9a726'); return; }
+      if (started() && m.linked) {
+        if (userSpeedAct()) { X.shared = v; tx({ t: 'spd', v }); }
+        else if (v > 0 && X.shared === 0) { localSpeed(0); return; }   // el otro jugador tiene la partida en pausa
+      }
     }
     return _sg.apply(this, arguments);
   };
+  function applyRemoteSpeed(v) {
+    if (!started() || [0, 1, 2, 3].indexOf(v) < 0) return;
+    X.shared = v;
+    if (v === 0) { X.pend = null; if (gameState.gameSpeed !== 0) localSpeed(0); return; }
+    if (busy()) { X.pend = v; return; }   // tienes un popup o una pantalla abierta: se aplicará al cerrarla
+    X.pend = null; localSpeed(v);
+  }
   function sendReady() { const m = S(); if (m && m.linked) { X.sent = inGame(); tx({ t: 'rdy', r: X.sent }); } }
-  function checkStart() {
-    const m = S(); if (!m || !m.linked || !X.ready || !inGame() || X.day0 != null) return;
-    X.day0 = gameState.daysInOffice || 0; X.day = 0; localSpeed(0);
-    startHeartbeat();
-    toast('Reloj compartido listo. Pulsad ▶ para empezar a la vez.', '#d9a726');
+  function checkStart() {   // cuando los dos están dentro por primera vez: se pausa y se fija el día 0 común
+    const m = S(); if (!m || !m.linked || started() || !X.ready || !inGame()) return;
+    m.day0 = gameState.daysInOffice || 0; X.day = 0; X.shared = 0; localSpeed(0);
+    toast('Reloj compartido: pulsad ▶ para empezar a la vez.', '#d9a726');
   }
   function clockMsg(d) {
-    X.lastRx = Date.now();
     if (d.t === 'rdy') { X.ready = !!d.r; checkStart(); }
-    else if (d.t === 'spd' && [0, 1, 2, 3].indexOf(d.v) >= 0) {
-      if (inGame() && X.day0 != null) { X.waiting = false; localSpeed(d.v); }
-    }
-    else if (d.t === 'day' && typeof d.n === 'number') {
-      const m = S();
-      X.day = d.n;
-      if (m && m.role === 'guest' && X.day0 != null) {
-        const e = elapsed();
-        if (e > d.n + 2 && gameState.gameSpeed > 0 && !X.waiting) {
-          X.waiting = true; X.waitSpd = gameState.gameSpeed; localSpeed(0);
-          toast('Reloj: esperando al anfitrión…', '#d9a726');
-        } else if (X.waiting && e <= d.n + 1) {
-          X.waiting = false; localSpeed(X.waitSpd);
-        }
-      } else if (X.waiting && elapsed() <= d.n + 1) {
-        X.waiting = false; localSpeed(X.waitSpd);
-      }
-    }
-    else if (d.t === 'hb') {
-      if (typeof d.n === 'number') X.day = d.n;
-    }
+    else if (d.t === 'spd') applyRemoteSpeed(d.v);
+    else if ((d.t === 'day' || d.t === 'hb') && typeof d.n === 'number' && isFinite(d.n)) X.day = d.n;
   }
+  function clockUi() {   // aviso fijo cuando el reloj está esperando al otro jugador o sin conexión
+    const m = S(); let txt = '', red = false;
+    if (m && inSession() && started() && gameState.step >= 4) {
+      if (!m.linked) { txt = '⚠ Sin conexión con ' + oname() + ' · reconectando… (el tiempo está detenido)'; red = true; }
+      else if (X.waiting) txt = '⏳ Esperando a ' + oname() + ' · tu día ' + elapsed() + ' · su día ' + (X.day == null ? '?' : X.day);
+    }
+    let b = document.getElementById('mp-clock');
+    if (!txt) { if (b) b.remove(); return; }
+    if (!b) {
+      b = document.createElement('div'); b.id = 'mp-clock';
+      b.style.cssText = 'position:fixed;left:50%;top:calc(8px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:9000;padding:6px 14px;border-radius:999px;font:600 12px "Chakra Petch",sans-serif;color:#fff;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.5);max-width:94vw;text-align:center';
+      b.onclick = () => { try { switchTab('mp'); } catch (e) { /* sin pestaña */ } };
+      document.body.appendChild(b);
+    }
+    b.style.background = red ? '#b91c1c' : '#a16207'; b.textContent = txt;
+  }
+  // Latido: cada segundo se avisa del día propio (así el otro sabe cuánto vas aunque estés en pausa o en un popup)
+  setInterval(() => {
+    const m = S(); if (!m || !m.role) return;
+    if (m.linked) {
+      tx({ t: 'hb', n: started() ? elapsed() : null, st: gameState.step });
+      if (X.seen && Date.now() - X.seen > 15000) lostLink('sin respuesta');
+      else if (X.pend != null && !busy()) { const v = X.pend; X.pend = null; if (X.shared === v) localSpeed(v); }
+    }
+    try { clockUi(); } catch (e) { /* sin DOM */ }
+  }, 1000);
   // ---------------- CONFIGURACIÓN (la decide el anfitrión) ----------------
   const FREE = 99;   // «Sin límite»: el motor usa 99 legislaturas para el modo libre
   const diffName = k => (typeof DIFFICULTY !== 'undefined' && DIFFICULTY[k]) ? DIFFICULTY[k].name : k;
@@ -228,7 +241,10 @@
   }
   function onData(d) {
     const m = S(); if (!m || !d || typeof d.t !== 'string') return;
+    X.seen = Date.now();
     if (d.t === 'hello') {
+      m.linked = true; R.n = 0;
+      if (!d.re) tx({ t: 'hello', re: true, c: myC().id, n: myC().name, u: USER });   // el otro (re)entra: se le contesta para que sepa que estás ahí
       m.other = { id: String(d.c || '').slice(0, 24), name: String(d.n || d.c || 'Otro país').slice(0, 30), user: String(d.u || '').slice(0, 16) };
       if (m.role === 'host') {   // el anfitrión arbitra el valor inicial de la relación (el de su propia partida, si existe)
         try { const k = INTL_KEY[m.other.id], I = intlInit(); if (k && I.rel && I.rel[k] != null) m.rel = clamp(I.rel[k]); } catch (e) { /* sin INTL */ }
@@ -238,7 +254,10 @@
         const msg = 'No se puede jugar con el mismo país: ' + myC().name + ' ya está en uso. Uno de los dos debe elegir otro país.';
         closeNet(); gameState.mp = null; L.err = msg; toast(msg, '#d9a726'); render(); return;
       }
-      toast(esc(m.other.user || m.other.name) + ' (' + esc(m.other.name) + ') se ha conectado.', '#10b981');
+      if (started()) {   // reconexión en mitad de la partida: los dos paran y reanudan a la vez
+        X.shared = 0; X.pend = null; X.day = null; if (gameState.gameSpeed) localSpeed(0);
+        toast(esc(m.other.user || m.other.name) + ' (' + esc(m.other.name) + ') ha vuelto. Pulsad ▶ para seguir a la vez.', '#10b981');
+      } else toast(esc(m.other.user || m.other.name) + ' (' + esc(m.other.name) + ') se ha conectado.', '#10b981');
       sendReady(); checkStart(); render(); return;
     }
     if (d.t === 'reld') { if (typeof d.dr === 'number' && isFinite(d.dr)) setRel(m.rel + Math.max(-100, Math.min(100, d.dr)), true); render(); return; }
@@ -299,15 +318,7 @@
     try { debtDaily(m, d); } catch (e) { console.error(e); }
     try { aftermath(m, d); } catch (e) { console.error(e); }
     if (m.pacts.trade && d % 30 === 0) cash(150, 'Pacto comercial con ' + oname());
-    if (m.linked && X.day0 != null) {
-      const e = elapsed();
-      // Anfitrión emite el día cada turno; invitado solo cuando va por detrás no emite autoridad
-      if (m.role === 'host' || e % 3 === 0) tx({ t: 'day', n: e });
-      if (m.role === 'guest' && X.day != null && gameState.gameSpeed > 0 && e > X.day + 2 && !X.waiting) {
-        X.waiting = true; X.waitSpd = gameState.gameSpeed; localSpeed(0);
-        toast('Reloj: esperando al anfitrión…', '#d9a726');
-      }
-    }
+    if (m.linked && started()) tx({ t: 'day', n: elapsed() });
     if (m.role === 'host' && m.linked) {
       if (pk.length) setRel(m.rel + 0.05 * pk.length);
       if (!m._s || d % 5 === 0) { tx({ t: 'sync', auth: true }); m._s = true; }   // el anfitrión fija el valor exacto de la relación al empezar y cada 5 días
@@ -520,7 +531,7 @@
         const nw = WAR();   // el frente del defensor es el espejo del atacante y los días de guerra coinciden
         if (m.pvp.local && nw) {
           nw.prog = Math.max(-100, Math.min(100, -(Number(d.prog) || 0))); m.pvp.base = nw.prog;
-          if (typeof d.since === 'number' && X.day0 != null) nw.start = (gameState.daysInOffice || 0) - (elapsed() - d.since);
+          if (typeof d.since === 'number' && started()) nw.start = (gameState.daysInOffice || 0) - (elapsed() - d.since);
         } } } catch (e) { console.error(e); }
       log(oname() + ' te declara la guerra.');
       toast(oflag() + ' <b>¡' + esc(oname()).toUpperCase() + ' TE HA DECLARADO LA GUERRA!</b><br><span class="text-xs">' + (m.pvp.local ? 'Defiéndete desde Militar y Guerra: tus operaciones empujan el frente contra el atacante.' : 'Ya estás en otra guerra: no puedes abrir el frente contra el atacante.') + '</span>');
@@ -592,7 +603,7 @@
     if (/^sb_secret_/.test(RELAY.key)) toast('Has pegado una clave SECRETA. Usa la «anon» (eyJ…) o la «publishable».');
     const sb = window.supabase.createClient(RELAY.url, RELAY.key), other = role === 'host' ? 'guest' : 'host';
     const ch = sb.channel('moncloa-' + code, { config: { broadcast: { self: false }, presence: { key: role + Math.random().toString(36).slice(2, 7) } } });
-    const L = { open: false, h: {}, on(e, f) { this.h[e] = f; }, send(d) { ch.send({ type: 'broadcast', event: 'm', payload: { from: role, d } }); }, close() { L.open = false; try { sb.removeChannel(ch); } catch (e) { /* ya cerrado */ } } };
+    const L = { open: false, relay: true, subscribed: false, h: {}, on(e, f) { this.h[e] = f; }, send(d) { ch.send({ type: 'broadcast', event: 'm', payload: { from: role, d } }); }, close() { L.open = false; L.subscribed = false; try { sb.removeChannel(ch); } catch (e) { /* ya cerrado */ } } };
     ch.on('broadcast', { event: 'm' }, ({ payload }) => { if (payload && payload.from !== role && L.h.data) L.h.data(payload.d); });
     ch.on('presence', { event: 'sync' }, () => {
       const has = Object.keys(ch.presenceState()).some(k => k.indexOf(other) === 0);
@@ -602,64 +613,91 @@
     let ok = false;
     setTimeout(() => { if (!ok) toast('Supabase no responde tras 10 s: ¿proyecto pausado, URL mal o websockets bloqueados?'); }, 10000);
     ch.subscribe((st, err) => {
-      if (st === 'SUBSCRIBED') { ok = true; ch.track({ role }); }
-      else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') { console.error('Supabase Realtime:', st, err); toast('Supabase: ' + st + (err && err.message ? ' — ' + err.message : '') + '. Revisa la URL y la clave (consola F12 para más detalle).'); }
+      if (st === 'SUBSCRIBED') { ok = true; L.subscribed = true; ch.track({ role }); }
+      else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') { L.subscribed = false; console.error('Supabase Realtime:', st, err); toast('Supabase: ' + st + (err && err.message ? ' — ' + err.message : '') + '. Revisa la URL y la clave (consola F12 para más detalle).'); }
     });
     return L;
   }
 
-  // ---------------- CONEXIÓN ----------------
+  // ---------------- CONEXIÓN (con reconexión automática) ----------------
+  const R = { t: null, n: 0, last: 0 };
+  const SESS = 'moncloa_mp_session';
+  function saveSess(role, code) { try { localStorage.setItem(SESS, JSON.stringify({ role, code, c: myC().id, at: Date.now() })); } catch (e) { /* nada */ } }
+  function loadSess() { try { const o = JSON.parse(localStorage.getItem(SESS) || 'null'); return o && o.code && o.role && Date.now() - (o.at || 0) < 12 * 3600e3 ? o : null; } catch (e) { return null; } }
+  function clearSess() { try { localStorage.removeItem(SESS); } catch (e) { /* nada */ } }
+  function teardown() {   // suelta el transporte sin tocar sala, rol ni reloj
+    const l = link, p = peer; link = peer = null;
+    try { if (l) l.close(); } catch (e) { /* ya cerrado */ }
+    try { if (p) p.destroy(); } catch (e) { /* ya cerrado */ }
+  }
   function wire(c) {
     link = c;
-    const hello = () => {
-      const m = ensure();
-      m.linked = true;
-      resetClock();
-      X.lastRx = Date.now();
-      tx({ t: 'hello', c: myC().id, n: myC().name, u: USER });
-      // Si ya estamos en partida, reactivar heartbeat
-      if (inGame()) startHeartbeat();
-      render();
-    };
-    c.on('open', hello);
-    c.on('data', d => { X.lastRx = Date.now(); onData(d); });
+    const mine = () => c === link;   // ignora eventos de conexiones viejas
+    c.on('open', () => { if (!mine()) return; const m = ensure(); m.linked = true; R.n = 0; resetClock(); tx({ t: 'hello', c: myC().id, n: myC().name, u: USER }); render(); });
+    c.on('data', d => { if (mine()) onData(d); });
+    c.on('error', err => { if (mine()) console.warn('Error de enlace:', err); });
     c.on('close', () => {
-      const m = S();
-      if (m) { m.linked = false; log('Conexión con ' + oname() + ' perdida.'); }
-      stopHeartbeat();
-      link = null;
-      toast('Conexión cerrada. Puedes reconectar desde Multijugador.', '#ef4444');
-      render();
-    });
-    c.on('error', err => {
-      console.warn('Link error', err);
-      toast('Error de red: ' + (err && err.type || 'desconocido'), '#ef4444');
+      if (!mine()) return;
+      const m = S(); if (m && m.linked) { m.linked = false; log('Conexión con ' + oname() + ' perdida.'); }
+      if (!c.relay) link = null;   // PeerJS: la conexión murió; el canal de Supabase se reabre solo
+      scheduleReconnect(); render();
     });
   }
-  function closeNet() { stopHeartbeat(); resetClock(); try { if (link) link.close(); if (peer) peer.destroy(); } catch (e) { /* ya cerrado */ } link = peer = null; const m = S(); if (m) { m.linked = false; m.role = null; m.code = ''; } }
+  function lostLink(why) {   // el otro no da señales (red caída, pestaña congelada…)
+    const m = S(); if (!m || !m.linked) return;
+    m.linked = false; log('Conexión con ' + oname() + ' perdida (' + why + ').');
+    teardown(); scheduleReconnect(); render();
+  }
+  function connect(role, code) {
+    (useRelay() ? loadSb : loadPeer)(() => {
+      const m = ensure(); if (!m.role && !S()) return;
+      teardown(); m.role = role; m.code = code; R.last = Date.now(); saveSess(role, code);
+      if (useRelay()) { const Lk = relayLink(code, role); peer = { destroy: () => Lk.close() }; wire(Lk); render(); return; }
+      if (role === 'host') {
+        const p = peer = new Peer('moncloa-' + code);
+        p.on('open', () => render());
+        p.on('disconnected', () => { if (p === peer) try { p.reconnect(); } catch (e) { /* se reintenta */ } });
+        p.on('error', e => { if (p !== peer) return; if (e.type !== 'unavailable-id') toast('Error de conexión: ' + e.type); teardown(); scheduleReconnect(); render(); });
+        p.on('connection', c => { if (p !== peer) return; if (link && link !== c) { const old = link; link = null; try { old.close(); } catch (er) { /* ya cerrado */ } } wire(c); });
+      } else {
+        const p = peer = new Peer();
+        p.on('error', e => { if (p !== peer) return; if (R.n < 2 || R.n % 5 === 0) toast('No se pudo conectar: ' + e.type); teardown(); scheduleReconnect(); render(); });
+        p.on('open', () => { if (p === peer) wire(p.connect('moncloa-' + code, { reliable: true })); });
+      }
+      render();
+    });
+  }
+  function scheduleReconnect() {
+    const m = S(); if (!m || !m.role || !m.code || m.linked || R.t) return;
+    if (L.on && R.n >= 3) return;   // en la pantalla de inicio no se insiste
+    R.t = setTimeout(() => {
+      R.t = null; const mm = S(); if (!mm || !mm.role || mm.linked) { R.n = 0; return; }
+      R.n++;
+      const waiting = (useRelay() && link && link.subscribed) || (!useRelay() && mm.role === 'host' && peer && peer.open && !peer.destroyed);
+      if (!waiting && Date.now() - R.last > 8000) connect(mm.role, mm.code);   // si ya está a la escucha, solo se espera al otro
+      scheduleReconnect(); try { render(); } catch (e) { /* sin DOM */ }
+    }, Math.min(15000, 4000 + R.n * 2000));
+  }
+  function retryNow() {
+    const m = S(); if (!m || !m.role || !m.code) return;
+    if (R.t) { clearTimeout(R.t); R.t = null; } R.n = 0; R.last = 0; connect(m.role, m.code); scheduleReconnect();
+    toast('Reintentando conexión…', '#d9a726');
+  }
+  function closeNet() {
+    resetClock(); if (R.t) { clearTimeout(R.t); R.t = null; } R.n = 0; clearSess(); teardown();
+    const m = S(); if (m) { m.linked = false; m.role = null; m.code = ''; }
+  }
   function host() {
     if (!userOk()) return need();
     (useRelay() ? loadSb : loadPeer)(() => {
-      closeNet(); const m = ensure(); m.role = 'host'; m.other = null; if (!m.cfg) m.cfg = { diff: L.diff, legs: FREE }; applyCfg(); m.code = Math.random().toString(36).slice(2, 7).toUpperCase();
-      if (useRelay()) { const L = relayLink(m.code, 'host'); peer = { destroy: () => L.close() }; wire(L); render(); return; }
-      peer = new Peer('moncloa-' + m.code);
-      peer.on('open', () => render());
-      peer.on('error', e => { toast('Error de conexión: ' + e.type); peer = null; render(); });
-      peer.on('connection', c => { if (link && link.open) { c.close(); return; } wire(c); });
-      render();
+      closeNet(); const m = ensure(); if (!started()) m.other = null; if (!m.cfg) m.cfg = { diff: L.diff, legs: FREE }; applyCfg();
+      connect('host', Math.random().toString(36).slice(2, 7).toUpperCase());
     });
   }
   function join(code) {
     code = (code || '').trim().toUpperCase(); if (!code) return;
     if (!userOk()) return need();
-    (useRelay() ? loadSb : loadPeer)(() => {
-      closeNet(); const m = ensure(); m.role = 'guest'; m.code = code; m.other = null;
-      if (useRelay()) { const L = relayLink(code, 'guest'); peer = { destroy: () => L.close() }; wire(L); render(); return; }
-      peer = new Peer();
-      peer.on('error', e => { toast('No se pudo conectar: ' + e.type); closeNet(); render(); });
-      peer.on('open', () => { wire(peer.connect('moncloa-' + code, { reliable: true })); });
-      render();
-    });
+    (useRelay() ? loadSb : loadPeer)(() => { closeNet(); const m = ensure(); if (!started()) m.other = null; connect('guest', code); });
   }
 
   // ---------------- PESTAÑA «MULTIJUGADOR» DENTRO DE LA PARTIDA ----------------
@@ -669,8 +707,10 @@
     if (m.role === 'host') return `<div class="hoi-box p-4 rounded-xl space-y-2 font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">SALA CREADA · ESPERANDO AL OTRO JUGADOR</div>
       <div class="text-3xl tracking-[.35em] text-amber-300 font-bold">${esc(m.code)}</div>
       <button onclick="MP.copy('${esc(location.origin + location.pathname)}#sala=${esc(m.code)}')" class="hoi-button px-3 py-1.5 rounded text-xs"><i class="fa-solid fa-link mr-1"></i>Copiar enlace de invitación</button>
-      <button onclick="MP.leave()" class="hoi-button px-3 py-1.5 rounded text-xs ml-2">Cancelar</button></div>`;
-    if (m.role === 'guest') return `<div class="hoi-box p-4 rounded-xl font-hoi-tech text-xs text-slate-300">Conectando con la sala <b class="text-amber-300">${esc(m.code)}</b>… <button onclick="MP.leave()" class="hoi-button px-3 py-1.5 rounded text-xs ml-2">Cancelar</button></div>`;
+      <button onclick="MP.retry()" class="hoi-button px-3 py-1.5 rounded text-xs ml-2">Reintentar</button>
+      <button onclick="MP.leave()" class="hoi-button px-3 py-1.5 rounded text-xs ml-2">${started() ? 'Seguir en solitario' : 'Cancelar'}</button>
+      ${started() ? '<p class="text-[11px] text-slate-400 font-sans">Reconexión automática activada. Tu tiempo está detenido hasta que vuelva el otro jugador: al reconectar, los dos pararéis y reanudaréis a la vez.</p>' : ''}</div>`;
+    if (m.role === 'guest') return `<div class="hoi-box p-4 rounded-xl font-hoi-tech text-xs text-slate-300">${started() ? 'Reconectando con' : 'Conectando con'} la sala <b class="text-amber-300">${esc(m.code)}</b>… <button onclick="MP.retry()" class="hoi-button px-3 py-1.5 rounded text-xs ml-2">Reintentar</button> <button onclick="MP.leave()" class="hoi-button px-3 py-1.5 rounded text-xs ml-2">${started() ? 'Seguir en solitario' : 'Cancelar'}</button>${started() ? '<p class="text-[11px] text-slate-400 font-sans mt-2">Reconexión automática activada. El tiempo está detenido hasta que vuelva el otro jugador.</p>' : ''}</div>`;
     return `<div class="hoi-box p-4 rounded-xl space-y-3 font-hoi-tech"><div class="text-[11px] text-amber-400 tracking-wider">RECONECTAR</div>
       <div class="flex gap-2 flex-wrap items-center"><button onclick="MP.host()" class="hoi-button-gold px-4 py-2 rounded text-sm"><i class="fa-solid fa-globe mr-1"></i>Crear sala</button>
       <input id="mp-code2" maxlength="5" placeholder="CÓDIGO" class="lb-input" style="width:130px;text-transform:uppercase;letter-spacing:.2em">
@@ -696,7 +736,7 @@
         <div class="h-1.5 bg-slate-900 rounded overflow-hidden"><div class="h-full ${r >= 60 ? 'bg-emerald-500' : r >= 35 ? 'bg-amber-500' : 'bg-red-500'}" style="width:${r}%"></div></div>
         <div class="flex gap-1 flex-wrap">${pk}</div>
         ${m.cfg ? `<div class="text-[11px] text-slate-300">${cfgLine(m)}</div>` : ''}
-        <div class="text-[11px] ${X.day0 == null ? 'text-amber-400' : X.waiting ? 'text-amber-400' : 'text-emerald-400'}"><i class="fa-solid fa-clock mr-1"></i>Reloj compartido: ${X.day0 == null ? 'esperando a que los dos estéis en la partida' : X.waiting ? 'esperando al otro jugador' : 'sincronizado'}</div>
+        <div class="text-[11px] ${!started() || X.waiting ? 'text-amber-400' : 'text-emerald-400'}"><i class="fa-solid fa-clock mr-1"></i>Reloj compartido: ${!started() ? 'esperando a que los dos estéis en la partida' : X.waiting ? 'esperando al otro jugador' : 'sincronizado'}${started() ? ' · tu día ' + elapsed() + ' · su día ' + (X.day == null ? '?' : X.day) : ''}${X.fast > 1 ? '<br><span class="text-red-400">⚠ Tu partida avanza ' + X.fast + ' días por tick: el reloj se frena para igualar al otro.</span>' : ''}</div>
         <div class="flex justify-between text-[11px] text-slate-400"><span>Tu capital político: <b class="text-slate-200">${Math.floor(cap())}</b></span><span>Tu tesorería: <b class="text-slate-200">${fmt(treas())} M€</b></span></div>
         <button onclick="MP.leave()" class="hoi-button px-3 py-1 rounded text-[10px]">Desconectar</button></div>
       ${warBox(m)}${debtBox(m)}
@@ -720,8 +760,16 @@
   renderTabContent = function () { return gameState.activeTab === 'mp' ? renderMulti() : _rtc(); };
   const _t = gameTick;
   gameTick = function () {
+    const m = S();
+    if (m && inSession() && started()) {
+      if (!m.linked) return;   // sin conexión el tiempo se detiene
+      if (X.day != null && elapsed() - X.day >= 2) { if (!X.waiting) { X.waiting = true; clockUi(); } return; }   // vas por delante: se espera
+      if (X.waiting) { X.waiting = false; clockUi(); }
+    }
     const b = gameState.daysInOffice;
     _t.apply(this, arguments);
+    const adv = (gameState.daysInOffice || 0) - (b || 0);
+    if (adv > 0) X.fast = adv;
     if (gameState.daysInOffice !== b && S()) { try { daily(); } catch (e) { console.error(e); } }
   };
 
@@ -827,6 +875,8 @@
     host, act, answer,
     join: c => join(c), enter: c => { L.code = (c || '').toUpperCase(); join(L.code); },
     leave: () => { closeNet(); render(); },
+    retry: retryNow,
+    resume: () => { const q = loadSess(); if (!q) return; if (!userOk()) return need(); if (q.role === 'host') { const m = ensure(); if (!started()) m.other = null; if (!m.cfg) m.cfg = { diff: L.diff, legs: FREE }; applyCfg(); connect('host', q.code); } else join(q.code); },
     cancel: () => { closeNet(); gameState.mp = null; L.err = ''; L.view = 'home'; render(); },
     codeIn: v => { L.code = v.toUpperCase(); },
     user: v => { USER = v.slice(0, 16); L.err = ''; try { localStorage.setItem('moncloa_user', USER); } catch (e) { /* nada */ } },
@@ -879,13 +929,14 @@
     lastStep = gameState.step;
     document.body.classList.toggle('mp-lobby', gameState.step === 1 && L.on);
     const mm = S(); if (mm && mm.linked && !(link && link.open)) mm.linked = false;   // partida cargada: sin conexión viva
+    if (mm && mm.role && mm.code && !mm.linked && !peer && !link && !R.t && (inGame() || mm.day0 != null)) { R.n = 0; R.t = setTimeout(() => { R.t = null; const q = S(); if (q && q.role && q.code && !q.linked && !peer) connect(q.role, q.code); scheduleReconnect(); }, 400); }   // partida cargada o conexión caída: se reconecta sola
     if (mm && mm.linked && inGame() !== X.sent) { sendReady(); checkStart(); }
     try { if (mm && mm.linked && inGame()) bindRel(); } catch (e) { /* sin enlace */ }   // la relación compartida se ve igual desde el primer día
     const r = _r.apply(this, arguments);
     try { statusBadge(); } catch (e) { /* sin menú */ }
     const b = document.getElementById('tab-btn-mp');
     if (b) {
-      b.style.display = gameState.step === 4 ? '' : 'none';
+      b.style.display = (gameState.step === 4 || gameState.step === 5) ? '' : 'none';
       const n = mm ? mm.inbox.filter(i => !i.mine).length : 0;
       b.querySelector('span').textContent = 'Multijugador' + (n ? ' (' + n + ')' : '');
     }
