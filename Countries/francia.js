@@ -5082,21 +5082,23 @@ const COUNTRY_ECON = {
   }
 };
 
+// ---- Mapa regional de Francia (paths SVG a escala del motor) --------------------
 const COUNTRY_MAP = {
-  regions: [
-    { id: 'idf', name: 'Ile-de-France', x: 52, y: 38 },
-    { id: 'hdf', name: 'Hauts-de-France', x: 50, y: 22 },
-    { id: 'ges', name: 'Grand Est', x: 68, y: 32 },
-    { id: 'bfc', name: 'Bourgogne-Franche-Comte', x: 62, y: 45 },
-    { id: 'cvl', name: 'Centre-Val de Loire', x: 48, y: 48 },
-    { id: 'nor', name: 'Normandie', x: 38, y: 32 },
-    { id: 'bre', name: 'Bretagne', x: 28, y: 38 },
-    { id: 'pdl', name: 'Pays de la Loire', x: 36, y: 48 },
-    { id: 'naq', name: 'Nouvelle-Aquitaine', x: 38, y: 62 },
-    { id: 'occ', name: 'Occitanie', x: 48, y: 72 },
-    { id: 'ara', name: 'Auvergne-Rhone-Alpes', x: 62, y: 58 },
-    { id: 'pac', name: 'Provence-Alpes-Cote dAzur', x: 68, y: 72 },
-    { id: 'cor', name: 'Corse', x: 78, y: 82 }
+  title: 'Mapa regional de Francia',
+  paths: [
+    { id: 'HDF', name: 'Hauts-de-France', d: 'M 210,40 L 250,35 L 290,42 L 300,70 L 280,95 L 240,100 L 210,90 L 195,65 Z', spectrumPref: 5.5, regionalist: false, desc: 'Hauts-de-France · Industria, puertos y voto obrero/RN' },
+    { id: 'NOR', name: 'Normandie', d: 'M 140,55 L 195,50 L 210,90 L 190,115 L 150,120 L 125,95 L 120,70 Z', spectrumPref: 4.8, regionalist: false, desc: 'Normandie · Rural, agro y centroderecha' },
+    { id: 'IDF', name: 'Ile-de-France', d: 'M 210,90 L 240,100 L 255,120 L 245,145 L 215,150 L 195,135 L 190,115 Z', spectrumPref: 3.2, regionalist: false, desc: 'Ile-de-France · Paris y corona · Diversidad y polarizacion' },
+    { id: 'GES', name: 'Grand Est', d: 'M 290,42 L 340,50 L 360,90 L 350,130 L 310,140 L 280,120 L 280,95 L 300,70 Z', spectrumPref: 5.2, regionalist: false, desc: 'Grand Est · Industria, frontera alemana' },
+    { id: 'BRE', name: 'Bretagne', d: 'M 70,90 L 120,70 L 125,95 L 130,130 L 100,145 L 60,130 L 50,105 Z', spectrumPref: 3.8, regionalist: true, desc: 'Bretagne · Identidad regional y centroizquierda' },
+    { id: 'PDL', name: 'Pays de la Loire', d: 'M 125,95 L 150,120 L 170,150 L 155,180 L 120,175 L 100,145 L 130,130 Z', spectrumPref: 4.5, regionalist: false, desc: 'Pays de la Loire · Nantes, agroindustria' },
+    { id: 'CVL', name: 'Centre-Val de Loire', d: 'M 190,115 L 215,150 L 230,175 L 200,195 L 170,180 L 170,150 L 190,135 Z', spectrumPref: 4.6, regionalist: false, desc: 'Centre-Val de Loire · Rural y bipartidista' },
+    { id: 'BFC', name: 'Bourgogne-Franche-Comte', d: 'M 245,145 L 280,120 L 310,140 L 320,175 L 290,195 L 255,185 L 230,175 L 245,155 Z', spectrumPref: 4.9, regionalist: false, desc: 'Bourgogne-Franche-Comte · Rural, vino e industria' },
+    { id: 'NAQ', name: 'Nouvelle-Aquitaine', d: 'M 100,175 L 155,180 L 170,180 L 200,195 L 195,240 L 160,270 L 120,260 L 95,220 Z', spectrumPref: 4.0, regionalist: false, desc: 'Nouvelle-Aquitaine · Bordeaux, costa atlantica' },
+    { id: 'ARA', name: 'Auvergne-Rhone-Alpes', d: 'M 230,175 L 255,185 L 290,195 L 320,175 L 350,200 L 340,250 L 300,260 L 260,240 L 230,210 Z', spectrumPref: 4.3, regionalist: false, desc: 'Auvergne-Rhone-Alpes · Lyon, Alpes, industria' },
+    { id: 'OCC', name: 'Occitanie', d: 'M 195,240 L 230,210 L 260,240 L 280,270 L 250,300 L 200,295 L 160,270 Z', spectrumPref: 3.6, regionalist: false, desc: 'Occitanie · Toulouse, Mediterraneo, izquierda' },
+    { id: 'PAC', name: 'Provence-Alpes-Cote dAzur', d: 'M 300,260 L 340,250 L 370,270 L 365,300 L 330,310 L 290,295 L 280,270 Z', spectrumPref: 5.4, regionalist: false, desc: 'PACA · Marsella, Niza, turismo y polarizacion' },
+    { id: 'COR', name: 'Corse', d: 'M 400,280 L 420,275 L 430,300 L 420,330 L 400,335 L 390,310 Z', spectrumPref: 4.7, regionalist: true, desc: 'Corse · Autonomismo e identidad insular' }
   ]
 };
 
@@ -5127,15 +5129,21 @@ const COUNTRY_INTL = {
   map: {}, monthly: [], pop: []
 };
 
+// ---- Ordonnances / Journal Officiel (sustituyen a los Decretos del BOE) --------
 const COUNTRY_DECREES = {
+  tab: 'Ordonnances (JO)',
   items: [
-    { id: 'FR_ORD_ENERGIA', title: 'Escudo tarifario energetico', cost: 5000, desc: '+0.3% Aprobacion y +0.2% Estabilidad/dia (25 dias).', cooldown: 60, statsPerDay: { apr: 0.3, est: 0.2 } },
-    { id: 'FR_ORD_INDUSTRIA', title: 'Credito reindustrializacion', cost: 4500, desc: '+0.4% Economia y +0.2% Empleo/dia (30 dias).', cooldown: 90, statsPerDay: { eco: 0.4, emp: 0.2 } },
+    { id: 'FR_ORD_ENERGIA', title: 'Bouclier tarifaire energetique', cost: 5000, desc: '+0.3% Aprobacion y +0.2% Estabilidad/dia (25 dias).', cooldown: 60, statsPerDay: { apr: 0.3, est: 0.2 } },
+    { id: 'FR_ORD_INDUSTRIA', title: 'Credit d impot reindustrialisation', cost: 4500, desc: '+0.4% Economia y +0.2% Empleo/dia (30 dias).', cooldown: 90, statsPerDay: { eco: 0.4, emp: 0.2 } },
     { id: 'FR_ORD_SEGURIDAD', title: 'Plan anti-violencia urbana', cost: 2200, desc: '+0.4% Estabilidad/dia (20 dias).', cooldown: 45, statsPerDay: { est: 0.4 } },
-    { id: 'FR_ORD_JOVEN', title: 'Empleo joven y formacion', cost: 2800, desc: '+0.3% Empleo y +0.2% Aprobacion/dia (30 dias).', cooldown: 70, statsPerDay: { emp: 0.3, apr: 0.2 } },
-    { id: 'FR_ORD_RURAL', title: 'Fondo Francia rural', cost: 1800, desc: '+0.3% Aprobacion y +0.1% Estabilidad/dia (25 dias).', cooldown: 55, statsPerDay: { apr: 0.3, est: 0.1 } },
-    { id: 'FR_ORD_DEFENSA', title: 'Aceleracion de programas de defensa', cost: 3500, desc: '+0.4% Est. Militar/dia (25 dias).', cooldown: 80, statsPerDay: { mil: 0.4 } },
-    { id: 'FR_ORD_RETRAITES', title: 'Medidas de acompanamiento de retraites', cost: 4000, desc: '+0.3% Aprobacion y +0.2% Estabilidad/dia (30 dias).', cooldown: 75, statsPerDay: { apr: 0.3, est: 0.2 } },
-    { id: 'FR_ORD_NUCLEAR', title: 'Plan de relance nucleaire', cost: 6000, desc: '+0.4% Economia/dia (35 dias).', cooldown: 100, statsPerDay: { eco: 0.4 } }
+    { id: 'FR_ORD_JOVEN', title: 'Emploi jeune et formation', cost: 2800, desc: '+0.3% Empleo y +0.2% Aprobacion/dia (30 dias).', cooldown: 70, statsPerDay: { emp: 0.3, apr: 0.2 } },
+    { id: 'FR_ORD_RURAL', title: 'Fonds France rurale', cost: 1800, desc: '+0.3% Aprobacion y +0.1% Estabilidad/dia (25 dias).', cooldown: 55, statsPerDay: { apr: 0.3, est: 0.1 } },
+    { id: 'FR_ORD_DEFENSA', title: 'Acceleration de la LPM', cost: 3500, desc: '+0.4% Est. Militar/dia (25 dias).', cooldown: 80, statsPerDay: { mil: 0.4 } },
+    { id: 'FR_ORD_RETRAITES', title: 'Mesures d accompagnement retraites', cost: 4000, desc: '+0.3% Aprobacion y +0.2% Estabilidad/dia (30 dias).', cooldown: 75, statsPerDay: { apr: 0.3, est: 0.2 } },
+    { id: 'FR_ORD_NUCLEAR', title: 'Plan de relance nucleaire', cost: 6000, desc: '+0.4% Economia/dia (35 dias).', cooldown: 100, statsPerDay: { eco: 0.4 } },
+    { id: 'FR_ORD_LOGEMENT', title: 'Encadrement des loyers elargi', cost: 2500, desc: '+0.3% Aprobacion y +0.2% Estabilidad/dia (25 dias).', cooldown: 60, statsPerDay: { apr: 0.3, est: 0.2 } },
+    { id: 'FR_ORD_LAICITE', title: 'Renforcement de la laicite a l ecole', cost: 800, desc: '+0.2% Estabilidad y +0.1% Aprobacion/dia (20 dias).', cooldown: 50, statsPerDay: { est: 0.2, apr: 0.1 } },
+    { id: 'FR_ORD_AGRI', title: 'Aide d urgence au monde agricole', cost: 3200, desc: '+0.3% Empleo y +0.2% Aprobacion/dia (25 dias).', cooldown: 65, statsPerDay: { emp: 0.3, apr: 0.2 } },
+    { id: 'FR_ORD_NUMERIQUE', title: 'Souverainete numerique et cloud', cost: 2700, desc: '+0.3% Economia/dia (30 dias).', cooldown: 80, statsPerDay: { eco: 0.3 } }
   ]
 };
