@@ -126,7 +126,7 @@
     if (e.type === 'keydown') return e.code === 'Space';
     if (e.type !== 'click') return false;
     const t = e.target && e.target.closest ? e.target.closest('[onclick]') : null;
-    return !!(t && /setGameSpeed|CAMP\.speed|togglePause/.test(t.getAttribute('onclick') || ''));
+    return !!(t && /speed|togglePause/i.test(t.getAttribute('onclick') || ''));   // setGameSpeed, CAMP.speed, MA.speed (pestaña de Marruecos)…
   }
   const _sg = setGameSpeed;
   function localSpeed(v) { X.applying = true; try { _sg(v); } finally { X.applying = false; } }
