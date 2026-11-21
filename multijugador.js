@@ -273,6 +273,7 @@
     if (d.t === 'go') { if (m.role === 'guest' && L.on) startGame(); return; }
     if (d.t === 'wdec' || d.t === 'wst' || d.t === 'wabs' || d.t === 'wend') { onWar(d); return; }
     if (d.t === 'wpz' || d.t === 'wterm' || d.t === 'wdebt' || d.t === 'wtrib') { onPeace(d); return; }
+    if (d.t === 'wown') { const v = Number(d.s); if (isFinite(v)) m.rivalScore = Math.max(0, Math.min(100, v)); return; }
     if (d.t === 'wpact') {   // el otro jugador te paga un pacto de cooperación: el dinero llega a tu tesorería
       const amt = Math.max(0, Math.min(400, Number(d.amt) || 0));
       if (amt) cash(amt, 'Pacto de cooperación con ' + oname());
@@ -314,6 +315,7 @@
     Object.keys(m.cd).forEach(k => { if (m.cd[k] > 0) m.cd[k]--; });
     pk.forEach(k => fx({ [PACT_FX[k][0]]: PACT_FX[k][1] }));
     try { pvpDaily(); } catch (e) { console.error(e); }
+    try { const W = gameState.wr; if (W && m.linked) tx({ t: 'wown', s: Math.round((W.t + W.m + W.a) / 3) }); } catch (e) { /* sin ejército */ }
     try { bindRel(); } catch (e) { /* sin mapa */ }
     try { debtDaily(m, d); } catch (e) { console.error(e); }
     try { aftermath(m, d); } catch (e) { console.error(e); }
@@ -330,7 +332,7 @@
   // Si atacas desde el mapa de Guerra al país del otro jugador: la relación se desploma, se rompen los pactos,
   // y el otro recibe el aviso, inicia una guerra defensiva en su partida y puede resistir con sus operaciones.
   // Cada 5 días los dos frentes se empujan entre sí; quien gana o pide paz lo comunica al otro.
-  const WISO = { espana: 724, marruecos: 504, eeuu: 840 };   // código del país en el mapa de Guerra (añade aquí los países nuevos)
+  const WISO = { espana: 724, marruecos: 504, eeuu: 840, francia: 250 };   // código del país en el mapa de Guerra (añade aquí los países nuevos)
   const wiso = id => WISO[id] || ((window.COUNTRIES || []).filter(c => c.id === id)[0] || {}).iso;
   const WAR = () => gameState.wr && gameState.wr.war;
   const pvpTarget = id => { const m = S(); return !!(m && m.linked && m.other && wiso(m.other.id) === id); };
@@ -360,6 +362,7 @@
   function ov(html) { ovClose(); const d = document.createElement('div'); d.id = 'mp-ov'; d.className = 'fixed inset-0 bg-black/85 z-[10000] flex items-center justify-center p-4 overflow-y-auto'; d.innerHTML = '<div class="hoi-box border-2 border-amber-500 max-w-md w-full p-5 rounded space-y-3 font-hoi-tech">' + html + '</div>'; document.body.appendChild(d); }
   function ovClose() { const o = document.getElementById('mp-ov'); if (o) o.remove(); }
   const obtn = (fn, t, sub) => '<button onclick="' + fn + '" class="hoi-button w-full text-left px-3 py-2 rounded text-xs"><b>' + t + '</b>' + (sub ? '<div class="text-[10px] text-slate-400 font-sans">' + sub + '</div>' : '') + '</button>';
+  window.mpRival = () => { const m = S(); return (m && m.linked && m.other && m.rivalScore != null) ? { id: wiso(m.other.id), s: m.rivalScore } : null; };
   const legLeft = () => Math.max(0, 1460 - (gameState.daysInOffice || 0));
   const kEco = () => { try { return (typeof MC !== 'undefined' && MC.k) || 1; } catch (e) { return 1; } };
   function newLeader() {   // el ministro de Exteriores o, si no hay, uno al azar de los que tengas asignados
@@ -376,6 +379,10 @@
     if (k === 'gob') { m.puppet = { name: newLeader(), by: oname() }; fx({ apr: -4, est: -3 }); setRel(60); }
     tx({ t: 'wdebt', total, monthly: m.debt.monthly, puppet: m.puppet ? m.puppet.name : null });
     log(k === 'gob' ? 'Un régimen impuesto por ' + oname() + ': ' + m.puppet.name + ' pasa a presidir el país y debes pagar ' + fmt(total) + ' M€.' : 'Debes pagar ' + fmt(total) + ' M€ a ' + oname() + ' hasta fin de legislatura.');
+    if (k === 'gob') { try { ov('<span class="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">PAÍS INTERVENIDO</span><h3 class="font-hoi-header text-2xl text-red-400">' + esc(oname()) + ' te ha impuesto un gobierno títere</h3>'
+      + '<div class="text-xs text-slate-300 space-y-1 font-sans"><p>Tu nuevo presidente es <b class="text-red-300">' + esc(m.puppet.name) + '</b>, nombrado por ' + esc(oname()) + '. El país queda como títere <b>hasta el final de la legislatura</b> (' + legLeft() + ' días).</p>'
+      + '<p>Deuda total: <b>' + fmt(total) + ' M€</b> · pago mensual: <b>' + fmt(m.debt.monthly) + ' M€</b> · pendiente: <b>' + fmt(m.debt.left) + ' M€</b>. Pierdes apoyo y estabilidad mientras dure.</p></div>'
+      + obtn('MPW.close()', 'Entendido')); } catch (e) { /* sin modal */ } }
     toast(oflag() + (k === 'gob' ? ' <b>' + esc(m.puppet.name) + '</b> sustituye al presidente. ' : ' ') + 'Deuda con ' + esc(oname()) + ': <b>' + fmt(total) + ' M€</b> en pagos mensuales', '#ef4444');
   }
   function debtDaily(m, d) {
@@ -470,9 +477,9 @@
       const w = WAR();
       if (m.pvp) rows.push(['fa-person-rifle', 'EN GUERRA con ' + oname() + (w && m.pvp.local ? ' · frente ' + Math.round(w.prog) : ''), '#ef4444']);
       if (m.peaceOut) rows.push(['fa-dove', 'Paz propuesta a ' + oname() + ': esperando respuesta', '#d9a726']);
-      if (m.puppet) rows.push(['fa-user-lock', 'PAÍS INTERVENIDO por ' + m.puppet.by + ' · presidente impuesto: ' + m.puppet.name, '#ef4444']);
-      if (m.debt && m.debt.left > 0) rows.push(['fa-coins', 'Deuda con ' + m.debt.to + ': ' + fmt(m.debt.left) + ' M€', '#d9a726']);
-      if (m.debtIn && m.debtIn.left > 0) rows.push(['fa-hand-holding-dollar', 'Tutelas a ' + oname() + (m.puppetOther ? ' (presidente: ' + m.puppetOther + ')' : '') + ' · te debe ' + fmt(m.debtIn.left) + ' M€', '#10b981']);
+      if (m.puppet) rows.push(['fa-user-lock', 'PAÍS TÍTERE de ' + m.puppet.by + ' hasta fin de legislatura (' + legLeft() + ' d) · presidente impuesto: ' + m.puppet.name, '#ef4444']);
+      if (m.debt && m.debt.left > 0) rows.push(['fa-coins', 'Deuda con ' + m.debt.to + ': quedan ' + fmt(m.debt.left) + ' de ' + fmt(m.debt.total) + ' M€ (' + fmt(m.debt.monthly) + '/mes)', '#d9a726']);
+      if (m.debtIn && m.debtIn.left > 0) rows.push(['fa-hand-holding-dollar', 'Tutelas a ' + oname() + (m.puppetOther ? ' (presidente: ' + m.puppetOther + ')' : '') + ' hasta fin de legislatura · te debe ' + fmt(m.debtIn.left) + ' de ' + fmt(m.debtIn.total) + ' M€ (' + fmt(m.debtIn.monthly) + '/mes)', '#10b981']);
       if (m.annexIncome) rows.push(['fa-flag', 'Has anexionado ' + oname() + ': +' + fmt(m.annexIncome) + ' M€/mes', '#10b981']);
     }
     let b = document.getElementById('mp-status');
@@ -482,6 +489,7 @@
   }
   window.MPW = {
     terms: k => applyTerms(k),
+    close: () => ovClose(),
     pz: k => { const m = S(); if (!m) return; ovClose(); m.peaceIn = false;
       if (k === 'yes') { m.pvp = null; realPeace(); setRel(m.rel + 15); tx({ t: 'wpz', k: 'yes' }); log('Aceptas el alto el fuego con ' + oname() + '.'); }
       else if (k === 'no') { setRel(m.rel - 2); tx({ t: 'wpz', k: 'no' }); log('Rechazas la paz con ' + oname() + '.'); }
@@ -570,9 +578,9 @@
   }
   function debtBox(m) {
     const o = [];
-    if (m.puppet) o.push('Presidente impuesto por ' + esc(m.puppet.by) + ': <b class="text-red-300">' + esc(m.puppet.name) + '</b>');
-    if (m.debt) o.push('Debes ' + fmt(m.debt.left) + ' M€ de ' + fmt(m.debt.total) + ' (pago mensual ' + fmt(m.debt.monthly) + ' M€)');
-    if (m.debtIn) o.push('Te deben ' + fmt(m.debtIn.left) + ' M€ de ' + fmt(m.debtIn.total) + (m.puppetOther ? ' · su presidente ahora es ' + esc(m.puppetOther) : ''));
+    if (m.puppet) o.push('PAÍS TÍTERE de ' + esc(m.puppet.by) + ' hasta el final de la legislatura (' + legLeft() + ' días). Presidente impuesto: <b class="text-red-300">' + esc(m.puppet.name) + '</b>');
+    if (m.debt) o.push('Debes ' + fmt(m.debt.left) + ' M€ de ' + fmt(m.debt.total) + ' · pagado ' + fmt(m.debt.total - m.debt.left) + ' M€ · pago mensual ' + fmt(m.debt.monthly) + ' M€');
+    if (m.debtIn) o.push((m.puppetOther ? 'Tienes a ' + esc(oname()) + ' como país títere hasta fin de legislatura (' + legLeft() + ' días) · su presidente ahora es ' + esc(m.puppetOther) + '. ' : '') + 'Te deben ' + fmt(m.debtIn.left) + ' M€ de ' + fmt(m.debtIn.total) + ' · cobrado ' + fmt(m.debtIn.total - m.debtIn.left) + ' M€ · ' + fmt(m.debtIn.monthly) + ' M€/mes');
     if (m.annexIncome) o.push('Territorio anexionado: +' + fmt(m.annexIncome) + ' M€/mes');
     return o.length ? '<div class="bg-slate-900 border border-amber-500/50 rounded-lg p-3 text-[11px] text-slate-200 space-y-1 font-hoi-tech"><b class="text-amber-300">TÉRMINOS DE LA GUERRA</b>' + o.map(x => '<div>' + x + '</div>').join('') + '</div>' : '';
   }
