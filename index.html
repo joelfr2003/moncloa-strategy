@@ -643,7 +643,7 @@ main#app, footer {
         return v;
       }
       var fix = function (n) {
-        if (n.nodeType === 3) { var v = n.nodeValue; if (v.length < 2) return; var w = fixText(v); if (w !== v) n.nodeValue = w; }
+        if (n.nodeType === 3) { var pt = n.parentNode; if (pt && (pt.nodeName === 'SCRIPT' || pt.nodeName === 'STYLE')) return; var v = n.nodeValue; if (v.length < 2) return; var w = fixText(v); if (w !== v) n.nodeValue = w; }
         else if (n.nodeType === 1 && n.tagName !== 'SCRIPT' && n.tagName !== 'STYLE') { var tw = document.createTreeWalker(n, NodeFilter.SHOW_TEXT), t; while ((t = tw.nextNode())) fix(t); }
       };
       var busy = false;
