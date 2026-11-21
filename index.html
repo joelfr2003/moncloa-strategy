@@ -6033,11 +6033,10 @@ function goalsTick() {
     m.daysLeft--;
     if (m.progress >= GOAL_SUSTAIN_DAYS) {
       g.done++; g.score += 100; g.capital = Math.min(100, g.capital + 6);
-      registerFinancialTransaction('Recompensa de misión: ' + def.title, 5000);
       goalsAdjust({ apr: 3 });
       g.active = g.active.filter(x => x !== m);
       g.log.unshift('✔ ' + def.title);
-      goalsToast(`<i class="fa-solid fa-trophy text-amber-400"></i> <b>MISIÓN CUMPLIDA:</b> ${def.title}<br><span class="text-xs text-emerald-400">+5.000 M€ · +6 Capital · +3% Aprobación</span>`, '#10b981');
+      goalsToast(`<i class="fa-solid fa-trophy text-amber-400"></i> <b>MISIÓN CUMPLIDA:</b> ${def.title}<br><span class="text-xs text-emerald-400">+6 Capital · +3% Aprobación</span>`, '#10b981');
       goalsDrawMission();
     } else if (m.daysLeft <= 0) {
       g.failed++; g.score = Math.max(0, g.score - 30);
@@ -6427,7 +6426,7 @@ function focusComplete(f) {
   const F = focusInit();
   F.done.push(f.id); F.active = null;
   Object.keys(f.now || {}).forEach(k => focusMetricAdd(k, f.now[k]));
-  if (f.cash) { if (typeof registerFinancialTransaction === 'function') registerFinancialTransaction('Foco: ' + f.title, f.cash); else gameState.treasury += f.cash; }
+  if (f.cash && f.cash < 0) { /* los focos ya no dan dinero: solo cuestan si f.cash es negativo */ if (typeof registerFinancialTransaction === 'function') registerFinancialTransaction('Foco: ' + f.title, f.cash); else gameState.treasury += f.cash; }
   if (typeof goalsInit === 'function') { goalsInit(); gameState.goals.score += 40; }
   if (typeof goalsToast === 'function') goalsToast(`<i class="fa-solid fa-diagram-project text-amber-400"></i> <b>FOCO COMPLETADO:</b> ${f.title}${f.spirit ? '<br><span class="text-xs text-emerald-400">Nuevo espíritu: ' + f.spirit.name + '</span>' : ''}`, FOCUS_BRANCHES[f.b].color);
   gameState.lastNews = 'Foco nacional completado: ' + f.title + '.'; gameState.latestNews = gameState.lastNews;

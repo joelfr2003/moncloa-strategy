@@ -25,13 +25,13 @@
     const id = (window.CURRENT_COUNTRY && CURRENT_COUNTRY.id) || 'espana';
     let p = DEMO[id] || DEMO._generico;
     if (id === 'espana' && gameState.scenario && gameState.scenario.id === 'TRANSICION') p = DEMO.TRANSICION;
-    try { if (window.MC && !MC.builtin && typeof COUNTRY_ECON !== 'undefined' && COUNTRY_ECON.demo) p = Object.assign({}, p, COUNTRY_ECON.demo); } catch (e) { /* sin datos propios */ }
+    try { if (typeof COUNTRY_DEMO !== 'undefined' && !(id === 'espana' && gameState.scenario && gameState.scenario.id === 'TRANSICION')) p = Object.assign({}, p, COUNTRY_DEMO); } catch (e) { /* sin datos propios */ }
     return p;
   }
   function init() {
     const p = profile();
     const D = gameState.demo = {
-      b: p.sh.map(s => s * p.pop), tfr: p.tfr, mig: p.mig, mort: p.mort, pop0: p.pop, sh0: p.sh.slice(),
+      b: p.sh.map(s => s * p.pop), tfr: p.tfr, mig: p.mig, mort: p.mort, ss: p.ss || 1, ws: p.warScale || 300, ssName: p.ssName || 'Seguridad Social', retName: p.retName || 'pensionistas', note: p.note || '', pop0: p.pop, sh0: p.sh.slice(),
       born: 0, died: 0, lostWar: 0, lostNuke: 0, mourn: 0, nukeUntil: 0, lastBaj: 0, cd: {}, hist: [[day(), p.pop]], log: [], r0: 0
     };
     D.r0 = ratio(D);
@@ -66,7 +66,7 @@
     const w = gameState.wr && gameState.wr.war;
     if (w && w.baj != null) {
       const db = Math.max(0, w.baj - (D.lastBaj || 0)); D.lastBaj = w.baj;
-      const lost = db * 300 * (pop / 49) / 1e6;   // 1 unidad de baja del Estado Mayor ≈ 300 soldados (a escala de España)
+      const lost = db * D.ws * (pop / 49) / 1e6;   // 1 unidad de baja del Estado Mayor ≈ 300 soldados (a escala de España)
       if (lost > 0) { kill(D, lost, [0, 6, 4, 0.5, 0]); D.lostWar += lost; D.mourn += lost; }
     } else D.lastBaj = 0;
     // 5) Duelo nacional y secuelas: erosionan aprobación y estabilidad mientras duran
@@ -77,7 +77,7 @@
     const dev = ratio(D) / D.r0 - 1;
     accum('eco', -dev * 0.01);
     if (d % 30 === 0 && d > 0) {
-      const ss = Math.round(-dev * 5 * 0.03 * budget());
+      const ss = Math.round(-dev * 5 * 0.03 * D.ss * budget());
       if (Math.abs(ss) >= 1) cash(Math.max(-0.04 * budget(), Math.min(0.04 * budget(), ss)), 'Seguridad Social: efecto demográfico');
       D.hist.push([d, total(D)]); if (D.hist.length > 60) D.hist.shift();
     }
@@ -127,10 +127,10 @@
     }).join('');
     const act = (k, t, sub, c) => { const cd = (D.cd[k] || 0) - d; return '<button onclick="demoAct(\'' + k + '\')" class="hoi-button w-full text-left px-3 py-2 rounded text-xs ' + (cd > 0 ? 'opacity-50' : '') + '"><b>' + t + '</b> · ' + fmt(Math.round(c * K())) + ' M€' + (cd > 0 ? ' · ' + cd + ' d' : '') + '<div class="text-[10px] text-slate-400 font-sans">' + sub + '</div></button>'; };
     return '<div class="space-y-4"><h2 class="font-hoi-header text-2xl text-amber-400"><i class="fa-solid fa-people-group mr-2"></i>DEMOGRAFÍA Y POBLACIÓN</h2>'
-      + '<div class="grid grid-cols-2 md:grid-cols-6 gap-2 text-center">' + chip('POBLACIÓN', mil(pop)) + chip('NATALIDAD', f1(nat) + ' ‰') + chip('MORTALIDAD', f1(mor) + ' ‰', 'text-slate-200') + chip('CRECIMIENTO', (growth >= 0 ? '+' : '') + f1(growth) + ' %', growth >= 0 ? 'text-emerald-400' : 'text-red-400') + chip('EDAD MEDIA', f1(age(D)) + ' años', 'text-slate-200') + chip('HIJOS/MUJER', D.tfr.toFixed(2).replace('.', ','), D.tfr < 1.6 ? 'text-red-400' : 'text-emerald-400') + '</div>'
+      + (D.note ? '<p class="text-[11px] text-slate-400 font-sans">' + esc(D.note) + '</p>' : '') + '<div class="grid grid-cols-2 md:grid-cols-6 gap-2 text-center">' + chip('POBLACIÓN', mil(pop)) + chip('NATALIDAD', f1(nat) + ' ‰') + chip('MORTALIDAD', f1(mor) + ' ‰', 'text-slate-200') + chip('CRECIMIENTO', (growth >= 0 ? '+' : '') + f1(growth) + ' %', growth >= 0 ? 'text-emerald-400' : 'text-red-400') + chip('EDAD MEDIA', f1(age(D)) + ' años', 'text-slate-200') + chip('HIJOS/MUJER', D.tfr.toFixed(2).replace('.', ','), D.tfr < 1.6 ? 'text-red-400' : 'text-emerald-400') + '</div>'
       + '<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">'
       + '<div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2"><b class="text-sm text-slate-100">Franjas de edad</b>' + rows + '<p class="text-[10px] text-slate-500 font-sans">Entre paréntesis, puntos de diferencia con el inicio de la partida. Cada franja envejece hacia la siguiente con los años.</p></div>'
-      + '<div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2"><b class="text-sm text-slate-100">Seguridad Social</b><div class="text-[11px] text-slate-300 space-y-1 font-sans"><div>Cotizantes: <b>' + mil(cot) + '</b></div><div>Pensionistas (65+): <b>' + mil(pen) + '</b></div><div>Cotizantes por pensionista: <b class="' + (cot / pen < 2 ? 'text-red-400' : 'text-emerald-400') + '">' + (cot / pen).toFixed(2).replace('.', ',') + '</b></div><div>Dependencia: <b>' + f1(ratio(D) * 100) + ' %</b> (' + (dev >= 0 ? '+' : '') + f1(dev * 100) + ' % desde el inicio)</div><div>Efecto mensual en caja: <b class="' + (dev > 0 ? 'text-red-400' : 'text-emerald-400') + '">' + (dev > 0 ? '−' : '+') + fmt(Math.min(0.04 * budget(), Math.abs(dev * 5 * 0.03 * budget()))) + ' M€</b></div></div>'
+      + '<div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2"><b class="text-sm text-slate-100">' + esc(D.ssName) + '</b><div class="text-[11px] text-slate-300 space-y-1 font-sans"><div>Cotizantes: <b>' + mil(cot) + '</b></div><div>' + esc(D.retName.charAt(0).toUpperCase() + D.retName.slice(1)) + ' (65+): <b>' + mil(pen) + '</b></div><div>Cotizantes por jubilado: <b class="' + (cot / pen < 2 ? 'text-red-400' : 'text-emerald-400') + '">' + (cot / pen).toFixed(2).replace('.', ',') + '</b></div><div>Dependencia: <b>' + f1(ratio(D) * 100) + ' %</b> (' + (dev >= 0 ? '+' : '') + f1(dev * 100) + ' % desde el inicio)</div><div>Efecto mensual en caja: <b class="' + (dev > 0 ? 'text-red-400' : 'text-emerald-400') + '">' + (dev > 0 ? '−' : '+') + fmt(Math.min(0.04 * budget(), Math.abs(dev * 5 * 0.03 * D.ss * budget()))) + ' M€</b></div></div>'
       + '<b class="text-sm text-slate-100 block pt-1">Política demográfica</b>' + act('nat', 'Plan de natalidad', '+0,08 hijos por mujer; más cotizantes a largo plazo.', 1500) + act('inm', 'Apertura migratoria', '+120.000 llegadas al año: rejuvenece, pero cuesta apoyo.', 600) + act('res', 'Control fronterizo', '−100.000 llegadas al año: gana apoyo, envejece.', 400) + '</div>'
       + '<div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2"><b class="text-sm text-slate-100">Evolución y registro</b>' + spark(D.hist)
       + '<div class="text-[11px] text-slate-300 font-sans space-y-1"><div>Nacidos: <b>' + mil(D.born) + '</b> · Fallecidos: <b>' + mil(D.died) + '</b></div><div>Muertos en guerra: <b class="text-red-300">' + mil(D.lostWar) + '</b>' + (D.lostNuke ? ' · ataque nuclear: <b class="text-red-400">' + mil(D.lostNuke) + '</b>' : '') + '</div>'
