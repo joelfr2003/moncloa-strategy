@@ -603,8 +603,12 @@ main#app, footer {
         preset: e.preset || null, hint: e.hint || '', labels: e.labels || {}, pct: e.pct || null, names: e.names || {}, descs: e.descs || {}, war: e.war || null, cur: e.currency || '€',
         decrees: (!b && typeof COUNTRY_DECREES !== 'undefined') ? COUNTRY_DECREES : null,
         // Términos que usa el motor en titulares y textos (cada país los redefine en COUNTRY_ECON.terms)
-        t: Object.assign(b ? { gov: 'El Gobierno', place: 'la Moncloa', cabinet: 'Consejo de Ministros', bank: 'Banco de España', nation: 'España', adj: 'español', firms: 'españolas', capital: 'Madrid', curName: 'Euro', sovereign: false }
-                           : { gov: 'El Gobierno', place: 'la sede del Gobierno', cabinet: 'Gabinete de Gobierno', bank: 'Banco Central', nation: 'tu país', adj: 'nacional', firms: 'nacionales', capital: 'la capital', curName: 'Moneda nacional', sovereign: true }, e.terms || {}),
+        t: Object.assign(b ? { gov: 'El Gobierno', place: 'la Moncloa', cabinet: 'Consejo de Ministros', bank: 'Banco de España', nation: 'España', adj: 'español', firms: 'españolas', capital: 'Madrid', curName: 'Euro', sovereign: false, pollster: 'CIS', pollsterLong: 'Centro de Investigaciones Sociológicas', oldCur: { name: 'peseta', sym: 'pts', rate: 166.386 } }
+                           : { gov: 'El Gobierno', place: 'la sede del Gobierno', cabinet: 'Gabinete de Gobierno', bank: 'Banco Central', nation: 'tu país', adj: 'nacional', firms: 'nacionales', capital: 'la capital', curName: 'Moneda nacional', sovereign: true, pollster: 'Instituto demoscópico', pollsterLong: 'Instituto demoscópico nacional', oldCur: null }, e.terms || {}),
+        eu: b || ((e.terms || {}).sovereign === false),
+        euL: e.eu || null,
+        hideMin: e.hideMin || [],
+        soc: (!b && typeof COUNTRY_SOCIETY !== 'undefined') ? COUNTRY_SOCIETY : null,
         // Socios exteriores del país (COUNTRY_INTL). Si no existe, un país no español no muestra socios españoles.
         intl: (!b && typeof COUNTRY_INTL !== 'undefined') ? COUNTRY_INTL : (!b ? { partners: {}, base: {}, links: {}, actions: {}, map: {}, monthly: [], pop: [] } : null) };
     })();
@@ -613,16 +617,47 @@ main#app, footer {
     try { if (MC.decrees && MC.decrees.tab) { var _nb = document.getElementById('nav-boe-label'); if (_nb) _nb.textContent = MC.decrees.tab; } } catch (e) {}
     try { var _bd = document.getElementById('nav-bde-label'); if (_bd && MC.t && MC.t.bank) _bd.textContent = MC.t.bank; } catch (e) {}
     // Moneda del país: muestra su símbolo en todos los textos (M€ -> M$) sin tocar el resto del motor
-    if (MC.cur && MC.cur !== '€') (function (cur) {
-      var sep = cur.length > 1 ? ' ' : '';
+    // Moneda y términos del país en TODOS los textos, sin tocar el resto del motor:
+    //  · M€ -> símbolo del país (M$) y, si el país sale de la UE y vuelve a su moneda, su moneda histórica (pesetas, francos);
+    //  · peseta/pts -> la moneda histórica del país (franco en Francia);
+    //  · CIS -> el instituto de encuestas del país; Consejo de Ministros / la Moncloa -> los del país.
+    (function () {
+      function oldOut() { try { var u = window.gameState && gameState.ue; return !!(u && u.stage === 'out' && u.ccy === 'peseta' && MC.t.oldCur); } catch (e) { return false; } }
+      function curSym() { return oldOut() ? MC.t.oldCur.sym : (MC.cur || '€'); }
+      var oc = MC.t.oldCur, needWords = !!(oc && oc.name !== 'peseta');
+      var needTerms = (MC.t.pollster && MC.t.pollster !== 'CIS') || (MC.t.cabinet && MC.t.cabinet !== 'Consejo de Ministros') || (!MC.builtin && MC.t.place);
+      function rate(r) { return String(r).replace('.', ','); }
+      function fixText(v) {
+        var c = curSym();
+        if (v.indexOf('€') >= 0 && c !== '€') { var sep = c.length > 1 ? ' ' : ''; v = v.replace(/1 €/g, '\u0001').replace(/M€/g, 'M' + sep + c).replace(/€/g, c).replace(/\u0001/g, '1 €'); }   // «1 € = … pts»: el euro queda como referencia
+        if (needWords && /peseta|Peseta|pts|166[.,]386/.test(v)) {
+          var N = oc.name, Nc = N.charAt(0).toUpperCase() + N.slice(1);
+          v = v.replace(/166[.,]386/g, rate(oc.rate)).replace(/\bde la peseta\b/g, 'del ' + N).replace(/\ba la peseta\b/g, 'al ' + N).replace(/\bLa peseta\b/g, 'El ' + N).replace(/\bla peseta\b/g, 'el ' + N)
+               .replace(/\buna peseta\b/g, 'un ' + N).replace(/\bpesetas\b/g, N + 's').replace(/\bPesetas\b/g, Nc + 's').replace(/\bpeseta\b/g, N).replace(/\bPeseta\b/g, Nc).replace(/\bpts\b/g, oc.sym);
+        }
+        if (needTerms) {
+          if (MC.t.pollster && MC.t.pollster !== 'CIS' && v.indexOf('CIS') >= 0) v = v.replace(/\bCIS\b/g, MC.t.pollster);
+          if (MC.t.cabinet && MC.t.cabinet !== 'Consejo de Ministros' && v.indexOf('Consejo de Ministros') >= 0) v = v.replace(/Consejo de Ministros/g, MC.t.cabinet);
+          if (!MC.builtin && MC.t.place && v.indexOf('la Moncloa') >= 0) v = v.replace(/\bla Moncloa\b/g, MC.t.place);
+        }
+        return v;
+      }
       var fix = function (n) {
-        if (n.nodeType === 3) { if (n.nodeValue.indexOf('€') >= 0) n.nodeValue = n.nodeValue.replace(/M€/g, 'M' + sep + cur).replace(/€/g, cur); }
-        else if (n.nodeType === 1 && n.tagName !== 'SCRIPT' && n.tagName !== 'STYLE') { var w = document.createTreeWalker(n, NodeFilter.SHOW_TEXT), t; while ((t = w.nextNode())) fix(t); }
+        if (n.nodeType === 3) { var v = n.nodeValue; if (v.length < 2) return; var w = fixText(v); if (w !== v) n.nodeValue = w; }
+        else if (n.nodeType === 1 && n.tagName !== 'SCRIPT' && n.tagName !== 'STYLE') { var tw = document.createTreeWalker(n, NodeFilter.SHOW_TEXT), t; while ((t = tw.nextNode())) fix(t); }
       };
-      new MutationObserver(function (ms) { for (var i = 0; i < ms.length; i++) { var m = ms[i]; if (m.type === 'characterData') fix(m.target); m.addedNodes.forEach(fix); } })
-        .observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-      if (document.body) fix(document.body); else document.addEventListener('DOMContentLoaded', function () { fix(document.body); });
-    })(MC.cur);
+      var busy = false;
+      var obs = new MutationObserver(function (ms) {
+        if (busy) return;
+        if (curSym() === '€' && !needWords && !needTerms) return;   // España con el euro: no hay nada que sustituir
+        busy = true;
+        try { for (var i = 0; i < ms.length; i++) { var m = ms[i]; if (m.type === 'characterData') fix(m.target); m.addedNodes.forEach(fix); } } finally { busy = false; }
+      });
+      obs.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+      window.fixCurrencyDom = function () { try { if (document.body && (curSym() !== '€' || needWords || needTerms)) fix(document.body); } catch (e) { /* sin DOM */ } };
+      window.activeCur = curSym;
+      if (document.body) window.fixCurrencyDom(); else document.addEventListener('DOMContentLoaded', window.fixCurrencyDom);
+    })();
 
     // Datos de CUALQUIER país sin cargarlo como país activo (p. ej. el modo multijugador necesita
     // los partidos/escaños de Marruecos aunque la partida sea de España). Se evalúa en un ámbito
@@ -1907,7 +1942,7 @@ function startGovernance() {
     cultura: null,
     igualdad: null
   };
-  Object.keys(gameState.abolished || {}).forEach(k => { gameState.ministers[k] = null; });   // los ministerios eliminados siguen eliminados
+  Object.keys(gameState.abolished || {}).concat(MC.hideMin || []).forEach(k => { gameState.ministers[k] = null; });   // los ministerios eliminados (o que no existen en este país) siguen vacíos
 
   // EVALUACIÓN DE GOBIERNO EN MINORÍA Y TOLERANCIA DE LA OPOSICIÓN
   const totalCoalitionSeats = gameState.parties
@@ -3062,8 +3097,9 @@ function renderCabinetTab() {
     { id: 'igualdad', title: (MC.names.igualdad || 'Ministerio de Igualdad'), icon: 'fa-venus-mars' }
   ];
   const abolished = gameState.abolished || {};
-  const ministries = allMinistries.filter(m => !abolished[m.id]);
-  const removed = allMinistries.filter(m => abolished[m.id]);
+  const hidden = MC.hideMin || [];
+  const ministries = allMinistries.filter(m => !abolished[m.id] && hidden.indexOf(m.id) < 0);
+  const removed = allMinistries.filter(m => abolished[m.id] && hidden.indexOf(m.id) < 0);
 
   return `
     <div class="hoi-box p-4 rounded space-y-4 font-hoi-tech">
@@ -3527,7 +3563,7 @@ function addTransaction(concept, amount, ministryKey = 'general') {
 
 // Ejecución aleatoria autónoma
 function triggerRandomMinistryAction() {
-  const keys = Object.keys(MINISTRY_DECISIONS_BANK).filter(k => Array.isArray(MINISTRY_DECISIONS_BANK[k]) && MINISTRY_DECISIONS_BANK[k].length && !(gameState.abolished && gameState.abolished[k]));
+  const keys = Object.keys(MINISTRY_DECISIONS_BANK).filter(k => Array.isArray(MINISTRY_DECISIONS_BANK[k]) && MINISTRY_DECISIONS_BANK[k].length && !(gameState.abolished && gameState.abolished[k]) && (MC.hideMin || []).indexOf(k) < 0);
   if (!keys.length) return;
   const randomMinistryKey = keys[Math.floor(Math.random() * keys.length)];
   const actions = MINISTRY_DECISIONS_BANK[randomMinistryKey];
@@ -4309,6 +4345,31 @@ function showMotionModal(reasonText) {
       startCampaignPhase('FIN DE LA LEGISLATURA (4 AÑOS DE GOBIERNO)');
     }
 
+// ---- Base electoral: los escaños con los que EMPIEZA la partida (o los de las últimas elecciones) ----
+// Las encuestas y las elecciones parten de ahí y solo se mueven según cómo vaya el país desde ese momento.
+function perfAbs() {
+  const m = gameState.metrics || {}, a = m.apr != null ? m.apr : 50, e = m.est != null ? m.est : 50, c = m.eco != null ? m.eco : 50;
+  return ((a - 50) * 0.5 + (e - 50) * 0.3 + (c - 50) * 0.2) / 50;
+}
+function voteBases() {
+  const P = gameState.parties || [], ids = P.map(p => p.id).join();
+  let B = gameState.voteBase;
+  if (!B || B.ids !== ids) {
+    const o = {}; let t = 0;
+    P.forEach(p => { const v = Math.max(1, (p.seats != null ? p.seats : p.baseSeats) || 1); o[p.id] = v; t += v; });
+    Object.keys(o).forEach(k => { o[k] = o[k] / t * 100; });
+    B = gameState.voteBase = { ids: ids, pct: o, perf: perfAbs() };
+  }
+  return B;
+}
+function perfRel() { return perfAbs() - voteBases().perf; }   // cómo ha cambiado el país desde que empezó la legislatura
+function mainOpposition() {   // el mayor partido que no gobierna ni está en la coalición
+  const B = voteBases(), co = gameState.coalitionIds || [];
+  const c = (gameState.parties || []).filter(p => p.id !== gameState.leaderPartyId && !co.includes(p.id));
+  c.sort((x, y) => (B.pct[y.id] || 0) - (B.pct[x.id] || 0));
+  return c[0] ? c[0].id : null;
+}
+
 function calculateDHondtResults() {
   if (!gameState.parties || gameState.parties.length === 0) {
     return { parties: [] };
@@ -4319,42 +4380,31 @@ function calculateDHondtResults() {
     p.prevSeats = p.seats !== undefined ? p.seats : (p.baseSeats || 10);
   });
 
-  const PARTY_BOUNDS = {
-    PP:      { basePct: 33.0, minSeats: 95,  maxSeats: 165 },
-    PSOE:    { basePct: 31.0, minSeats: 90,  maxSeats: 155 },
-    VOX:     { basePct: 12.5, minSeats: 20,  maxSeats: 52 },
-    SUMAR:   { basePct: 10.5, minSeats: 10,  maxSeats: 38 },
-    PODEMOS: { basePct: 4.5,  minSeats: 2,   maxSeats: 15 },
-    ERC:     { basePct: 2.5,  minSeats: 4,   maxSeats: 12 },
-    JUNTS:   { basePct: 2.0,  minSeats: 4,   maxSeats: 11 },
-    BILDU:   { basePct: 1.6,  minSeats: 4,   maxSeats: 9 },
-    PNV:     { basePct: 1.3,  minSeats: 3,   maxSeats: 8 },
-    BNG:     { basePct: 0.9,  minSeats: 1,   maxSeats: 5 }
-  };
+  const PARTY_BOUNDS = {};   // sin topes por partido: el resultado parte de los escaños de partida y se mueve con la gestión
+  const VB = voteBases(), OPP = mainOpposition();
 
   const apr = (gameState.metrics && gameState.metrics.apr !== undefined) ? gameState.metrics.apr : 50;
   const est = (gameState.metrics && gameState.metrics.est !== undefined) ? gameState.metrics.est : 50;
   const eco = (gameState.metrics && gameState.metrics.eco !== undefined) ? gameState.metrics.eco : 50;
 
-  const performanceFactor = ((apr - 50) * 0.5 + (est - 50) * 0.3 + (eco - 50) * 0.2) / 50;
+  const performanceFactor = perfRel();
   const governmentCollapsed = !gameState.snapElection && (gameState.daysInOffice || 0) < 1460 && !gameState.coupActive;
 
   let rawPcts = {};
   gameState.parties.forEach(p => {
-    const bounds = PARTY_BOUNDS[p.id] || { basePct: p.basePct || 5.0 };
-    let pct = p.basePct || bounds.basePct;
+    let pct = VB.pct[p.id] != null ? VB.pct[p.id] : (p.basePct || 5.0);
 
     if (p.id === gameState.leaderPartyId) {
       pct += performanceFactor * 6.5;
       if (governmentCollapsed || gameState.electoralPenalty) pct -= 3.5;
     } else if (gameState.coalitionIds && gameState.coalitionIds.includes(p.id)) {
       pct += performanceFactor * 2.5;
-    } else if ((gameState.leaderPartyId === 'PSOE' && p.id === 'PP') || (gameState.leaderPartyId === 'PP' && p.id === 'PSOE')) {
+    } else if (p.id === OPP) {
       pct -= performanceFactor * 5.5;
     }
 
     pct += (typeof cisElectionSwing === 'function' ? cisElectionSwing(p.id) : 0);
-    pct += (Math.random() * 3) - 1.5;
+    pct += (Math.random() * 1.6) - 0.8;
     rawPcts[p.id] = Math.max(0.5, pct);
   });
 
@@ -4408,6 +4458,8 @@ function calculateDHondtResults() {
     p.votePct = parseFloat(rawPcts[p.id].toFixed(2));
     p.pct = p.votePct; 
   });
+  gameState.voteBase = null;   // la nueva legislatura parte de estos resultados
+  if (gameState.cis) { gameState.cis.est = null; gameState.cis.hist = []; gameState.cis.ids = null; }
 
   return { parties: gameState.parties };
 }
@@ -8004,7 +8056,7 @@ function playSound(n) {
 // =====================================================================
 (function () {
   const PB = { PP: [33, 95, 165], PSOE: [31, 90, 155], VOX: [12.5, 20, 52], SUMAR: [10.5, 10, 38], PODEMOS: [4.5, 2, 15], ERC: [2.5, 4, 12], JUNTS: [2, 4, 11], BILDU: [1.6, 4, 9], PNV: [1.3, 3, 8], BNG: [.9, 1, 5] };
-  const bnd = p => PB[p.id] ? { base: PB[p.id][0], min: PB[p.id][1], max: PB[p.id][2] } : { base: p.basePct || 5, min: p.minSeats || 1, max: p.maxSeats || SEATS_TOTAL };
+  const bnd = p => { const B = voteBases(); return { base: B.pct[p.id] != null ? B.pct[p.id] : (p.basePct || 5), min: 1, max: SEATS_TOTAL }; };
   const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.2;
   const sg = v => (v > 0 ? '+' : '') + (Math.round(v * 10) / 10);
 
@@ -8014,12 +8066,12 @@ function playSound(n) {
   }
   // Voto "de fondo" según el país y las decisiones recientes (sin ruido)
   function target(C) {
-    const pf = perf(), out = {};
+    const pf = perfRel(), out = {}, OPP = mainOpposition();
     gameState.parties.forEach(p => {
       let v = bnd(p).base;
       if (p.id === gameState.leaderPartyId) { v += pf * 6.5; if (gameState.electoralPenalty) v -= 3.5; }
       else if ((gameState.coalitionIds || []).includes(p.id)) v += pf * 2.5;
-      else if ((gameState.leaderPartyId === 'PSOE' && p.id === 'PP') || (gameState.leaderPartyId === 'PP' && p.id === 'PSOE')) v -= pf * 5.5;
+      else if (p.id === OPP) v -= pf * 5.5;
       v += cisElectionSwing(p.id);
       out[p.id] = Math.max(.5, v);
     });
@@ -8620,11 +8672,11 @@ function playSound(n) {
   const LEGACY_SERVICE = 1.0;     // fracción del coste real de intereses que se carga a la Tesorería (escala de juego)
   const LEGACY_DRAG = 0.004;       // puntos de Economía al día por cada 100 % de deuda/PIB
   const EXIT_DAYS = 180, EXIT_FAST_DAYS = 60;
-  const PTS_PER_EURO = 166.386;
+  const PTS_PER_EURO = (MC.t.oldCur && MC.t.oldCur.rate) || 166.386;
   const EXIT_CAPITAL = 20, TRADE_CAPITAL = 12;
   const FUNDS_LOSS = 400;          // M€/mes de fondos PAC y cohesión que dejas de recibir
-  const EXIT_LOYALTY = { PP: -20, SUMAR: -30, PNV: -30, JUNTS: -15, ERC: -20, PODEMOS: 5, VOX: 15 };
-  const UNDO_LOYALTY = { PP: 10, SUMAR: 15, PNV: 15, JUNTS: 8, ERC: 10, VOX: -15 };
+  const EXIT_LOYALTY = MC.builtin ? { PP: -20, SUMAR: -30, PNV: -30, JUNTS: -15, ERC: -20, PODEMOS: 5, VOX: 15 } : ((MC.euL && MC.euL.exit) || {});
+  const UNDO_LOYALTY = MC.builtin ? { PP: 10, SUMAR: 15, PNV: 15, JUNTS: 8, ERC: 10, VOX: -15 } : ((MC.euL && MC.euL.undo) || {});
 
   const EU_RE = /\bUE\b|Bruselas|Unión Europea|Comisión Europea|Parlamento Europeo|\bBCE\b|Banco Central Europeo|Fráncfort|comunitari[oa]s?|europe[oa]s?\b|eurozona|\bCEE\b|euroescép|Eurogrupo|Schengen|Eurostat/i;
 
@@ -8637,7 +8689,7 @@ function playSound(n) {
     if (!gameState.ue) gameState.ue = { stage: 'none', ccy: 'euro', fx: 100, debtCcy: 'EUR', startDay: 0, exitDay: 0, outDay: 0, cool: 0, heritage: false, trade: 0, fxCd: 0, f: {}, confirm: false };
     return gameState.ue;
   }
-  const member = () => !MC.builtin || !applies() || U().stage !== 'out';
+  const member = () => !MC.eu || !applies() || U().stage !== 'out';
   function D() {
     const d = debtInit();
     if (d.legacy == null && bdeSid()) { d.legacy = applies() ? REAL_DEBT.amount : 0; d.pib = REAL_DEBT.pib; }
@@ -8689,7 +8741,7 @@ function playSound(n) {
       ev.options[0].fx = 8; ev.options[1].fxMul = 0.8;
     } else {
       ev.desc += ' Sin el BCE como prestamista de última instancia, los mercados aprietan más.';
-      ev.options[0] = { text: 'Pedir una línea de liquidez al FMI y aceptar sus condiciones', stats: { eco: +3, est: -4, apr: -5 }, cost: 0, loyaltyImpact: {}, bde: { cred: 3, shock: -130 }, news: 'El FMI abre una línea de liquidez para España con condiciones de ajuste.' };
+      ev.options[0] = { text: 'Pedir una línea de liquidez al FMI y aceptar sus condiciones', stats: { eco: +3, est: -4, apr: -5 }, cost: 0, loyaltyImpact: {}, bde: { cred: 3, shock: -130 }, news: 'El FMI abre una línea de liquidez para ' + MC.t.nation + ' con condiciones de ajuste.' };
     }
     return ev;
   };
@@ -8735,11 +8787,11 @@ function playSound(n) {
 
   // ---------- Eventos adicionales por nivel de deuda ----------
   SHOCK_POOL.push(
-    { cat: 'MERCADOS', min: 'economia', title: 'LAS AGENCIAS ADVIERTEN: LA DEUDA SUPERA EL 105 % DEL PIB', desc: 'Las agencias de calificación avisan de que el endeudamiento total —heredado más el nuevo— compromete la nota de España.',
-      when: s => applies() && MC.builtin && ratio() >= 105,
+    { cat: 'MERCADOS', min: 'economia', title: 'LAS AGENCIAS ADVIERTEN: LA DEUDA SUPERA EL 105 % DEL PIB', desc: 'Las agencias de calificación avisan de que el endeudamiento total —heredado más el nuevo— compromete la nota de ' + MC.t.nation + '.',
+      when: s => applies() && MC.eu && ratio() >= 105,
       options: [ { text: 'Anunciar un plan creíble de reducción de deuda', cost: 0, stats: { eco: 2, apr: -3 }, news: '' + MC.t.gov + ' presenta un plan para reducir la deuda por debajo del 100 % del PIB.' }, { text: 'Confiar en que el crecimiento lo resolverá solo', cost: 0, stats: { eco: -4, apr: -1 }, news: 'Las agencias castigan la falta de plan con una rebaja de perspectiva.' } ] },
     { cat: 'UNIÓN EUROPEA', min: 'economia', title: 'BRUSELAS ABRE UN PROCEDIMIENTO POR DEUDA Y DÉFICIT EXCESIVOS', desc: 'La Comisión Europea considera que la trayectoria de la deuda incumple las reglas fiscales y exige un plan de ajuste.',
-      when: s => applies() && MC.builtin && member() && ratio() >= 102 && ((s.metrics || {}).eco || 50) < 45,
+      when: s => applies() && MC.eu && member() && ratio() >= 102 && ((s.metrics || {}).eco || 50) < 45,
       options: [ { text: 'Aceptar el plan de ajuste de Bruselas', cost: 0, stats: { eco: 3, apr: -5, est: -2 }, news: 'El Gobierno acepta el plan de ajuste exigido por la Comisión Europea.' }, { text: 'Plantar cara a la Comisión y desafiar las reglas fiscales', cost: 0, stats: { apr: 4, eco: -3 }, news: '' + MC.t.gov + ' desafía las reglas fiscales europeas y se arriesga a sanciones.' } ] }
   );
 
@@ -8771,7 +8823,7 @@ function playSound(n) {
   const exempt = ev => ev.euOwn || /^(BDE_|UE_|PES_)/.test(String(ev.id || ''));
   function guardPopups() {
     const b = document.getElementById('tab-btn-ue');
-    if (b) b.style.display = (applies() && MC.builtin) ? '' : 'none';
+    if (b) b.style.display = (applies() && MC.eu) ? '' : 'none';
     if (!applies() || member()) return;
     const ev = gameState.activeDynamicEvent, nw = gameState.activeNewsPopup;
     if ((ev && !exempt(ev) && related(ev)) || (nw && related(nw))) {
@@ -8789,7 +8841,7 @@ function playSound(n) {
   window.intlTier = function (c) { if (c === 'ue' && applies() && !member()) return null; return _it.apply(this, arguments); };
   const _ia = window.intlAct;
   window.intlAct = function (cid) {
-    if (cid === 'ue' && applies() && !member()) { goalsToast('España ya no es miembro de la UE: no hay cauce institucional para esa acción.', '#ef4444'); return; }
+    if (cid === 'ue' && applies() && !member()) { goalsToast('' + MC.t.nation + ' ya no es miembro de la UE: no hay cauce institucional para esa acción.', '#ef4444'); return; }
     return _ia.apply(this, arguments);
   };
 
@@ -8847,7 +8899,7 @@ function playSound(n) {
     u.stage = 'art50'; u.startDay = day; u.exitDay = day + (fast ? EXIT_FAST_DAYS : EXIT_DAYS); u.f = {}; u.confirm = false;
     try { intlShift('ue', -40, 'Notificación de salida de la UE'); intlShift('de', -12, 'Salida de la UE', true); intlShift('fr', -8, 'Salida de la UE', true); } catch (e) {}
     bdeApply({ cred: -4, shock: 30 });
-    news('España notifica formalmente su retirada de la Unión Europea (Artículo 50).');
+    news('' + MC.t.nation + ' notifica formalmente su retirada de la Unión Europea (Artículo 50).');
     goalsToast('<i class="fa-solid fa-earth-europe text-sky-400"></i> <b>Artículo 50 notificado.</b><br><span class="text-xs text-slate-300">Cuenta atrás: ' + (fast ? EXIT_FAST_DAYS : EXIT_DAYS) + ' días para la salida efectiva.</span>', '#38bdf8');
   }
   function goOut(ccy) {
@@ -8855,8 +8907,8 @@ function playSound(n) {
     u.stage = 'out'; u.ccy = ccy === 'peseta' ? 'peseta' : 'euro'; u.outDay = day; u.fx = 100; u.debtCcy = 'EUR'; u.f.debtAsked = false; u.f.debtDone = false; u.confirm = false;
     try { intlInit().rel.ue = 50; } catch (e) {}
     syncPools();
-    news(ccy === 'peseta' ? 'España abandona la Unión Europea y reintroduce la peseta.' : 'España abandona la Unión Europea y mantiene el euro por su cuenta.');
-    goalsToast('<i class="fa-solid fa-flag text-amber-400"></i> <b>España ya no es miembro de la UE.</b><br><span class="text-xs text-slate-300">Se acabaron las decisiones, directivas y fondos de Bruselas.</span>', '#d9a726');
+    news(ccy === 'peseta' ? '' + MC.t.nation + ' abandona la Unión Europea y reintroduce la peseta.' : '' + MC.t.nation + ' abandona la Unión Europea y mantiene el euro por su cuenta.');
+    goalsToast('<i class="fa-solid fa-flag text-amber-400"></i> <b>' + MC.t.nation + ' ya no es miembro de la UE.</b><br><span class="text-xs text-slate-300">Se acabaron las decisiones, directivas y fondos de Bruselas.</span>', '#d9a726');
   }
   function cancelExit() {
     const u = U(), day = gameState.daysInOffice || 0;
@@ -8888,7 +8940,7 @@ function playSound(n) {
     if (gameState.goals.capital < TRADE_CAPITAL) { goalsToast('Capital político insuficiente (' + TRADE_CAPITAL + ').', '#ef4444'); return; }
     if ((Number(gameState.treasury) || 0) < 800) { goalsToast('Fondos insuficientes (800 M€).', '#ef4444'); return; }
     gameState.goals.capital -= TRADE_CAPITAL; registerFinancialTransaction('Acuerdo comercial con la UE (tercer país)', -800, 'economia');
-    u.trade = 1; focusMetricAdd('eco', 1); news('España y la UE cierran un acuerdo comercial de tercer país: se alivian los aranceles.'); render();
+    u.trade = 1; focusMetricAdd('eco', 1); news('' + MC.t.nation + ' y la UE cierran un acuerdo comercial de tercer país: se alivian los aranceles.'); render();
   };
 
   // ---------- Eventos propios ----------
@@ -8913,7 +8965,7 @@ function playSound(n) {
       options: [
         { text: 'Negociar un periodo transitorio y un acuerdo comercial parcial', stats: { eco: +1, apr: -2 }, cost: 600, loyaltyImpact: {}, bde: { cred: 4, shock: -30 }, ue: 'trade', news: 'Madrid y Bruselas pactan un periodo transitorio para la retirada.' },
         { text: 'Rechazar el ultimátum y mantener el plazo', stats: { apr: +3, est: -2, eco: -2 }, cost: 0, loyaltyImpact: {}, bde: { shock: 30 }, news: 'El Gobierno rechaza el calendario de Bruselas y mantiene su plazo de salida.' },
-        { text: 'Exigir una compensación por los fondos retenidos', stats: { apr: +1, eco: -1 }, cost: 0, loyaltyImpact: {}, bde: { cred: -3, shock: 15 }, news: 'España reclama una compensación económica y las negociaciones se tensan.' }
+        { text: 'Exigir una compensación por los fondos retenidos', stats: { apr: +1, eco: -1 }, cost: 0, loyaltyImpact: {}, bde: { cred: -3, shock: 15 }, news: '' + MC.t.nation + ' reclama una compensación económica y las negociaciones se tensan.' }
       ] };
   }
   function evFuga() {
@@ -8927,11 +8979,11 @@ function playSound(n) {
   }
   function evSalida() {
     return { id: 'UE_SALIDA', category: 'UNIÓN EUROPEA · SALIDA EFECTIVA', title: 'DÍA DE LA SALIDA: ¿CON QUÉ MONEDA SOBREVIVES?',
-      desc: 'Se cumple el plazo y España dejará de ser Estado miembro. Hay que decidir la moneda. La peseta devuelve la soberanía monetaria —devaluar, imprimir—, pero expone la economía a inflación y fuga de capitales. Mantener el euro sin BCE es más tranquilo, aunque sin escudo ni prestamista.',
+      desc: 'Se cumple el plazo y ' + MC.t.nation + ' dejará de ser Estado miembro. Hay que decidir la moneda. La peseta devuelve la soberanía monetaria —devaluar, imprimir—, pero expone la economía a inflación y fuga de capitales. Mantener el euro sin BCE es más tranquilo, aunque sin escudo ni prestamista.',
       options: [
-        { text: 'Volver a la peseta (1 € = 166,386 pts) y recuperar la soberanía monetaria', stats: { apr: +5, eco: -4, est: -6 }, cost: 2500, loyaltyImpact: {}, bde: { cred: -12, shock: 90 }, ue: 'ccy_peseta', modifiers: { duration: 100, statsPerDay: { apr: 0.05 } }, news: 'España vuelve a la peseta tras 25 años de euro.' },
-        { text: 'Mantener el euro por tu cuenta (sin BCE ni escudo antiprima)', stats: { eco: -3, est: -2 }, cost: 0, loyaltyImpact: {}, bde: { cred: -6, shock: 55 }, ue: 'ccy_euro', news: 'España sale de la UE pero conserva el euro de forma unilateral.' },
-        { text: 'Frenar en seco y revertir el Artículo 50', stats: { apr: -8, est: -3 }, cost: 0, loyaltyImpact: UNDO_LOYALTY, bde: { cred: -4, shock: -20 }, ue: 'cancel', news: 'A última hora, el Gobierno revierte la salida y España sigue en la UE.' }
+        { text: 'Volver a la peseta (1 € = 166,386 pts) y recuperar la soberanía monetaria', stats: { apr: +5, eco: -4, est: -6 }, cost: 2500, loyaltyImpact: {}, bde: { cred: -12, shock: 90 }, ue: 'ccy_peseta', modifiers: { duration: 100, statsPerDay: { apr: 0.05 } }, news: '' + MC.t.nation + ' vuelve a la peseta tras 25 años de euro.' },
+        { text: 'Mantener el euro por tu cuenta (sin BCE ni escudo antiprima)', stats: { eco: -3, est: -2 }, cost: 0, loyaltyImpact: {}, bde: { cred: -6, shock: 55 }, ue: 'ccy_euro', news: '' + MC.t.nation + ' sale de la UE pero conserva el euro de forma unilateral.' },
+        { text: 'Frenar en seco y revertir el Artículo 50', stats: { apr: -8, est: -3 }, cost: 0, loyaltyImpact: UNDO_LOYALTY, bde: { cred: -4, shock: -20 }, ue: 'cancel', news: 'A última hora, el Gobierno revierte la salida y ' + MC.t.nation + ' sigue en la UE.' }
       ] };
   }
   function evDeuda() {
@@ -8939,7 +8991,7 @@ function playSound(n) {
       desc: 'Cobras impuestos en pesetas pero debes ' + bn(legacy()) + ' en euros: si la peseta se deprecia, la deuda pesa más cada mes. Redenominarla en pesetas elimina ese riesgo, pero los acreedores lo verán como un impago selectivo.',
       options: [
         { text: 'Mantener la deuda en euros y pagar religiosamente', stats: { eco: -1 }, cost: 0, loyaltyImpact: {}, bde: { cred: 6, shock: -30 }, ue: 'debt_eur', news: 'Hacienda confirma que la deuda se seguirá pagando en euros.' },
-        { text: 'Redenominar la deuda a pesetas por ley', stats: { apr: +2, eco: -3 }, cost: 0, loyaltyImpact: {}, bde: { cred: -22, shock: 110 }, ue: 'debt_pts', news: 'España redenomina su deuda a pesetas: los mercados hablan de impago selectivo.' }
+        { text: 'Redenominar la deuda a pesetas por ley', stats: { apr: +2, eco: -3 }, cost: 0, loyaltyImpact: {}, bde: { cred: -22, shock: 110 }, ue: 'debt_pts', news: '' + MC.t.nation + ' redenomina su deuda a pesetas: los mercados hablan de impago selectivo.' }
       ] };
   }
   function evEspiral() {
@@ -9076,7 +9128,7 @@ function playSound(n) {
     if (!hud || !document.body.classList.contains('hud-on') || gameState.step !== 4 || !applies()) return;
     const u = U(), r = ratio(), blk = (ic, lab, val, col, tt) => '<div class="hud-sep"></div><div class="hud-block" title="' + tt + '"><span class="hud-label"><i class="fa-solid ' + ic + ' mr-1"></i>' + lab + '</span><span class="hud-value" style="color:' + col + '">' + val + '</span></div>';
     let html = blk('fa-scale-unbalanced', 'Deuda/PIB', pc(r), r > 105 ? '#ef4444' : r > 90 ? '#d9a726' : '#10b981', 'Deuda pública total sobre el PIB');
-    if (!member()) html += blk('fa-earth-europe', 'UE', 'Fuera', '#94a3b8', 'España ha abandonado la UE');
+    if (!member()) html += blk('fa-earth-europe', 'UE', 'Fuera', '#94a3b8', '' + MC.t.nation + ' ha abandonado la UE');
     else if (u.stage === 'art50') html += blk('fa-earth-europe', 'UE', 'Saliendo ' + Math.max(0, u.exitDay - (gameState.daysInOffice || 0)) + 'd', '#38bdf8', 'Cuenta atrás para la salida efectiva');
     if (!member() && u.ccy === 'peseta') html += blk('fa-peseta-sign', '1 €', fmt(ptsPerEuro()) + ' pts', u.fx < 65 ? '#ef4444' : u.fx < 90 ? '#d9a726' : '#10b981', 'Tipo de cambio de la peseta');
     hud.insertAdjacentHTML('beforeend', html);
@@ -9588,7 +9640,7 @@ function playSound(n) {
   })();
 
   const _selS = selectScenario;
-  selectScenario = function () { gameState.free = null; return _selS.apply(this, arguments); };
+  selectScenario = function () { gameState.free = null; gameState.voteBase = null; if (gameState.cis) { gameState.cis.est = null; gameState.cis.hist = []; gameState.cis.ids = null; } return _selS.apply(this, arguments); };
 
   // Render: pestaña visible solo en modo libre, insignia y detección de la noche electoral
   const _rnd = render;
@@ -9611,14 +9663,15 @@ function playSound(n) {
 // =====================================================================
 (function () {
   'use strict';
-  const COLS = [
+  const COLS_DEFAULT = [
     { id: 'obr', name: 'Trabajadores', icon: 'fa-hammer',         tgt: m => m.emp * .7 + m.apr * .3, hit: { emp: -.04 }, up: { emp: .02 } },
     { id: 'emp', name: 'Empresarios',  icon: 'fa-briefcase',      tgt: m => m.eco * .8 + m.est * .2, hit: { eco: -.05 }, up: { eco: .03 } },
     { id: 'jov', name: 'Jóvenes',      icon: 'fa-graduation-cap', tgt: m => m.emp * .5 + m.apr * .5, hit: { apr: -.05 }, up: { apr: .03 } },
     { id: 'pen', name: 'Pensionistas', icon: 'fa-person-cane',    tgt: m => m.est * .6 + m.eco * .4, hit: { est: -.04 }, up: { est: .02 } },
     { id: 'rur', name: 'Mundo rural',  icon: 'fa-wheat-awn',      tgt: m => m.est * .5 + m.apr * .3 + m.eco * .2, hit: { est: -.03, apr: -.03 }, up: { apr: .02 } }
   ];
-  const SCANDALS = [
+  const COLS = (MC.soc && MC.soc.cols && MC.soc.cols.length) ? MC.soc.cols : COLS_DEFAULT;
+  const SCANDALS_DEFAULT = [
     { t: 'Caso de financiación irregular', d: 'Un diario publica grabaciones sobre pagos opacos a una fundación cercana al Gobierno.',
       o: [ { x: 'Colaborar con la Justicia y asumir el coste', now: { apr: -4 }, cap: 5, later: [40, { est: 3, apr: 2 }, 'La transparencia se recompensa'] },
            { x: 'Negar todo y atacar a la prensa', now: { apr: -1 }, cap: -8, later: [35, { apr: -6, est: -3 }, 'Aparecen nuevas pruebas'] },
@@ -9636,6 +9689,7 @@ function playSound(n) {
            { x: 'Ignorar el asunto', now: { apr: -3 }, later: [30, { apr: -3 }, 'La polémica se enquista'] },
            { x: 'Aprobar un código ético', now: { est: 1 }, money: 150, cap: 3, later: [45, { est: 3, apr: 2 }, 'El código ético da frutos'] } ] }
   ];
+  const SCANDALS = (MC.soc && MC.soc.scandals && MC.soc.scandals.length) ? MC.soc.scandals : SCANDALS_DEFAULT;
   const I = () => { if (!gameState.soc) { gameState.soc = { sat: {}, cd: {}, pend: [], mom: 40, press: 20, last: 0, speed: 1 }; COLS.forEach(c => gameState.soc.sat[c.id] = 55); } return gameState.soc; };
   const mt = () => gameState.metrics;
   const cap = () => { goalsInit(); return gameState.goals; };
@@ -9703,7 +9757,7 @@ function playSound(n) {
     const pend = S.pend.length ? S.pend.map(p => `<div class="text-[11px] text-slate-300">⏳ <b>${p.from}</b> — se resuelve en ${Math.max(0, p.due - day)} días</div>`).join('') : '<div class="text-[11px] text-slate-500">Sin consecuencias pendientes.</div>';
     return `<div class="hoi-box p-5 rounded-xl space-y-4 font-hoi-tech">
       <div class="border-b border-slate-800 pb-3"><h3 class="font-hoi-header text-2xl text-amber-400"><i class="fa-solid fa-people-group mr-2"></i>SOCIEDAD Y OPINIÓN</h3>
-      <p class="text-xs text-slate-400 font-sans">Cada colectivo reacciona a tu gestión. Con apoyo alto te dan bonus; con malestar, huelgas. Tus decisiones en escándalos tienen consecuencias días después.</p></div>
+      <p class="text-xs text-slate-400 font-sans">${(MC.soc && MC.soc.intro) || ''} Cada colectivo reacciona a tu gestión. Con apoyo alto te dan bonus; con malestar, huelgas. Tus decisiones en escándalos tienen consecuencias días después.</p></div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">${cards}
       <div class="bg-slate-950 border border-sky-700 rounded-lg p-3 space-y-2"><b class="text-sm text-slate-100"><i class="fa-solid fa-sun text-amber-400 mr-1.5"></i>Estado de gracia</b>${bar(S.mom, 'bg-amber-500')}<div class="text-[10px] text-slate-400">Mantén todas las métricas ≥45 para llenarlo: +15 de capital político al completarse (${Math.round(S.mom)}%).</div></div>
       <div class="bg-slate-950 border border-red-900 rounded-lg p-3 space-y-2"><b class="text-sm text-slate-100"><i class="fa-solid fa-newspaper text-red-400 mr-1.5"></i>Presión mediática</b>${bar(S.press, 'bg-red-500')}<div class="text-[10px] text-slate-400">Sube con el descontento y atrae escándalos (${Math.round(S.press)}%).</div></div></div>
@@ -10598,11 +10652,11 @@ function playSound(n) {
   const SAT = ['Un diputado olvida su escaño y vota desde el bar de la esquina.', 'El precio del café en el Congreso desata una crisis diplomática.', 'Un tertuliano predice la caída del Gobierno por 14.ª vez esta semana.', 'La oposición exige que el Presidente explique el tiempo de mañana.', 'Hallado en un cajón un presupuesto de 1997 que todavía se aplica.', 'El AVE llega puntual y el país entero sospecha.', 'Un concejal inaugura una rotonda y la rotonda lo inaugura a él.'];
   function cis() {
     const P = gameState.parties || [], L = P.find(p => p.id === gameState.leaderPartyId); if (!L) return;
-    const m = gameState.metrics, mine = clamp((L.basePct || 25) + (m.apr - 50) * 0.22, 3, 60);
-    const rival = P.filter(p => p.id !== L.id && !p.isRegional).sort((a, b) => (b.basePct || 0) - (a.basePct || 0))[0];
+    const m = gameState.metrics, mine = clamp((voteBases().pct[L.id] || L.basePct || 25) + perfRel() * 6.5, 1, 90);
+    const rival = P.filter(p => p.id !== L.id && !p.isRegional).sort((a, b) => (voteBases().pct[b.id] || 0) - (voteBases().pct[a.id] || 0))[0];
     const prev = gameState.cisPrev; gameState.cisPrev = mine;
     const d = prev == null ? 0 : mine - prev, f = v => v.toFixed(1).replace('.', ',');
-    toast(`<i class="fa-solid fa-square-poll-vertical text-sky-400"></i> <b>BARÓMETRO CIS:</b> ${L.name} ${f(mine)} % ${prev == null ? '' : '(' + (d >= 0 ? '+' : '') + f(d) + ')'}${rival ? ' · ' + rival.name + ' ' + f(clamp((rival.basePct || 20) - (m.apr - 50) * 0.12, 3, 60)) + ' %' : ''}`, d < 0 ? '#ef4444' : '#38bdf8');
+    toast(`<i class="fa-solid fa-square-poll-vertical text-sky-400"></i> <b>BARÓMETRO ${(MC.t && MC.t.pollster) || 'CIS'}:</b> ${L.name} ${f(mine)} % ${prev == null ? '' : '(' + (d >= 0 ? '+' : '') + f(d) + ')'}${rival ? ' · ' + rival.name + ' ' + f(clamp((voteBases().pct[rival.id] || rival.basePct || 20) - perfRel() * 5.5, 1, 90)) + ' %' : ''}`, d < 0 ? '#ef4444' : '#38bdf8');
   }
 
   // ---- 4. Procesar todo cada día ----
@@ -11139,8 +11193,8 @@ function playSound(n) {
   }
   function poll() {
     const c = C(), L = leader(), R = rival(), m = gameState.metrics || {};
-    const lp = cl((L.basePct || 30) + c.mom * 0.15 + ((m.apr || 50) - 50) * 0.08 + (Math.random() - 0.5) * 1.2, 5, 60);
-    const rp = cl((R && R.basePct || 30) - c.mom * 0.05 + (Math.random() - 0.5) * 1.2, 5, 60);
+    const lp = cl((voteBases().pct[L.id] || L.basePct || 30) + c.mom * 0.15 + ((m.apr || 50) - 50) * 0.08 + (Math.random() - 0.5) * 1.2, 5, 60);
+    const rp = cl((R && (voteBases().pct[R.id] || R.basePct) || 30) - c.mom * 0.05 + (Math.random() - 0.5) * 1.2, 5, 60);
     c.polls.unshift({ d: c.day, ln: pname(L), lp, rn: pname(R), rp }); c.polls.length = Math.min(c.polls.length, 5);
     log(`Barómetro: ${pname(L)} ${lp.toFixed(1)}% · ${pname(R)} ${rp.toFixed(1)}%.`);
   }
