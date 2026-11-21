@@ -5048,3 +5048,16 @@ const BDE_ACTIONS = [
   { id: 'imprimir', icon: 'fa-print', label: 'Que el Banco de España financie el déficit', desc: 'Imprime +6.000 M€ de pesetas. Inflación y desconfianza garantizadas.', cost: 0, cd: 120, when: () => bdePeseta(),
     run: B => { B.cred -= 15; B.shock += 50; focusMetricAdd('apr', -4); registerFinancialTransaction('Financiación monetaria del Banco de España', 6000, 'economia'); } }
 ];
+
+// ---- Demografía de España (la usa demografia.js) ----
+const COUNTRY_DEMO = {
+  pop: 49.0,                          // millones de habitantes
+  sh: [.13, .17, .22, .29, .19],      // reparto por franjas: 0-14, 15-29, 30-44, 45-64, 65+ (suma 1)
+  tfr: 1.12,                          // hijos por mujer
+  mig: 300,                           // saldo migratorio neto, en miles al año
+  mort: 1.0,                          // mortalidad respecto a la media (1 = típica de un país rico)
+  ss: 1.0,                            // peso de las pensiones en la caja (1 = normal; mayor = sistema más sensible al envejecimiento)
+  warScale: 300,                      // soldados que equivale una baja del Estado Mayor
+  ssName: 'Seguridad Social', retName: 'pensionistas',
+  note: 'España tiene una de las natalidades más bajas del mundo: la inmigración sostiene la población y las pensiones dependen de la relación entre cotizantes y jubilados (generación del baby boom retirándose).'
+};

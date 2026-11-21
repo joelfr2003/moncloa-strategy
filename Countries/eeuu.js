@@ -438,3 +438,10 @@ const COUNTRY_SOCIETY = {
            { x: 'Aprobar una prórroga de emergencia', now: { eco: -1 }, money: 300, later: [25, { est: 2 }, 'Se gana tiempo para negociar'] } ] }
   ]
 };
+
+// ---- Demografía de Estados Unidos (la usa demografia.js) ----
+const COUNTRY_DEMO = {
+  pop: 335, sh: [.18, .20, .20, .26, .17], tfr: 1.62, mig: 1000, mort: 1.1, ss: 1.2, warScale: 300,
+  ssName: 'Social Security y Medicare', retName: 'jubilados',
+  note: 'EE. UU. envejece más despacio que Europa gracias a la inmigración, pero la generación del baby boom presiona Social Security y Medicare: menos de 3 cotizantes por jubilado.'
+};

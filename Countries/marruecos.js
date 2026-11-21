@@ -1059,3 +1059,10 @@ const COUNTRY_SOCIETY = {
            { x: 'Anunciar un plan de empleo juvenil', now: { est: -1 }, money: 450, later: [45, { emp: 2, apr: 2 }, 'El plan empieza a dar resultados'] } ] }
   ]
 };
+
+// ---- Demografía de Marruecos (la usa demografia.js) ----
+const COUNTRY_DEMO = {
+  pop: 37.5, sh: [.25, .26, .23, .19, .07], tfr: 2.2, mig: -40, mort: 1.25, ss: 0.6, warScale: 400,
+  ssName: 'Caja Nacional de Seguridad Social (CNSS)', retName: 'jubilados',
+  note: 'Marruecos es un país joven en plena transición demográfica: la natalidad baja, pero el "bono demográfico" de jóvenes en edad de trabajar exige crear empleo. Muchos emigran a Europa y pocas personas cotizan al sistema formal.'
+};

@@ -5227,3 +5227,10 @@ const COUNTRY_SOCIETY = {
            { x: 'Anunciar un plan para los barrios populares', now: { est: -1 }, money: 500, later: [45, { est: 3, apr: 2 }, 'El plan empieza a dar resultados'] } ] }
   ]
 };
+
+// ---- Demografía de Francia (la usa demografia.js) ----
+const COUNTRY_DEMO = {
+  pop: 68.5, sh: [.17, .17, .18, .27, .21], tfr: 1.65, mig: 150, mort: 1.0, ss: 1.3, warScale: 300,
+  ssName: 'Sécurité sociale', retName: 'retraités',
+  note: 'Francia tenía la natalidad más alta de la UE, pero cae desde 2015. Su sistema de reparto es de los más generosos del mundo (jubilación en torno a los 62-64 años) y la pirámide envejece: cada reforma de las pensiones genera protestas.'
+};
