@@ -886,7 +886,7 @@ const BDE_ACTIONS = [
 const COUNTRY_ECON = {
   currency: 'DH',                // el motor muestra DH (dírham) en lugar de €
   // Términos que el motor usa en titulares y textos (Moncloa / Banco de España en España)
-  terms: { gov: 'Rabat', place: 'el Palacio Real', cabinet: 'Gabinete de Gobierno', bank: 'Bank Al-Maghrib', nation: 'Marruecos', adj: 'marroquí', firms: 'marroquíes', capital: 'Rabat', curName: 'Dírham marroquí', sovereign: true },
+  terms: { gov: 'Rabat', place: 'el Palacio Real', cabinet: 'Gabinete de Gobierno', bank: 'Bank Al-Maghrib', nation: 'Marruecos', adj: 'marroquí', firms: 'marroquíes', capital: 'Rabat', curName: 'Dírham marroquí', sovereign: true, pollster: 'HCP', pollsterLong: 'Haut-Commissariat au Plan (barómetro de opinión)' },
   k: 0.10,                       // escala respecto a España (PIB 176.000 / 1.700.000)
   budget: 10000, budgetStep: 100, // PGE a repartir (M€)
   pib: 176000, debt: 123000,      // PIB y deuda pública heredada (≈ 70 % del PIB)
@@ -1026,5 +1026,36 @@ const COUNTRY_INTL = {
       options: [{ text: 'Reforzar la cooperación policial', intl: { es: 12, dz: -2 }, cost: 150, stats: { est: 2 }, news: 'Marruecos y España refuerzan la cooperación en la frontera.' }, { text: 'Plantar cara y alzar el tono', intl: { es: -8 }, stats: { apr: 3, est: -2 }, news: 'Rabat responde con dureza a las medidas de Madrid.' }] },
     { id: 'gco', cond: r => r.gc >= 70, title: 'EL GOLFO OFRECE UN GRAN FONDO DE INVERSIÓN', desc: 'Las monarquías del Golfo proponen financiar puertos, energía y turismo a cambio de condiciones políticas.',
       options: [{ text: 'Aceptar las condiciones', intl: { gc: 8, us: -1 }, income: 600, stats: { eco: 3, emp: 2, apr: -2 }, news: 'Marruecos recibe una inyección de inversión del Golfo.' }, { text: 'Negociar sin ataduras políticas', intl: { gc: -4 }, income: 200, stats: { eco: 1, apr: 2 }, news: 'Rabat pacta una inversión del Golfo sin condiciones políticas.' }] }
+  ]
+};
+
+// ---- SOCIEDAD Y OPINIÓN (colectivos y escándalos propios de Marruecos) ---------------
+const COUNTRY_SOCIETY = {
+  intro: 'En Marruecos pesan el coste de la vida, el empleo juvenil y el mundo rural.',
+  cols: [
+    { id: 'tra', name: 'Trabajadores y funcionarios (sindicatos)', icon: 'fa-hammer',          tgt: m => m.emp * .7 + m.apr * .3, hit: { emp: -.04 }, up: { emp: .02 } },
+    { id: 'cla', name: 'Clase media urbana',                       icon: 'fa-building',        tgt: m => m.eco * .6 + m.est * .4, hit: { eco: -.04, apr: -.02 }, up: { eco: .03 } },
+    { id: 'jov', name: 'Jóvenes y estudiantes (Generación Z)',     icon: 'fa-graduation-cap',  tgt: m => m.emp * .6 + m.apr * .4, hit: { apr: -.05, est: -.02 }, up: { apr: .03 } },
+    { id: 'rur', name: 'Mundo rural y agricultores',               icon: 'fa-wheat-awn',       tgt: m => m.est * .4 + m.eco * .3 + m.apr * .3, hit: { est: -.03, apr: -.03 }, up: { apr: .02 } },
+    { id: 'mre', name: 'Marroquíes en el extranjero (MRE)',        icon: 'fa-plane',           tgt: m => m.eco * .5 + m.con * .5, hit: { eco: -.03 }, up: { eco: .03 } },
+    { id: 'com', name: 'Comerciantes y artesanos del zoco',        icon: 'fa-store',           tgt: m => m.eco * .7 + m.est * .3, hit: { eco: -.04 }, up: { eco: .02 } }
+  ],
+  scandals: [
+    { t: 'Polémica por la subida de los precios de los alimentos', d: 'La prensa y las redes denuncian el alza del aceite, el pan y la carne en pleno Ramadán.',
+      o: [ { x: 'Subvencionar los productos básicos', now: { apr: 2, eco: -2 }, money: 400, later: [30, { est: 2, apr: 1 }, 'Alivio en la cesta de la compra'] },
+           { x: 'Acusar a los intermediarios y abrir inspecciones', now: { apr: 1 }, cap: 4, later: [40, { apr: 2 }, 'Los precios se moderan'] },
+           { x: 'Ignorar la polémica', now: { apr: -3 }, later: [35, { est: -4, apr: -3 }, 'Aumentan las protestas'] } ] },
+    { t: 'Filtración del Consejo de Gobierno', d: 'Se filtran actas con discrepancias graves entre ministros de distintos partidos de la coalición.',
+      o: [ { x: 'Abrir una investigación interna', now: { est: -2 }, cap: -5, later: [30, { est: 3 }, 'Gabinete más cohesionado'] },
+           { x: 'Restar importancia', now: { apr: -2 }, later: [45, { est: -4 }, 'Crecen los rumores de crisis de la coalición'] },
+           { x: 'Remodelación gubernamental', now: { apr: 2, est: -3 }, money: 250, later: [25, { eco: 2, apr: 2 }, 'Equipo renovado y con empuje'] } ] },
+    { t: 'Denuncia de irregularidades en un contrato público', d: 'El Tribunal de Cuentas cuestiona un contrato de obra pública de gran importe.',
+      o: [ { x: 'Anular la adjudicación y repetir el concurso', now: { eco: -2 }, money: 300, later: [35, { apr: 4 }, 'Gesto de ejemplaridad'] },
+           { x: 'Defenderlo por urgencia', now: { apr: -3 }, cap: -4, later: [40, { apr: -4 }, 'La Fiscalía abre diligencias'] },
+           { x: 'Abrir una comisión de investigación parlamentaria', now: { apr: -1, est: -2 }, cap: 6, later: [50, { est: 3, apr: 3 }, 'Credibilidad recuperada'] } ] },
+    { t: 'Protestas juveniles por el paro y los servicios públicos', d: 'Jóvenes convocan en redes manifestaciones por la sanidad, la educación y el empleo.',
+      o: [ { x: 'Abrir un diálogo con los convocantes', now: { est: -1 }, cap: 4, later: [30, { est: 3, apr: 2 }, 'Se desactivan las protestas'] },
+           { x: 'Prohibir las concentraciones', now: { apr: -2, est: 1 }, later: [25, { est: -3, apr: -3 }, 'Las protestas se radicalizan'] },
+           { x: 'Anunciar un plan de empleo juvenil', now: { est: -1 }, money: 450, later: [45, { emp: 2, apr: 2 }, 'El plan empieza a dar resultados'] } ] }
   ]
 };

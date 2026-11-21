@@ -263,9 +263,10 @@ const BDE_ACTIONS = [
 
 // ---- 5. ECONOMÍA Y TEXTOS DEL PAÍS ----------------------------------------------------
 const COUNTRY_ECON = {
-  currency: '$',                 // el motor muestra $ en lugar de €
+  currency: '$',
+  hideMin: ['cultura', 'igualdad'],   // EE. UU. no tiene ministerio de Cultura ni de Igualdad                 // el motor muestra $ en lugar de €
   terms: { gov: 'La Casa Blanca', place: 'la Casa Blanca', cabinet: 'Gabinete presidencial', bank: 'Reserva Federal',
-           nation: 'Estados Unidos', adj: 'estadounidense', firms: 'estadounidenses', capital: 'Washington', curName: 'Dólar estadounidense', sovereign: true },
+           nation: 'Estados Unidos', adj: 'estadounidense', firms: 'estadounidenses', capital: 'Washington', curName: 'Dólar estadounidense', sovereign: true, pollster: 'Gallup', pollsterLong: 'Gallup (encuesta nacional)' },
   k: 15,
   budget: 1500000, budgetStep: 15000,
   pib: 27000000, debt: 33000000, macroPib: 1504500, revPct: 0.30, pensPct: 0.09, otherPct: 0.15,
@@ -404,5 +405,36 @@ const COUNTRY_DECREES = {
     { id: 'ORD_REINDUSTRIAL', title: 'Reindustrialización y Aranceles Selectivos', cost: 31500, desc: '+0.5% Economía y +0.2% Empleo/día durante 30 días.', cooldown: 85, statsPerDay: { eco: +0.5, emp: +0.2 } },
     { id: 'ORD_FRONTERA', title: 'Refuerzo de la Seguridad Fronteriza', cost: 27000, desc: '+0.5% Estabilidad/día durante 25 días.', cooldown: 70, statsPerDay: { est: +0.5 } },
     { id: 'ORD_TURISMO', title: 'Campaña Brand USA de Turismo Internacional', cost: 2250, desc: '+0.4% Economía/día durante 25 días.', cooldown: 50, statsPerDay: { eco: +0.4 } }
+  ]
+};
+
+// ---- SOCIEDAD Y OPINIÓN (colectivos y escándalos propios de Estados Unidos) ---------------
+const COUNTRY_SOCIETY = {
+  intro: 'En Estados Unidos pesan la inflación, la inmigración y la polarización entre estados rojos y azules.',
+  cols: [
+    { id: 'obr', name: 'Trabajadores sindicados y del Cinturón Industrial', icon: 'fa-hammer',   tgt: m => m.emp * .7 + m.apr * .3, hit: { emp: -.04 }, up: { emp: .02 } },
+    { id: 'emp', name: 'Wall Street y la pequeña empresa',                  icon: 'fa-briefcase', tgt: m => m.eco * .8 + m.est * .2, hit: { eco: -.05 }, up: { eco: .03 } },
+    { id: 'jov', name: 'Jóvenes y estudiantes (deuda universitaria)',        icon: 'fa-graduation-cap', tgt: m => m.emp * .5 + m.apr * .5, hit: { apr: -.05 }, up: { apr: .03 } },
+    { id: 'jub', name: 'Jubilados (Medicare y Social Security)',              icon: 'fa-person-cane', tgt: m => m.est * .6 + m.eco * .4, hit: { est: -.04 }, up: { est: .02 } },
+    { id: 'rur', name: 'Granjeros y Estados rurales',                         icon: 'fa-wheat-awn', tgt: m => m.est * .4 + m.eco * .3 + m.apr * .3, hit: { est: -.03, apr: -.03 }, up: { apr: .02 } },
+    { id: 'sub', name: 'Votantes suburbanos y comunidades latinas',            icon: 'fa-house-user', tgt: m => m.eco * .5 + m.apr * .5, hit: { apr: -.04 }, up: { apr: .03 } }
+  ],
+  scandals: [
+    { t: 'Investigación del Congreso por contratos de defensa', d: 'Un comité del Congreso cita a la Administración por contratos millonarios adjudicados sin competencia.',
+      o: [ { x: 'Colaborar con el comité y publicar los documentos', now: { apr: -3 }, cap: 5, later: [40, { est: 3, apr: 2 }, 'La transparencia se recompensa'] },
+           { x: 'Invocar el privilegio ejecutivo', now: { apr: -2 }, cap: -6, later: [35, { apr: -5, est: -3 }, 'Los tribunales obligan a entregar los documentos'] },
+           { x: 'Cesar a los responsables y encargar una auditoría', now: { apr: -2 }, money: 400, later: [30, { apr: 3 }, 'La auditoría limpia tu imagen'] } ] },
+    { t: 'Filtración del Gabinete presidencial', d: 'Un medio publica conversaciones de una reunión del Gabinete con discrepancias graves entre secretarios.',
+      o: [ { x: 'Abrir una investigación interna', now: { est: -2 }, cap: -5, later: [30, { est: 3 }, 'Gabinete más cohesionado'] },
+           { x: 'Restar importancia', now: { apr: -2 }, later: [45, { est: -4 }, 'Crecen los rumores de dimisiones'] },
+           { x: 'Cambiar a varios secretarios', now: { apr: 2, est: -3 }, money: 250, later: [25, { eco: 2, apr: 2 }, 'Equipo renovado y con empuje'] } ] },
+    { t: 'Polémica por conflictos de intereses del entorno presidencial', d: 'La prensa investiga negocios de familiares y donantes que se benefician de decisiones del Gobierno.',
+      o: [ { x: 'Crear un fideicomiso ciego y publicar las cuentas', now: { apr: -1 }, money: 150, later: [35, { apr: 4 }, 'Gesto de ejemplaridad'] },
+           { x: 'Rechazar las acusaciones', now: { apr: -3 }, cap: -4, later: [40, { apr: -4 }, 'Un fiscal especial abre diligencias'] },
+           { x: 'Aprobar un código ético federal', now: { est: 1 }, money: 150, cap: 3, later: [45, { est: 3, apr: 2 }, 'El código ético da frutos'] } ] },
+    { t: 'Cierre del Gobierno federal por el techo de deuda', d: 'El Congreso no aprueba el presupuesto a tiempo y los servicios federales se paralizan.',
+      o: [ { x: 'Negociar un pacto con la oposición', now: { eco: -1, apr: -1 }, cap: 6, later: [30, { eco: 2, est: 2 }, 'Se reabre el Gobierno'] },
+           { x: 'Mantener el pulso y culpar al Congreso', now: { apr: 1, eco: -3 }, later: [35, { eco: -3, apr: -3 }, 'El cierre se prolonga'] },
+           { x: 'Aprobar una prórroga de emergencia', now: { eco: -1 }, money: 300, later: [25, { est: 2 }, 'Se gana tiempo para negociar'] } ] }
   ]
 };

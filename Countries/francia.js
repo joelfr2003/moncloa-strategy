@@ -4996,18 +4996,22 @@ const INTL_ACTIONS = [
 ];
 
 const PROJECTS = [
-  { id: 'ave', icon: 'fa-train', title: 'Alta Velocidad y Cercanías', spirit: { name: 'Red Ferroviaria', daily: { eco: .04, emp: .02 }, money: 80 },
-    phases: [{ n: 'Estudios, trazado y licitación', cost: 1500, days: 30, now: {}, run: {} }, { n: 'Obra civil y vías', cost: 9500, days: 110, now: { emp: 2, eco: 1 }, run: { emp: .02, eco: .01 } }, { n: 'Material móvil y puesta en servicio', cost: 4000, days: 45, now: { eco: 2, emp: 1 }, run: {} }] },
-  { id: 'hosp', icon: 'fa-hospital', title: 'Red de Hospitales', spirit: { name: 'Sanidad Moderna', daily: { est: .03, apr: .02 }, money: -350 },
-    phases: [{ n: 'Planificación y suelo', cost: 900, days: 25, now: {}, run: {} }, { n: 'Construcción de los centros', cost: 6000, days: 90, now: { emp: 1 }, run: { emp: .015 } }, { n: 'Equipamiento y contratación de personal', cost: 2100, days: 40, now: { apr: 4 }, run: {} }] },
-  { id: 'agua', icon: 'fa-droplet', title: 'Plan Hidrológico', spirit: { name: 'Seguridad Hídrica', daily: { est: .03, eco: .02 }, money: -60 },
-    phases: [{ n: 'Estudios y evaluación ambiental', cost: 1000, days: 35, now: {}, run: {} }, { n: 'Presas, desaladoras y conducciones', cost: 7500, days: 120, now: { emp: 1 }, run: { emp: .012 } }, { n: 'Interconexión y puesta en marcha', cost: 2500, days: 45, now: { est: 3 }, run: {} }] },
-  { id: 'renov', icon: 'fa-solar-panel', title: 'Energías Renovables', spirit: { name: 'Independencia Energética', daily: { eco: .05 }, money: 250 },
-    phases: [{ n: 'Concursos y permisos', cost: 1600, days: 40, now: {}, run: {} }, { n: 'Parques solares, eólicos y redes', cost: 9800, days: 130, now: { eco: 1, emp: 1 }, run: { emp: .015, eco: .01 } }, { n: 'Almacenamiento y conexión a red', cost: 2600, days: 50, now: { eco: 3 }, run: {} }] },
-  { id: 'viv', icon: 'fa-house', title: 'Vivienda Pública', spirit: { name: 'Parque Público', daily: { apr: .04, est: .02 }, money: -200 },
-    phases: [{ n: 'Cesión de suelo y proyecto', cost: 800, days: 30, now: {}, run: {} }, { n: 'Construcción de viviendas', cost: 5600, days: 100, now: { emp: 1 }, run: { emp: .015 } }, { n: 'Adjudicación y entrega', cost: 1600, days: 35, now: { apr: 5 }, run: {} }] },
-  { id: 'digi', icon: 'fa-microchip', title: 'Transformación Digital', spirit: { name: 'Estado Digital', daily: { eco: .03, emp: .03 }, money: 150 },
-    phases: [{ n: 'Diseño y contratación', cost: 700, days: 25, now: {}, run: {} }, { n: 'Despliegue de redes y sistemas', cost: 5200, days: 80, now: { eco: 1 }, run: { eco: .01 } }, { n: 'Migración y formación', cost: 2100, days: 40, now: { eco: 2, emp: 2 }, run: {} }] }
+  { id: 'gpe', icon: 'fa-train-subway', title: 'Grand Paris Express', spirit: { name: 'Métropole connectée', daily: { eco: .04, emp: .02 }, money: 140 },
+    phases: [{ n: 'Estudios y declaración de utilidad pública', cost: 2400, days: 35, now: {}, run: {} }, { n: 'Túneles y estaciones de las líneas 15 a 18', cost: 14500, days: 120, now: { emp: 2, eco: 1 }, run: { emp: .02, eco: .01 } }, { n: 'Material rodante y puesta en servicio', cost: 6000, days: 50, now: { eco: 2, emp: 1 }, run: {} }] },
+  { id: 'epr', icon: 'fa-atom', title: 'Relance nucléaire (6 reactores EPR2)', spirit: { name: 'Souveraineté nucléaire', daily: { eco: .05, est: .02 }, money: 420 },
+    phases: [{ n: 'Autorizaciones y emplazamientos (Penly, Gravelines, Bugey)', cost: 3000, days: 45, now: {}, run: {} }, { n: 'Construcción de los reactores', cost: 19000, days: 150, now: { emp: 2, eco: 1 }, run: { emp: .02, eco: .01 } }, { n: 'Pruebas y conexión a la red', cost: 5500, days: 55, now: { eco: 3 }, run: {} }] },
+  { id: 'lgv', icon: 'fa-train', title: 'LGV Lyon–Turín y líneas del Sudoeste', spirit: { name: 'Réseau à grande vitesse', daily: { eco: .04, emp: .02 }, money: 110 },
+    phases: [{ n: 'Estudios, trazado y licitación', cost: 2200, days: 35, now: {}, run: {} }, { n: 'Túnel de base y obra civil', cost: 15000, days: 130, now: { emp: 2, eco: 1 }, run: { emp: .02, eco: .01 } }, { n: 'Material móvil y puesta en servicio', cost: 5000, days: 50, now: { eco: 2, emp: 1 }, run: {} }] },
+  { id: 'canal', icon: 'fa-water', title: 'Canal Seine-Nord Europe', spirit: { name: 'Logistique fluviale', daily: { eco: .03, emp: .015 }, money: 95 },
+    phases: [{ n: 'Expropiaciones y estudios', cost: 1500, days: 30, now: {}, run: {} }, { n: 'Excavación, esclusas y puentes', cost: 9500, days: 110, now: { emp: 1 }, run: { emp: .015, eco: .01 } }, { n: 'Plataformas multimodales y puertos', cost: 3000, days: 45, now: { eco: 2 }, run: {} }] },
+  { id: 'segur', icon: 'fa-hospital', title: 'Plan hospitalario (Ségur de la santé)', spirit: { name: 'Santé accessible', daily: { est: .03, apr: .02 }, money: -520 },
+    phases: [{ n: 'Planificación y suelo', cost: 1400, days: 25, now: {}, run: {} }, { n: 'Obras y modernización de centros', cost: 9600, days: 90, now: { emp: 1 }, run: { emp: .015 } }, { n: 'Equipamiento y contratación de personal sanitario', cost: 3400, days: 40, now: { apr: 4 }, run: {} }] },
+  { id: 'renov', icon: 'fa-house-chimney', title: 'Rénovation thermique de las viviendas', spirit: { name: 'Fin des passoires thermiques', daily: { eco: .03, apr: .03 }, money: -260 },
+    phases: [{ n: 'Ayudas MaPrimeRénov’ y certificación', cost: 1200, days: 25, now: {}, run: {} }, { n: 'Obras en parque público y privado', cost: 8800, days: 100, now: { emp: 2 }, run: { emp: .02 } }, { n: 'Balance energético y entrega', cost: 2600, days: 35, now: { apr: 3, eco: 1 }, run: {} }] },
+  { id: 'f2030', icon: 'fa-microchip', title: 'France 2030 (reindustrialización y chips)', spirit: { name: 'Réindustrialisation', daily: { eco: .04, emp: .03 }, money: 210 },
+    phases: [{ n: 'Convocatorias y selección de proyectos', cost: 1100, days: 25, now: {}, run: {} }, { n: 'Fábricas de baterías, chips e hidrógeno', cost: 8400, days: 85, now: { eco: 1, emp: 1 }, run: { eco: .01, emp: .012 } }, { n: 'Formación y cadena de suministro', cost: 3200, days: 40, now: { eco: 2, emp: 2 }, run: {} }] },
+  { id: 'pang', icon: 'fa-ship', title: 'Porte-avions de nouvelle génération (PANG)', spirit: { name: 'Puissance navale', daily: { mil: .04, est: .01 }, money: -160 },
+    phases: [{ n: 'Diseño y contratación', cost: 2000, days: 40, now: {}, run: {} }, { n: 'Construcción naval en Saint-Nazaire', cost: 12000, days: 140, now: { emp: 1, mil: 1 }, run: { emp: .01, mil: .01 } }, { n: 'Pruebas en la mar y entrada en servicio', cost: 4000, days: 50, now: { mil: 3 }, run: {} }] }
 ];
 
 const ACHIEVEMENTS = [
@@ -5034,15 +5038,15 @@ const BDE_GOVS = [
 const BDE_ACTIONS = [
   { id: 'informe', icon: 'fa-file-lines', label: 'Encargar un informe de solvencia', desc: 'Auditoría externa que calma a los mercados (más efecto con un gobernador creíble).', cost: 150, cd: 60, when: () => true,
     run: B => { const g = bdeGov(); B.cred += g && g.id !== 'afin' ? 5 : 2; B.shock -= 15; } },
-  { id: 'dividendo', icon: 'fa-hand-holding-dollar', label: 'Adelantar el beneficio del Banque de France', desc: 'Liquidez inmediata (+3.000 M€), pero huele a presión política.', cost: 0, cd: 180, when: () => !bdeFranco(),
+  { id: 'dividendo', icon: 'fa-hand-holding-dollar', label: 'Adelantar el beneficio del Banque de France', desc: 'Liquidez inmediata (+3.000 M€), pero huele a presión política.', cost: 0, cd: 180, when: () => !bdePeseta(),
     run: B => { B.cred -= 10; B.shock += 20; registerFinancialTransaction('Adelanto de beneficios del Banque de France', 3000, 'economia'); } },
-  { id: 'tpi', icon: 'fa-shield-halved', label: 'Pedir al BCE el escudo antifragmentación', desc: 'Exige prima ≥ 250 pb. Recorta la prima, pero Fráncfort impone condiciones.', cost: 0, cd: 150, when: () => !bdeFranco() && bdePrima() >= 250,
+  { id: 'tpi', icon: 'fa-shield-halved', label: 'Pedir al BCE el escudo antifragmentación', desc: 'Exige prima ≥ 250 pb. Recorta la prima, pero Fráncfort impone condiciones.', cost: 0, cd: 150, when: () => !bdePeseta() && bdePrima() >= 250,
     run: B => { B.shock -= 120; B.cred += 2; focusMetricAdd('est', -3); } },
-  { id: 'devaluar', icon: 'fa-arrow-trend-down', label: 'Devaluar la franco', desc: 'Impulsa exportaciones (+6 Economía) pero dispara la inflación (−5 Aprobación).', cost: 0, cd: 180, when: () => bdeFranco(),
+  { id: 'devaluar', icon: 'fa-arrow-trend-down', label: 'Devaluar el franco', desc: 'Impulsa exportaciones (+6 Economía) pero dispara la inflación (−5 Aprobación).', cost: 0, cd: 180, when: () => bdePeseta(),
     run: B => { B.cred -= 10; B.shock -= 40; focusMetricAdd('eco', 6); focusMetricAdd('apr', -5); } },
-  { id: 'reservas', icon: 'fa-vault', label: 'Defender la franco con reservas', desc: 'Quema 4.000 M€ de reservas para frenar la fuga de capitales.', cost: 4000, cd: 90, when: () => bdeFranco(),
+  { id: 'reservas', icon: 'fa-vault', label: 'Defender el franco con reservas', desc: 'Quema 4.000 M€ de reservas para frenar la fuga de capitales.', cost: 4000, cd: 90, when: () => bdePeseta(),
     run: B => { B.cred += 6; B.shock -= 60; } },
-  { id: 'imprimir', icon: 'fa-print', label: 'Que el Banque de France financie el déficit', desc: 'Imprime +6.000 M€ de francos. Inflación y desconfianza garantizadas.', cost: 0, cd: 120, when: () => bdeFranco(),
+  { id: 'imprimir', icon: 'fa-print', label: 'Que el Banque de France financie el déficit', desc: 'Imprime +6.000 M€ de francos. Inflación y desconfianza garantizadas.', cost: 0, cd: 120, when: () => bdePeseta(),
     run: B => { B.cred -= 15; B.shock += 50; focusMetricAdd('apr', -4); registerFinancialTransaction('Financiación monetaria del Banque de France', 6000, 'economia'); } }
 ];
 
@@ -5051,82 +5055,127 @@ const COUNTRY_ECON = {
   currency: '€',
   terms: {
     gov: 'El Gobierno', place: 'Matignon', cabinet: 'Conseil des ministres', bank: 'Banque de France',
-    nation: 'Francia', adj: 'frances', firms: 'francesas', capital: 'Paris', curName: 'Euro', sovereign: false
+    nation: 'Francia', adj: 'francés', firms: 'francesas', capital: 'París', curName: 'Euro', sovereign: false,
+    pollster: 'Ifop', pollsterLong: 'Ifop (Institut français d’opinion publique)',
+    oldCur: { name: 'franco', sym: 'FF', rate: 6.55957 }   // si Francia sale del euro vuelve al franco
   },
+  // Salida de la UE: reacción de los partidos (lealtad de los socios) al salir o al revertir la salida
+  eu: {
+    exit: { RN: 15, LFI: 5, LR: -20, ENS: -30, PS: -25, EELV: -30, LIOT: -10 },
+    undo: { RN: -15, LFI: -5, LR: 10, ENS: 15, PS: 12, EELV: 15, LIOT: 5 }
+  },
+  hideMin: [],
   k: 1.6,
   budget: 480000, budgetStep: 4000,
   pib: 2800000, debt: 3100000, macroPib: 2800000, revPct: 0.48, pensPct: 0.14, otherPct: 0.12,
   baseRate: 3.2, debtMax: 900000, cashCap: 150000,
   preset: { sanidad: 90000, educacion: 72000, defensa: 55000, vivienda: 28000, infraestructuras: 35000, deuda: 45000 },
-  hint: 'Presupuesto frances a escala de juego: Sante y retraites pesan mucho; Armees ~2 % del PIB.',
+  hint: 'Presupuesto francés a escala de juego: la sanidad y las pensiones (retraites) pesan mucho; Armées ≈ 2 % del PIB y la fuerza de disuasión nuclear.',
   labels: {
-    sanidad: 'Sante et Securite sociale', educacion: 'Education nationale', defensa: 'Armees',
+    sanidad: 'Santé et Sécurité sociale', educacion: 'Éducation nationale', defensa: 'Armées',
     vivienda: 'Logement', infraestructuras: 'Transports', deuda: 'Charge de la dette'
   },
   pct: { sanidad: 22, educacion: 15, infraestructuras: 8, interior: 7, defensa: 12, economia: 10, vivienda: 6 },
   names: {
-    economia: 'Ministere de l Economie', interior: 'Ministere de l Interieur', defensa: 'Ministere des Armees',
-    vivienda: 'Ministere du Logement', territorio: 'Transition territoriale', sanidad: 'Ministere de la Sante',
-    educacion: 'Education nationale', trabajo: 'Ministere du Travail', justicia: 'Ministere de la Justice',
-    exteriores: 'Europe et Affaires etrangeres', transicion_ecologica: 'Transition ecologique',
-    cultura: 'Ministere de la Culture', igualdad: 'Egalite', infraestructuras: 'Transports'
+    economia: 'Ministère de l’Économie et des Finances (Bercy)', interior: 'Ministère de l’Intérieur', defensa: 'Ministère des Armées',
+    vivienda: 'Ministère du Logement', territorio: 'Ministère de la Cohésion des territoires', sanidad: 'Ministère de la Santé',
+    educacion: 'Ministère de l’Éducation nationale', trabajo: 'Ministère du Travail et de l’Emploi', justicia: 'Ministère de la Justice (Garde des Sceaux)',
+    exteriores: 'Ministère de l’Europe et des Affaires étrangères (Quai d’Orsay)', transicion_ecologica: 'Ministère de la Transition écologique et de l’Énergie',
+    cultura: 'Ministère de la Culture', igualdad: 'Ministère de l’Égalité et de la Lutte contre les discriminations', infraestructuras: 'Ministère des Transports'
   },
   descs: {
-    sanidad: 'Hopitaux, Securite sociale et sante publique.', educacion: 'Ecole republicaine et universites.',
-    infraestructuras: 'Trains, routes, ports et reseau electrique.', interior: 'Police, gendarmerie et securite.',
-    defensa: 'Armees, dissuasion nucleaire et industrie de defense.', economia: 'Bercy, budget et industrie.',
-    vivienda: 'Logement social et regulation des loyers.', trabajo: 'Emploi, chomage et dialogue social.',
-    justicia: 'Tribunaux et prisons.', exteriores: 'Diplomatie, UE et reseau consulaire.',
-    transicion_ecologica: 'Climat, energie et biodiversite.', cultura: 'Patrimoine et industries culturelles.',
-    igualdad: 'Egalite et lutte contre les discriminations.', territorio: 'Cohesion territoriale et ruralite.'
+    sanidad: 'Hôpitaux, Sécurité sociale y salud pública.', educacion: 'Escuela republicana y universidades.',
+    infraestructuras: 'Trenes (SNCF), carreteras, puertos y red eléctrica.', interior: 'Policía nacional, gendarmería y seguridad.',
+    defensa: 'Fuerzas armadas, disuasión nuclear e industria de defensa.', economia: 'Bercy: presupuesto, impuestos e industria.',
+    vivienda: 'Vivienda social y regulación de los alquileres.', trabajo: 'Empleo, paro y diálogo social con los sindicatos.',
+    justicia: 'Tribunales, fiscales y prisiones.', exteriores: 'Diplomacia, UE y red consular.',
+    transicion_ecologica: 'Clima, energía nuclear y renovables.', cultura: 'Patrimonio e industrias culturales.',
+    igualdad: 'Igualdad y lucha contra las discriminaciones.', territorio: 'Cohesión territorial y ruralidad.'
+  },
+  war: {
+    id: 250, name: 'Francia', lat: 46.6, lon: 2.4, allied: 'OTAN|UE', own: { t: 58, m: 70, a: 74 },
+    add: [],
+    drop: [],
+    rel: { 724: 80, 826: 76, 276: 84, 380: 78, 840: 72, 643: 6, 156: 36, 12: 36, 504: 62, 788: 66, 792: 45, 364: 8, 408: 3, 466: 22, 562: 18, 854: 24, 148: 55, 686: 70, 384: 72, 804: 85, 616: 80 }
   }
 };
 
 // ---- Mapa regional de Francia (paths SVG a escala del motor) --------------------
 const COUNTRY_MAP = {
-  title: 'Mapa regional de Francia',
+  title: 'Mapa de las 13 regiones de la Francia metropolitana',
   paths: [
-    { id: 'HDF', name: 'Hauts-de-France', d: 'M 210,40 L 250,35 L 290,42 L 300,70 L 280,95 L 240,100 L 210,90 L 195,65 Z', spectrumPref: 5.5, regionalist: false, desc: 'Hauts-de-France · Industria, puertos y voto obrero/RN' },
-    { id: 'NOR', name: 'Normandie', d: 'M 140,55 L 195,50 L 210,90 L 190,115 L 150,120 L 125,95 L 120,70 Z', spectrumPref: 4.8, regionalist: false, desc: 'Normandie · Rural, agro y centroderecha' },
-    { id: 'IDF', name: 'Ile-de-France', d: 'M 210,90 L 240,100 L 255,120 L 245,145 L 215,150 L 195,135 L 190,115 Z', spectrumPref: 3.2, regionalist: false, desc: 'Ile-de-France · Paris y corona · Diversidad y polarizacion' },
-    { id: 'GES', name: 'Grand Est', d: 'M 290,42 L 340,50 L 360,90 L 350,130 L 310,140 L 280,120 L 280,95 L 300,70 Z', spectrumPref: 5.2, regionalist: false, desc: 'Grand Est · Industria, frontera alemana' },
-    { id: 'BRE', name: 'Bretagne', d: 'M 70,90 L 120,70 L 125,95 L 130,130 L 100,145 L 60,130 L 50,105 Z', spectrumPref: 3.8, regionalist: true, desc: 'Bretagne · Identidad regional y centroizquierda' },
-    { id: 'PDL', name: 'Pays de la Loire', d: 'M 125,95 L 150,120 L 170,150 L 155,180 L 120,175 L 100,145 L 130,130 Z', spectrumPref: 4.5, regionalist: false, desc: 'Pays de la Loire · Nantes, agroindustria' },
-    { id: 'CVL', name: 'Centre-Val de Loire', d: 'M 190,115 L 215,150 L 230,175 L 200,195 L 170,180 L 170,150 L 190,135 Z', spectrumPref: 4.6, regionalist: false, desc: 'Centre-Val de Loire · Rural y bipartidista' },
-    { id: 'BFC', name: 'Bourgogne-Franche-Comte', d: 'M 245,145 L 280,120 L 310,140 L 320,175 L 290,195 L 255,185 L 230,175 L 245,155 Z', spectrumPref: 4.9, regionalist: false, desc: 'Bourgogne-Franche-Comte · Rural, vino e industria' },
-    { id: 'NAQ', name: 'Nouvelle-Aquitaine', d: 'M 100,175 L 155,180 L 170,180 L 200,195 L 195,240 L 160,270 L 120,260 L 95,220 Z', spectrumPref: 4.0, regionalist: false, desc: 'Nouvelle-Aquitaine · Bordeaux, costa atlantica' },
-    { id: 'ARA', name: 'Auvergne-Rhone-Alpes', d: 'M 230,175 L 255,185 L 290,195 L 320,175 L 350,200 L 340,250 L 300,260 L 260,240 L 230,210 Z', spectrumPref: 4.3, regionalist: false, desc: 'Auvergne-Rhone-Alpes · Lyon, Alpes, industria' },
-    { id: 'OCC', name: 'Occitanie', d: 'M 195,240 L 230,210 L 260,240 L 280,270 L 250,300 L 200,295 L 160,270 Z', spectrumPref: 3.6, regionalist: false, desc: 'Occitanie · Toulouse, Mediterraneo, izquierda' },
-    { id: 'PAC', name: 'Provence-Alpes-Cote dAzur', d: 'M 300,260 L 340,250 L 370,270 L 365,300 L 330,310 L 290,295 L 280,270 Z', spectrumPref: 5.4, regionalist: false, desc: 'PACA · Marsella, Niza, turismo y polarizacion' },
-    { id: 'COR', name: 'Corse', d: 'M 400,280 L 420,275 L 430,300 L 420,330 L 400,335 L 390,310 Z', spectrumPref: 4.7, regionalist: true, desc: 'Corse · Autonomismo e identidad insular' }
+    { id: 'HDF', name: 'Hauts-de-France', d: 'M 190.9,52.5 L 194.7,47.2 L 196.0,28.5 L 202.5,19.1 L 215.9,15.4 L 220.5,13.9 L 234.7,25.5 L 246.3,39.7 L 259.2,43.5 L 263.1,51.0 L 263.1,55.5 L 260.5,62.2 L 256.6,73.5 L 250.2,84.7 L 242.5,92.2 L 233.4,88.5 L 225.7,85.5 L 214.1,87.7 L 199.9,82.9 L 203.8,73.5 L 199.9,64.1 L 194.7,56.6 L 190.9,52.5 Z', spectrumPref: 5.5, regionalist: false, desc: 'Hauts-de-France · Industria, puertos y voto obrero/RN' },
+    { id: 'NOR', name: 'Normandie', d: 'M 116.0,106.5 L 113.5,98.2 L 116.0,84.7 L 112.2,75.4 L 105.7,66.0 L 113.5,67.1 L 122.5,66.0 L 125.1,79.1 L 131.5,78.4 L 148.3,81.0 L 160.7,76.5 L 157.3,73.9 L 164.3,63.7 L 182.6,57.4 L 190.9,52.5 L 194.7,56.6 L 199.9,64.1 L 203.8,73.5 L 199.9,82.9 L 197.3,88.5 L 192.1,96.0 L 185.7,101.6 L 178.0,107.2 L 170.2,111.0 L 166.3,116.6 L 154.7,118.5 L 144.4,114.7 L 134.1,111.0 L 126.4,112.9 L 119.9,114.7 L 117.3,112.9 L 116.0,106.5 Z', spectrumPref: 4.8, regionalist: false, desc: 'Normandie · Rural, agro y centroderecha' },
+    { id: 'IDF', name: 'Île-de-France', d: 'M 199.9,82.9 L 214.1,87.7 L 225.7,85.5 L 233.4,88.5 L 242.5,92.2 L 245.0,103.5 L 243.7,111.0 L 245.0,116.6 L 236.0,118.5 L 228.3,120.4 L 216.7,118.5 L 206.3,116.6 L 198.6,111.0 L 194.7,103.5 L 192.1,96.0 L 197.3,88.5 L 199.9,82.9 Z', spectrumPref: 3.2, regionalist: false, desc: 'Ile-de-France · Paris y corona · Diversidad y polarizacion' },
+    { id: 'GES', name: 'Grand Est', d: 'M 263.1,55.5 L 273.4,55.5 L 279.9,51.0 L 282.4,62.2 L 292.8,71.6 L 304.4,71.6 L 312.1,75.4 L 319.9,75.4 L 327.6,86.6 L 336.6,88.5 L 348.2,90.4 L 366.3,93.4 L 363.7,99.8 L 357.3,112.9 L 350.8,129.7 L 349.5,144.7 L 340.5,148.5 L 335.3,150.4 L 335.3,142.9 L 327.6,137.2 L 319.9,135.4 L 304.4,131.6 L 292.8,135.4 L 285.0,135.4 L 277.3,131.6 L 268.3,127.9 L 255.4,124.1 L 245.0,116.6 L 243.7,111.0 L 245.0,103.5 L 242.5,92.2 L 250.2,84.7 L 256.6,73.5 L 260.5,62.2 L 263.1,55.5 Z', spectrumPref: 5.2, regionalist: false, desc: 'Grand Est · Industria, frontera alemana' },
+    { id: 'BRE', name: 'Bretagne', d: 'M 91.5,149.2 L 79.9,148.5 L 67.0,141.0 L 54.1,137.2 L 43.8,135.4 L 32.2,129.7 L 32.2,116.6 L 37.4,114.7 L 33.5,109.1 L 43.8,103.5 L 61.9,103.5 L 72.2,97.9 L 82.5,107.2 L 92.8,105.4 L 103.1,105.4 L 113.5,104.2 L 116.0,106.5 L 117.3,112.9 L 119.9,114.7 L 123.8,126.0 L 118.6,137.2 L 110.9,142.9 L 100.6,146.6 L 91.5,149.2 Z', spectrumPref: 3.8, regionalist: true, desc: 'Bretagne · Identidad regional y centroizquierda' },
+    { id: 'PDL', name: 'Pays de la Loire', d: 'M 124.6,193.5 L 108.3,187.9 L 99.3,174.8 L 98.0,165.4 L 89.0,156.7 L 91.5,149.2 L 100.6,146.6 L 110.9,142.9 L 118.6,137.2 L 123.8,126.0 L 119.9,114.7 L 126.4,112.9 L 134.1,111.0 L 144.4,114.7 L 154.7,118.5 L 166.3,116.6 L 159.9,129.7 L 159.9,144.7 L 154.7,154.1 L 147.0,167.2 L 139.3,174.8 L 131.5,182.2 L 126.4,189.7 L 124.6,193.5 Z', spectrumPref: 4.5, regionalist: false, desc: 'Pays de la Loire · Nantes, agroindustria' },
+    { id: 'CVL', name: 'Centre-Val de Loire', d: 'M 166.3,116.6 L 159.9,129.7 L 159.9,144.7 L 154.7,154.1 L 147.0,167.2 L 162.5,169.1 L 172.8,178.5 L 183.1,189.7 L 190.9,193.5 L 203.8,191.6 L 217.9,189.7 L 221.8,184.1 L 228.3,178.5 L 229.6,163.5 L 232.1,152.2 L 232.1,141.0 L 230.8,129.7 L 228.3,120.4 L 216.7,118.5 L 206.3,116.6 L 198.6,111.0 L 194.7,103.5 L 192.1,96.0 L 185.7,101.6 L 178.0,107.2 L 170.2,111.0 L 166.3,116.6 Z', spectrumPref: 4.6, regionalist: false, desc: 'Centre-Val de Loire · Rural y bipartidista' },
+    { id: 'BFC', name: 'Bourgogne-Franche-Comté', d: 'M 245.0,116.6 L 236.0,118.5 L 228.3,120.4 L 230.8,129.7 L 232.1,141.0 L 232.1,152.2 L 229.6,163.5 L 228.3,178.5 L 239.9,184.1 L 252.8,193.5 L 265.7,199.1 L 278.6,197.2 L 288.9,191.6 L 299.2,193.5 L 310.8,193.5 L 314.7,186.0 L 321.1,176.6 L 330.2,161.6 L 334.0,154.1 L 335.3,150.4 L 335.3,142.9 L 327.6,137.2 L 319.9,135.4 L 304.4,131.6 L 292.8,135.4 L 285.0,135.4 L 277.3,131.6 L 268.3,127.9 L 255.4,124.1 L 245.0,116.6 Z', spectrumPref: 4.9, regionalist: false, desc: 'Bourgogne-Franche-Comte · Rural, vino e industria' },
+    { id: 'NAQ', name: 'Nouvelle-Aquitaine', d: 'M 148.3,322.9 L 139.3,324.8 L 121.2,317.2 L 108.8,303.4 L 114.7,299.2 L 118.6,279.7 L 123.8,255.4 L 126.4,221.6 L 127.6,219.0 L 125.1,199.1 L 124.6,193.5 L 126.4,189.7 L 131.5,182.2 L 139.3,174.8 L 147.0,167.2 L 162.5,169.1 L 172.8,178.5 L 183.1,189.7 L 190.9,193.5 L 203.8,191.6 L 217.9,189.7 L 220.5,204.7 L 219.2,219.7 L 211.5,234.7 L 210.2,247.9 L 201.2,253.5 L 192.1,259.1 L 180.5,264.7 L 165.1,272.2 L 154.7,283.5 L 152.2,298.5 L 149.6,309.7 L 148.3,322.9 Z', spectrumPref: 4.0, regionalist: false, desc: 'Nouvelle-Aquitaine · Bordeaux, costa atlantica' },
+    { id: 'ARA', name: 'Auvergne-Rhône-Alpes', d: 'M 217.9,189.7 L 221.8,184.1 L 228.3,178.5 L 239.9,184.1 L 252.8,193.5 L 265.7,199.1 L 278.6,197.2 L 288.9,191.6 L 299.2,193.5 L 310.8,193.5 L 312.1,199.1 L 322.4,189.7 L 331.5,189.7 L 334.0,204.7 L 331.5,210.4 L 337.9,217.9 L 336.6,227.2 L 330.2,238.5 L 334.0,242.2 L 319.9,244.1 L 304.4,247.9 L 296.6,257.2 L 294.1,272.2 L 283.7,272.2 L 277.3,272.2 L 268.3,266.6 L 260.5,259.1 L 247.6,253.5 L 237.3,251.6 L 225.7,244.1 L 217.9,253.5 L 210.2,247.9 L 211.5,234.7 L 219.2,219.7 L 220.5,204.7 L 217.9,189.7 Z', spectrumPref: 4.3, regionalist: false, desc: 'Auvergne-Rhone-Alpes · Lyon, Alpes, industria' },
+    { id: 'OCC', name: 'Occitanie', d: 'M 269.5,302.2 L 255.4,298.5 L 250.2,302.2 L 239.9,307.9 L 234.7,315.4 L 232.9,328.5 L 236.5,338.6 L 219.2,341.6 L 206.3,341.6 L 192.1,332.2 L 172.8,324.8 L 159.9,326.6 L 148.3,322.9 L 149.6,309.7 L 152.2,298.5 L 154.7,283.5 L 165.1,272.2 L 180.5,264.7 L 192.1,259.1 L 201.2,253.5 L 210.2,247.9 L 217.9,253.5 L 225.7,244.1 L 237.3,251.6 L 247.6,253.5 L 260.5,259.1 L 268.3,266.6 L 277.3,272.2 L 276.0,279.7 L 274.7,287.2 L 270.8,294.7 L 269.5,302.2 Z', spectrumPref: 3.6, regionalist: false, desc: 'Occitanie · Toulouse, Mediterraneo, izquierda' },
+    { id: 'PAC', name: 'Provence-Alpes-Côte d’Azur', d: 'M 334.0,242.2 L 334.0,253.5 L 334.0,262.9 L 337.9,272.2 L 345.7,276.0 L 349.5,276.0 L 348.2,288.0 L 341.8,291.7 L 335.3,296.6 L 328.1,301.5 L 317.3,311.6 L 307.7,312.8 L 293.3,306.7 L 279.9,302.2 L 269.5,302.2 L 270.8,294.7 L 274.7,287.2 L 276.0,279.7 L 277.3,272.2 L 283.7,272.2 L 294.1,272.2 L 296.6,257.2 L 304.4,247.9 L 319.9,244.1 L 334.0,242.2 Z', spectrumPref: 5.4, regionalist: false, desc: 'PACA · Marsella, Niza, turismo y polarizacion' },
+    { id: 'COR', name: 'Corse', d: 'M 396.0,317.2 L 399.8,322.9 L 401.1,336.0 L 399.8,354.7 L 396.0,364.1 L 390.8,378.0 L 381.8,369.7 L 379.2,358.5 L 375.3,347.2 L 377.9,334.1 L 392.1,328.5 L 394.7,326.6 Z', spectrumPref: 4.7, regionalist: true, desc: 'Corse · Autonomismo e identidad insular' }
   ]
 };
 
 const COUNTRY_INTL = {
+  blocksText: 'China↔Rusia, UE↔Reino Unido, Francia↔Alemania',
   partners: {
-    de: { name: 'Alemania', flag: 'DE', base: 72 },
-    es: { name: 'Espana', flag: 'ES', base: 70 },
-    it: { name: 'Italia', flag: 'IT', base: 62 },
-    uk: { name: 'Reino Unido', flag: 'GB', base: 55 },
-    us: { name: 'Estados Unidos', flag: 'US', base: 68 },
-    ma: { name: 'Marruecos', flag: 'MA', base: 48 },
-    dz: { name: 'Argelia', flag: 'DZ', base: 35 },
-    cn: { name: 'China', flag: 'CN', base: 45 },
-    ru: { name: 'Rusia', flag: 'RU', base: 22 }
+    ue: { name: 'Unión Europea', icon: 'fa-earth-europe', ally: { name: 'Liderazgo francés en Bruselas', daily: { eco: .05, est: .02 }, money: 1500 }, tense: { name: 'Choque con la Comisión Europea', daily: { eco: -.04 }, money: -700 } },
+    de: { name: 'Alemania', icon: 'fa-handshake', ally: { name: 'Motor franco-alemán', daily: { eco: .05, mil: .02 }, money: 1200 }, tense: { name: 'Eje roto con Berlín', daily: { eco: -.04, est: -.01 }, money: -600 } },
+    us: { name: 'Estados Unidos', icon: 'fa-flag-usa', ally: { name: 'Alianza atlántica', daily: { mil: .04, eco: .02 }, money: 800 }, tense: { name: 'Fricción comercial transatlántica', daily: { eco: -.03 }, money: -500 } },
+    uk: { name: 'Reino Unido', icon: 'fa-crown', ally: { name: 'Entente de Lancaster House', daily: { mil: .03, eco: .02 }, money: 500 }, tense: { name: 'Frialdad con Londres (migración y pesca)', daily: { mil: -.02 }, money: -250 } },
+    af: { name: 'África francófona y Sahel', icon: 'fa-earth-africa', ally: { name: 'Cooperación en el Sahel', daily: { mil: .02, est: .02 }, money: 400 }, tense: { name: 'Expulsión de las tropas francesas', daily: { mil: -.03, est: -.02 }, money: -450 } },
+    mg: { name: 'Argelia, Marruecos y Túnez', icon: 'fa-globe-africa', ally: { name: 'Socios del Magreb', daily: { est: .03, eco: .02 }, money: 350 }, tense: { name: 'Crisis migratoria y de memoria colonial', daily: { est: -.04 }, money: -400 } },
+    cn: { name: 'China', icon: 'fa-dragon', ally: { name: 'Comercio fluido con Pekín', daily: { eco: .04 }, money: 900 }, tense: { name: 'Guerra de aranceles con China', daily: { eco: -.04, emp: -.02 }, money: -800 } },
+    ru: { name: 'Rusia', icon: 'fa-snowflake', ally: { name: 'Distensión con Moscú', daily: { est: .03 }, money: 250 }, tense: { name: 'Amenaza rusa en Europa', daily: { mil: -.02, est: -.03 }, money: -400 } }
   },
-  base: { de: 72, es: 70, it: 62, uk: 55, us: 68, ma: 48, dz: 35, cn: 45, ru: 22 },
-  links: {
-    de: 'Eje franco-aleman y motor de la UE.',
-    es: 'Socios mediterraneos y de la UE.',
-    us: 'Aliados OTAN con fricciones comerciales.',
-    dz: 'Historia compleja y agenda migratoria.'
+  base: { ue: 68, de: 72, us: 66, uk: 55, af: 38, mg: 42, cn: 45, ru: 14 },
+  links: { cn: { ru: .3 }, ru: { cn: .3, ue: -.3 }, ue: { de: .2, uk: .1 }, de: { ue: .2 }, af: { ru: -.2 } },
+  map: {
+    ue: [724, 380, 620, 56, 528, 40, 246, 752, 208, 372, 616, 203, 642, 100, 191, 196, 233, 428, 440, 442, 348, 703, 705, 300, 470],
+    de: [276], us: [840], uk: [826], cn: [156], ru: [643, 112],
+    af: [466, 562, 854, 148, 686, 384, 120, 266, 178, 204, 768, 324, 646],
+    mg: [12, 504, 788]
   },
   actions: {
-    de: [ { id: 'fr_de_ind', title: 'Pacto industrial franco-aleman', cost: 800, rel: 6, stats: { eco: 2 } } ],
-    es: [ { id: 'fr_es_energy', title: 'Interconexiones electricas', cost: 1200, rel: 5, stats: { eco: 2, est: 1 } } ],
-    us: [ { id: 'fr_us_def', title: 'Cooperacion en defensa e IA', cost: 1500, rel: 4, stats: { mil: 2 } } ]
+    ue: [ { id: 'cum', title: 'Cumbre europea sobre defensa y soberanía industrial', cap: 8, cd: 60, fx: { ue: 10, de: 2 } },
+          { id: 'fon', title: 'Pactar fondos europeos de recuperación', cap: 5, inc: 2500, cd: 120, fx: { ue: 6 }, now: { eco: 1 } } ],
+    de: [ { id: 'ind', title: 'Pacto industrial franco-alemán (Airbus, Galileo y trenes)', cost: 900, cd: 60, fx: { de: 10, ue: 2 }, now: { eco: 1, emp: 1 } },
+          { id: 'tra', title: 'Consejo de ministros conjunto (Tratado de Aquisgrán)', cap: 6, cd: 80, fx: { de: 8, ue: 2 } } ],
+    us: [ { id: 'def', title: 'Cooperación en defensa e inteligencia artificial', cost: 1500, cap: 4, cd: 60, fx: { us: 8 }, now: { mil: 2 } },
+          { id: 'tra', title: 'Acuerdo sobre tasa digital y aranceles', cap: 8, cd: 90, fx: { us: 8 }, now: { eco: 1 } } ],
+    uk: [ { id: 'ctr', title: 'Cumbre de Lancaster House (defensa y migración)', cap: 6, cd: 70, fx: { uk: 10, ue: -1 }, now: { est: 1 } },
+          { id: 'pes', title: 'Acuerdo de pesca en el Canal de la Mancha', cap: 4, cd: 60, fx: { uk: 6 }, now: { apr: 1 } } ],
+    af: [ { id: 'sah', title: 'Operación de apoyo en el Sahel', cost: 1200, cap: 5, cd: 60, fx: { af: 8, ru: -2 }, now: { mil: 1 } },
+          { id: 'ayu', title: 'Ayuda al desarrollo y a la francofonía', cost: 900, cd: 60, fx: { af: 10 }, now: { apr: -1 } } ],
+    mg: [ { id: 'mem', title: 'Gesto de reconocimiento sobre la memoria colonial', cap: 8, cd: 90, fx: { mg: 10 }, now: { apr: -2 } },
+          { id: 'vis', title: 'Acuerdo de visados y readmisión de migrantes', cap: 5, cd: 80, fx: { mg: 6 }, now: { est: 1 } } ],
+    cn: [ { id: 'air', title: 'Venta de Airbus y acuerdo agroalimentario', cap: 6, inc: 2200, cd: 90, fx: { cn: 8, us: -1 }, now: { eco: 2 } },
+          { id: 'red', title: 'Reciprocidad comercial y control de inversiones', cap: 5, cd: 70, fx: { cn: -8 }, now: { mil: 1, eco: -1 } } ],
+    ru: [ { id: 'dia', title: 'Canal de diálogo con el Kremlin', cap: 10, cd: 90, fx: { ru: 10, ue: -2 }, now: { est: 1 } },
+          { id: 'san', title: 'Nuevo paquete de sanciones europeo', cap: 6, cd: 60, fx: { ru: -10, ue: 3 }, now: { mil: 1 } } ]
   },
-  map: {}, monthly: [], pop: []
+  monthly: [
+    { m: 'eco', gt: 70, fx: { ue: .8, de: .6, us: .4 }, why: 'Credibilidad económica de París' },
+    { m: 'eco', lt: 30, fx: { ue: -1, de: -.8 }, why: 'Economía débil ante Bruselas y Berlín' },
+    { m: 'mil', gt: 75, fx: { af: .5, ru: -.4 }, why: 'Peso militar francés y disuasión nuclear' },
+    { m: 'est', lt: 30, fx: { ue: -.8, de: -.5 }, why: 'Inestabilidad interna en Francia' }
+  ],
+  pop: [
+    { id: 'sah', cond: r => r.af <= 22, title: 'GOLPE ANTIFRANCÉS EN EL SAHEL', desc: 'Una junta militar exige la retirada de las tropas francesas y acerca posiciones a Moscú.',
+      options: [{ text: 'Negociar una retirada ordenada', intl: { af: 8, ru: -1 }, cost: 600, stats: { mil: -1, apr: 1 }, news: 'París pacta una retirada ordenada de sus tropas del Sahel.' }, { text: 'Mantener la presencia y reforzar la base', intl: { af: -8, ru: 2 }, cost: 3000, stats: { mil: 2, apr: -1 }, news: 'Francia refuerza su base en el Sahel pese a la presión local.' }] },
+    { id: 'ger', cond: r => r.de <= 40, title: 'BERLÍN BLOQUEA UN PROYECTO EUROPEO CLAVE', desc: 'El Gobierno alemán se opone al plan francés de defensa común y a la preferencia europea en la industria.',
+      options: [{ text: 'Buscar un compromiso con Berlín', intl: { de: 10, ue: 3 }, cost: 800, stats: { eco: 1 }, news: 'París y Berlín pactan un compromiso sobre la defensa y la industria europeas.' }, { text: 'Presionar desde Bruselas con otros socios', intl: { de: -6, ue: 4 }, stats: { apr: 2, eco: -1 }, news: 'Francia forma una coalición de socios europeos contra el veto alemán.' }] },
+    { id: 'dza', cond: r => r.mg <= 25, title: 'CRISIS DIPLOMÁTICA CON EL MAGREB', desc: 'Argel llama a consultas a su embajador por la memoria colonial y por la política de visados.',
+      options: [{ text: 'Enviar una delegación y revisar los visados', intl: { mg: 10 }, cost: 500, stats: { est: -1, apr: -1 }, news: 'París envía una delegación y suaviza los visados para calmar la crisis con el Magreb.' }, { text: 'Mantener la línea firme', intl: { mg: -6 }, stats: { est: 1, apr: 2 }, news: 'El Elíseo mantiene su línea firme ante el Magreb.' }] },
+    { id: 'usa', cond: r => r.us <= 35, title: 'WASHINGTON AMENAZA CON ARANCELES AL VINO Y AL LUJO FRANCÉS', desc: 'La Casa Blanca estudia nuevos aranceles en respuesta a la tasa digital francesa.',
+      options: [{ text: 'Negociar un acuerdo comercial', intl: { us: 10 }, cost: 1200, stats: { eco: 2, apr: -1 }, news: 'Francia y EE. UU. pactan frenar los aranceles a cambio de ajustes en la tasa digital.' }, { text: 'Responder junto a la Unión Europea', intl: { us: -8, ue: 5 }, stats: { eco: -2, apr: 2 }, news: 'París y Bruselas responden con aranceles recíprocos a EE. UU.' }] },
+    { id: 'rus', cond: r => r.ru <= 10, title: 'MOSCÚ AMENAZA CON UNA ESCALADA EN EL FLANCO ESTE', desc: 'Rusia advierte contra el envío de más material militar francés a Ucrania y los países bálticos.',
+      options: [{ text: 'Reforzar el flanco este de la OTAN', intl: { ru: -6, ue: 5 }, cost: 3500, stats: { mil: 2, est: -1 }, news: 'Francia refuerza su despliegue en el flanco este de la OTAN.' }, { text: 'Abrir un canal de diálogo', intl: { ru: 8, ue: -3 }, cost: 300, stats: { est: 1, apr: 1 }, news: 'El Elíseo abre un canal de diálogo con Moscú y divide a los aliados.' }] }
+  ]
 };
 
 // ---- Ordonnances / Journal Officiel (sustituyen a los Decretos del BOE) --------
@@ -5145,5 +5194,36 @@ const COUNTRY_DECREES = {
     { id: 'FR_ORD_LAICITE', title: 'Renforcement de la laicite a l ecole', cost: 800, desc: '+0.2% Estabilidad y +0.1% Aprobacion/dia (20 dias).', cooldown: 50, statsPerDay: { est: 0.2, apr: 0.1 } },
     { id: 'FR_ORD_AGRI', title: 'Aide d urgence au monde agricole', cost: 3200, desc: '+0.3% Empleo y +0.2% Aprobacion/dia (25 dias).', cooldown: 65, statsPerDay: { emp: 0.3, apr: 0.2 } },
     { id: 'FR_ORD_NUMERIQUE', title: 'Souverainete numerique et cloud', cost: 2700, desc: '+0.3% Economia/dia (30 dias).', cooldown: 80, statsPerDay: { eco: 0.3 } }
+  ]
+};
+
+// ---- 9. SOCIEDAD Y OPINIÓN (colectivos y escándalos propios de Francia) ---------------
+const COUNTRY_SOCIETY = {
+  intro: 'En Francia la calle pesa: sindicatos, agricultores y banlieues presionan al Gobierno.',
+  cols: [
+    { id: 'syn', name: 'Sindicatos y asalariados (CGT, CFDT)', icon: 'fa-hammer',       tgt: m => m.emp * .7 + m.apr * .3, hit: { emp: -.04 }, up: { emp: .02 } },
+    { id: 'ent', name: 'Patronal y empresarios (Medef)',         icon: 'fa-briefcase',    tgt: m => m.eco * .8 + m.est * .2, hit: { eco: -.05 }, up: { eco: .03 } },
+    { id: 'jov', name: 'Jóvenes y estudiantes',                  icon: 'fa-graduation-cap', tgt: m => m.emp * .5 + m.apr * .5, hit: { apr: -.05 }, up: { apr: .03 } },
+    { id: 'ret', name: 'Jubilados (retraites)',                  icon: 'fa-person-cane',  tgt: m => m.est * .6 + m.eco * .4, hit: { est: -.04 }, up: { est: .02 } },
+    { id: 'agr', name: 'Agricultores (FNSEA, bloqueos de tractores)', icon: 'fa-wheat-awn', tgt: m => m.est * .4 + m.eco * .3 + m.apr * .3, hit: { est: -.03, apr: -.03 }, up: { apr: .02 } },
+    { id: 'ban', name: 'Banlieues y barrios populares',          icon: 'fa-city',         tgt: m => m.emp * .5 + m.est * .5, hit: { est: -.05 }, up: { est: .02 } }
+  ],
+  scandals: [
+    { t: 'Caso de empleos ficticios en el entorno del Gobierno', d: 'Le Canard enchaîné revela contratos de asistentes parlamentarios sin trabajo efectivo.',
+      o: [ { x: 'Dejar actuar a la Justicia y asumir el coste', now: { apr: -4 }, cap: 5, later: [40, { est: 3, apr: 2 }, 'La transparencia se recompensa'] },
+           { x: 'Denunciar una operación política', now: { apr: -1 }, cap: -8, later: [35, { apr: -6, est: -3 }, 'Salen nuevas informaciones'] },
+           { x: 'Cesar a los implicados y encargar una auditoría', now: { apr: -2 }, money: 400, later: [30, { apr: 3 }, 'La auditoría limpia tu imagen'] } ] },
+    { t: 'Filtración del Conseil des ministres', d: 'Se filtran notas de un Conseil des ministres con discrepancias graves entre ministros.',
+      o: [ { x: 'Abrir una investigación interna', now: { est: -2 }, cap: -5, later: [30, { est: 3 }, 'Gobierno más cohesionado'] },
+           { x: 'Restar importancia', now: { apr: -2 }, later: [45, { est: -4 }, 'Crecen los rumores de crisis de gobierno'] },
+           { x: 'Remodelación exprés del Gobierno', now: { apr: 2, est: -3 }, money: 250, later: [25, { eco: 2, apr: 2 }, 'Equipo renovado y con empuje'] } ] },
+    { t: 'Polémica por contratos de consultoras privadas', d: 'La oposición denuncia millones en contratos con consultoras privadas para diseñar políticas públicas.',
+      o: [ { x: 'Anular los contratos', now: { eco: -2 }, money: 300, later: [35, { apr: 4 }, 'Gesto de ejemplaridad'] },
+           { x: 'Defenderlos por eficacia', now: { apr: -3 }, cap: -4, later: [40, { apr: -4 }, 'La Fiscalía abre diligencias'] },
+           { x: 'Aceptar una comisión de investigación en el Senado', now: { apr: -1, est: -2 }, cap: 6, later: [50, { est: 3, apr: 3 }, 'Credibilidad recuperada'] } ] },
+    { t: 'Revuelta tras una intervención policial', d: 'La muerte de un joven en un control policial incendia los barrios y las redes sociales.',
+      o: [ { x: 'Pedir calma y abrir una investigación independiente', now: { est: -2 }, cap: 4, later: [30, { est: 3 }, 'Se recupera la calma'] },
+           { x: 'Respaldar a la policía y reforzar el despliegue', now: { apr: 1, est: -4 }, later: [25, { est: -3, apr: -2 }, 'Los disturbios se extienden'] },
+           { x: 'Anunciar un plan para los barrios populares', now: { est: -1 }, money: 500, later: [45, { est: 3, apr: 2 }, 'El plan empieza a dar resultados'] } ] }
   ]
 };
