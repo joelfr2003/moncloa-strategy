@@ -10208,7 +10208,7 @@ function playSound(n) {
       focusAccum(F, 'apr', -(0.03 + w.baj / 5000) - (w.prog < 0 ? 0.05 : 0)); focusAccum(F, 'est', -0.03); focusAccum(F, 'eco', -0.04); focusAccum(F, 'mil', w.prog > 0 ? 0.03 : -0.05);
       if (day % 10 === 0) spend('Costes de guerra (' + c.n + ')', Math.round((150 + c.s * 3) * w.k));
       if (day % 6 === 0) { const a = w.prog > 20 ? FL.pos : w.prog < -20 ? FL.neg : FL.mid; log(a[Math.floor(Math.random() * a.length)].replace('{c}', c.n)); }
-      if (w.nuke && day % 30 === 0 && Math.random() < 0.12) { ['eco', 'est', 'apr'].forEach(k => focusMetricAdd(k, -25)); fxPlay('derrota'); goalsToast('<b>ATAQUE NUCLEAR:</b> el país queda devastado.', '#ef4444'); return end('lose'); }
+      if (w.nuke && day % 30 === 0 && Math.random() < 0.12) { try { window.demoNuke && window.demoNuke(c.n); } catch (e) { console.error(e); } ['eco', 'est', 'apr'].forEach(k => focusMetricAdd(k, -25)); fxPlay('derrota'); goalsToast('<b>ATAQUE NUCLEAR:</b> el país queda devastado.', '#ef4444'); return end('lose'); }
       if (w.prog >= 100) { if (!busy()) winTerms(); return; }
       if (w.prog <= -100) return end('lose');
       if (day >= w.nextEv && !busy()) briefing();
@@ -11413,5 +11413,6 @@ function playSound(n) {
   })();
   </script>
   <script src="multijugador.js"></script>
+  <script src="demografia.js"></script>
 </body>
 </html>
