@@ -5054,7 +5054,7 @@ const BDE_ACTIONS = [
 const COUNTRY_ECON = {
   currency: '€',
   terms: {
-    gov: 'El Gobierno', place: 'Matignon', cabinet: 'Conseil des ministres', bank: 'Banque de France',
+    leader: 'Primer ministro', gov: 'El Gobierno', place: 'Matignon', cabinet: 'Conseil des ministres', bank: 'Banque de France',
     nation: 'Francia', adj: 'francés', firms: 'francesas', capital: 'París', curName: 'Euro', sovereign: false,
     pollster: 'Ifop', pollsterLong: 'Ifop (Institut français d’opinion publique)',
     oldCur: { name: 'franco', sym: 'FF', rate: 6.55957 }   // si Francia sale del euro vuelve al franco

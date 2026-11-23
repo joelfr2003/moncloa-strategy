@@ -265,7 +265,7 @@ const BDE_ACTIONS = [
 const COUNTRY_ECON = {
   currency: '$',
   hideMin: ['cultura', 'igualdad'],   // EE. UU. no tiene ministerio de Cultura ni de Igualdad                 // el motor muestra $ en lugar de €
-  terms: { gov: 'La Casa Blanca', place: 'la Casa Blanca', cabinet: 'Gabinete presidencial', bank: 'Reserva Federal',
+  terms: { leader: 'Presidente de Estados Unidos', gov: 'La Casa Blanca', place: 'la Casa Blanca', cabinet: 'Gabinete presidencial', bank: 'Reserva Federal',
            nation: 'Estados Unidos', adj: 'estadounidense', firms: 'estadounidenses', capital: 'Washington', curName: 'Dólar estadounidense', sovereign: true, pollster: 'Gallup', pollsterLong: 'Gallup (encuesta nacional)' },
   k: 15,
   budget: 1500000, budgetStep: 15000,
