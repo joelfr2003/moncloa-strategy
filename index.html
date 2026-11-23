@@ -6911,6 +6911,13 @@ function costMonthlyTick() {
     body.hud-on main#app { padding-top: 72px !important; }
     #top-hud { position: fixed; top: 0; left: 260px; right: 0; height: 56px; z-index: 9000; display: none; align-items: center; gap: 18px; padding: 0 18px; background: rgba(10,15,19,.92); backdrop-filter: blur(8px); border-bottom: 1px solid #24323a; box-shadow: 0 6px 20px rgba(0,0,0,.45); font-family: 'Chakra Petch', sans-serif; overflow-x: auto; }
     body.hud-on #top-hud { display: flex; }
+    #top-hud .hud-leader { display: flex; align-items: center; gap: 10px; min-width: max-content; }
+    #top-hud .hud-face { position: relative; width: 44px; height: 44px; border-radius: 50%; border: 2px solid #d9a726; background: #1b242a; overflow: hidden; display: flex; align-items: center; justify-content: center; flex: none; }
+    #top-hud .hud-face span { font: 600 14px 'Inter', sans-serif; color: #cbd5e1; }
+    #top-hud .hud-face img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+    #top-hud .hud-lname { display: flex; flex-direction: column; line-height: 1.2; }
+    #top-hud .hud-lname b { font-size: 13px; color: #f1f5f9; font-weight: 600; }
+    #top-hud .hud-lname small { font-size: 10px; color: #94a3b8; }
     #top-hud .hud-block { display: flex; flex-direction: column; justify-content: center; min-width: max-content; }
     #top-hud .hud-label { font-size: 9px; letter-spacing: 1.5px; color: #64748b; text-transform: uppercase; }
     #top-hud .hud-value { font-size: 14px; font-weight: 700; color: #e2e8f0; }
@@ -6928,6 +6935,28 @@ function costMonthlyTick() {
 
 const HUD_METRICS = [['eco', 'Economía', 'fa-chart-line'], ['est', 'Estabilidad', 'fa-shield-halved'], ['emp', 'Empleo', 'fa-briefcase'], ['apr', 'Aprobación', 'fa-heart'], ['mil', 'Ejército', 'fa-person-military-pointing']];
 
+
+// ---- Retrato del líder en la barra superior (estilo Hearts of Iron) ----
+// Coloca las fotos en portraits/<pais>_<partido>.jpg|png|webp (p. ej. portraits/espana_psoe.jpg). Sin foto se muestran las iniciales.
+window.LEAD_CACHE = window.LEAD_CACHE || {};
+window.leaderImgErr = function (key, img) {
+  const ex = ['.jpg', '.png', '.webp', '.jpeg'], cur = ex.findIndex(e => img.src.toLowerCase().endsWith(e)), nx = cur + 1;
+  if (nx < ex.length) { img.src = key + ex[nx]; return; }
+  window.LEAD_CACHE[key] = 0; img.remove();
+};
+function leaderHud() {
+  const g = gameState, p = (g.parties || []).find(x => x.id === g.leaderPartyId);
+  if (!p || !p.leader) return '';
+  const cid = (window.CURRENT_COUNTRY && CURRENT_COUNTRY.id) || 'espana';
+  const key = 'portraits/' + cid + '_' + String(p.id).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const ini = p.leader.split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  const cached = window.LEAD_CACHE[key];
+  const img = cached === 0 ? '' : `<img src="${cached || key + '.jpg'}" alt="" onload="LEAD_CACHE['${key}']=this.src" onerror="leaderImgErr('${key}',this)">`;
+  const title = (window.MC && MC.t && MC.t.leader) || 'Presidente del Gobierno';
+  return `<div class="hud-leader" title="${esc(p.leader)} · ${esc(p.name)}"><div class="hud-face" style="border-color:${esc(p.color || '#d9a726')}"><span>${esc(ini)}</span>${img}</div><div class="hud-lname"><b>${esc(p.leader)}</b><small>${esc(title)} · ${esc(p.id)}</small></div></div><div class="hud-sep"></div>`;
+}
+
 function hudUpdate() {
   const hud = document.getElementById('top-hud');
   if (!hud) return;
@@ -6939,6 +6968,7 @@ function hudUpdate() {
   const c = gameState.campaign;
   const col = v => v < 30 ? '#ef4444' : v < 50 ? '#f59e0b' : '#10b981';
   hud.innerHTML = `
+    ${leaderHud()}
     <div class="hud-block"><span class="hud-label"><i class="fa-regular fa-calendar mr-1"></i>Fecha</span><span class="hud-value">${d}</span></div>
     <div class="hud-sep"></div>
     <div class="hud-block"><span class="hud-label"><i class="fa-solid fa-wallet mr-1"></i>Tesorería</span><span class="hud-value" style="color:${t < 0 ? '#ef4444' : '#d9a726'}">${t.toLocaleString('es-ES')} M€</span></div>
@@ -11400,13 +11430,13 @@ function playSound(n) {
       sec.innerHTML =
         '<div class="flex items-center gap-3"><span class="font-hoi-header text-3xl text-amber-400"><i class="fa-solid fa-earth-europe"></i></span>' +
         '<h2 class="font-hoi-header text-2xl text-slate-100 tracking-wider">ELIGE EL PAÍS</h2></div>' +
-        '<div class="grid grid-cols-2 md:grid-cols-4 gap-3">' +
+        '<div class="cflag-grid">' +
         list.map(function (c) {
-          var on = C.id === c.id;
-          return '<div onclick="' + (on ? '' : "switchCountry('" + esc(c.id) + "')") + '" class="mode-card hoi-box rounded-lg p-3 text-center space-y-1.5 ' + (on ? 'sel' : '') + '">' +
-            (c.flag ? '<div class="font-hoi-tech text-xs text-amber-300">' + esc(c.flag) + '</div>' : '') +
-            '<h3 class="font-hoi-header text-base text-slate-100 leading-tight">' + esc(c.name) + '</h3></div>';
-        }).join('') + '</div>';
+          var on = C.id === c.id, code = String(c.flag || '').toLowerCase().replace(/[^a-z-]/g, '');
+          var img = code ? '<img src="https://flagcdn.com/w320/' + code + '.png" alt="Bandera de ' + esc(c.name) + '" loading="lazy" onerror="if(!this.dataset.l){this.dataset.l=1;this.src=\'flags/' + code + '.png\'}else{this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'cflag-fb\',textContent:\'' + code.toUpperCase() + '\'}))}">' : '';
+          return '<div onclick="' + (on ? '' : "switchCountry('" + esc(c.id) + "')") + '" class="cflag ' + (on ? 'sel' : '') + '"><div class="cflag-img">' + img + '</div><h3>' + esc(c.name) + '</h3></div>';
+        }).join('') + '</div>' +
+        '<style>.cflag-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px}.cflag{cursor:pointer;text-align:center;transition:transform .15s ease}.cflag:hover{transform:translateY(-3px)}.cflag-img{aspect-ratio:3/2;border-radius:8px;overflow:hidden;border:2px solid #2c3940;background:#161e23;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.4)}.cflag-img img{width:100%;height:100%;object-fit:cover;display:block}.cflag-fb{font:600 28px Inter,sans-serif;color:#94a3b8}.cflag h3{margin-top:8px;font:600 15px Inter,sans-serif;color:#e2e8f0}.cflag.sel .cflag-img{border-color:#d9a726;box-shadow:0 0 0 3px rgba(217,167,38,.35)}.cflag.sel h3{color:#f6d77a}</style>';
       host.insertBefore(sec, host.firstChild);
     };
   })();

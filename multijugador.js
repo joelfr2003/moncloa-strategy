@@ -21,6 +21,9 @@
   const INTL_KEY = { espana: 'es', marruecos: 'ma', eeuu: 'us' };   // clave de la relación bilateral en gameState.intl.rel (si existe)
   const myC = () => window.CURRENT_COUNTRY || { id: 'espana', name: 'España' };
   const flagOf = id => FLAGS[id] || '🏳️';
+  // Bandera como imagen (flagcdn.com; si no carga, flags/<iso>.png; y por último el emoji)
+  const isoOf = id => { const c = (window.COUNTRIES || []).filter(x => x.id === id)[0]; return c && c.flag ? String(c.flag).toLowerCase().replace(/[^a-z-]/g, '') : ''; };
+  const flagImg = id => { const code = isoOf(id); return code ? '<img class="lb-fimg" alt="" src="https://flagcdn.com/w320/' + code + '.png" data-e="' + flagOf(id) + '" onerror="if(!this.dataset.l){this.dataset.l=1;this.src=\'flags/' + code + '.png\'}else{this.replaceWith(document.createTextNode(this.dataset.e))}">' : flagOf(id); };
   const nameOf = id => { const c = (window.COUNTRIES || []).filter(x => x.id === id)[0]; return c ? c.name : id; };
 
   // ---------------- ACCIONES DIPLOMÁTICAS ----------------
@@ -806,6 +809,10 @@
   .lb-country { cursor: pointer; border: 1px solid #2c3940; border-radius: 12px; padding: 14px 16px; background: rgba(12,18,24,.85); transition: all .22s cubic-bezier(.22,1,.36,1); text-align: left; }
   .lb-country:hover { border-color: #e0b33a; transform: translateY(-3px); box-shadow: 0 10px 28px rgba(0,0,0,.4), 0 0 20px rgba(224,179,58,.1); }
   .lb-country.sel { border-color: #f5cf68; background: linear-gradient(165deg, rgba(224,179,58,.22), rgba(12,18,24,.9)); box-shadow: 0 0 28px rgba(224,179,58,.25), inset 0 1px 0 rgba(255,255,255,.08); }
+  .lb-cc { text-align: center; padding: 12px 12px 14px; }
+  .lb-cc .lb-cn { margin-top: 10px; }
+  .lb-fimg { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 6px; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 4px 14px rgba(0,0,0,.45); }
+  .lb-small { width: 84px; } .lb-small .lb-fimg { border-radius: 4px; }
   .lb-flag { font-size: 38px; line-height: 1; filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
   .lb-cn { font-family: 'Teko', sans-serif; font-size: 26px; letter-spacing: .06em; color: #f1f5f9; line-height: 1.1; }
   .lb-tag { display: inline-block; font-size: 10px; letter-spacing: .12em; padding: 3px 9px; border-radius: 999px; border: 1px solid #3d4f59; color: #94a3b8; margin-top: 4px; }
@@ -845,8 +852,8 @@
       const ok = m.linked, isHost = m.role === 'host', url = location.origin + location.pathname + '#sala=' + m.code;
       return `<div class="text-center space-y-1"><div class="lb-label">${isHost ? 'Código de sala' : 'Conectando a la sala'}</div><div class="lb-cn" style="font-size:60px;letter-spacing:.35em;color:#f5cf68">${esc(m.code)}</div>
         ${isHost ? `<button onclick="MP.copy('${esc(url)}')" class="hoi-button px-3 py-1.5 rounded text-xs"><i class="fa-solid fa-link mr-1"></i>Copiar enlace de invitación</button>` : ''}</div>
-        <div class="lb-countries"><div class="lb-country sel"><div class="lb-flag">${flagOf(me.id)}</div><div class="lb-cn">${esc(me.name)}</div><div class="text-xs text-emerald-400">${esc(USER)} · tú${isHost ? ' (anfitrión)' : ''}</div></div>
-        <div class="lb-country ${ok ? 'sel' : ''}"><div class="lb-flag">${ok ? oflag() : '⏳'}</div><div class="lb-cn">${ok ? esc(oname()) : 'Esperando…'}</div><div class="text-xs ${ok ? 'text-emerald-400' : 'text-slate-500'}">${ok ? esc(m.other && m.other.user || 'conectado') : 'sin conectar'}</div></div></div>
+        <div class="lb-countries"><div class="lb-country sel"><div class="lb-flag lb-small">${flagImg(me.id)}</div><div class="lb-cn">${esc(me.name)}</div><div class="text-xs text-emerald-400">${esc(USER)} · tú${isHost ? ' (anfitrión)' : ''}</div></div>
+        <div class="lb-country ${ok ? 'sel' : ''}"><div class="lb-flag lb-small">${ok ? flagImg(m.other.id) : '⏳'}</div><div class="lb-cn">${ok ? esc(oname()) : 'Esperando…'}</div><div class="text-xs ${ok ? 'text-emerald-400' : 'text-slate-500'}">${ok ? esc(m.other && m.other.user || 'conectado') : 'sin conectar'}</div></div></div>
         ${m.cfg ? `<div class="text-xs text-slate-300 text-center">${cfgLine(m)}</div>` : ''}
         <p class="text-[11px] text-slate-500 font-sans text-center">Cada jugador gobierna su país en su propia partida y los dos os relacionáis por la diplomacia. El anfitrión decide la dificultad y da la salida; el reloj es compartido.</p>
         <div class="flex gap-2 justify-center flex-wrap">${isHost ? btn('hoi-button-gold', 'fa-play', ok ? 'Empezar partida' : 'Esperando al otro jugador…', 'MP.begin()', !ok) : '<span class="text-xs text-amber-300">' + (ok ? 'Esperando a que el anfitrión empiece la partida…' : 'Conectando…') + '</span>'}${btn('hoi-button', 'fa-xmark', 'Salir', 'MP.cancel()')}</div>`;
@@ -859,7 +866,7 @@
         <div><div class="lb-label mb-2">Modo</div><div class="lb-country sel"><div class="lb-cn" style="font-size:20px"><i class="fa-solid fa-infinity mr-2"></i>SIN LÍMITE</div><div class="text-xs text-slate-400 mt-1">Sin legislatura final: gobernáis hasta que os echen. La dificultad sube con cada legislatura.</div></div></div>
         <div class="flex gap-2 flex-wrap">${btn('hoi-button-gold', 'fa-globe', 'Crear sala', 'MP.host()')}</div>`;
     }
-    const cards = (window.COUNTRIES || []).map(c => `<div class="lb-country ${me.id === c.id ? 'sel' : ''}" onclick="MP.country('${esc(c.id)}')"><div class="lb-flag">${flagOf(c.id)}</div><div class="lb-cn">${esc(c.name)}</div><div class="lb-tag">${me.id === c.id ? 'Tu país' : 'Cambiar a este país'}</div></div>`).join('');
+    const cards = (window.COUNTRIES || []).map(c => `<div class="lb-country lb-cc ${me.id === c.id ? 'sel' : ''}" onclick="MP.country('${esc(c.id)}')"><div class="lb-flag">${flagImg(c.id)}</div><div class="lb-cn">${esc(c.name)}</div><div class="lb-tag">${me.id === c.id ? 'Tu país' : 'Cambiar a este país'}</div></div>`).join('');
     return `<div><div class="lb-label mb-1">1 · Nombre de usuario</div><input id="lb-user" class="lb-input" maxlength="16" placeholder="Ej.: Presidente_Moncloa" value="${esc(USER)}" oninput="MP.user(this.value)"></div>
       <div><div class="lb-label mb-2">2 · Elige tu país (cada jugador, uno distinto)</div><div class="lb-countries">${cards}</div></div>
       <div><div class="lb-label mb-2">3 · Modo de juego</div>
