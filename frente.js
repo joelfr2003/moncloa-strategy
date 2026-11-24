@@ -38,7 +38,7 @@
   /* ---- simulación diaria (se engancha al motor sin tocarlo) ---- */
   function step() {
     const w = WAR(), Wr = W(); if (!w || !Wr) return;
-    const th = init(w), day = gameState.daysInOffice || 0; if (day === th.last) return; th.last = day;
+    const th = init(w), day = gameState.daysInOffice || 0; if (th.sp == null) th.sp = w.prog; if (day === th.last) return; th.last = day;
     const c = enemy(w), mine = (Wr.t + Wr.m + Wr.a) / 3;
     const ownDead = Math.round((w.baj || 0) * 180), dOwn = Math.max(0, ownDead - th.ok);
     const dEn = Math.round((0.4 + mine / 55) * (w.prog > 0 ? 1.5 : 0.9) * 180 * (0.8 + Math.random() * 0.5) * ((w.sup != null && w.sup < 25) ? .8 : 1));
@@ -56,7 +56,7 @@
   }
 
   /* ---- dibujo ---- */
-  function frontPts(w, th) { return SEC.map((s, i) => [450 + w.prog * 3.8 + th.off[i], 45 + i * 66]); }
+  function frontPts(w, th) { const sp = th.sp == null ? w.prog : th.sp; return SEC.map((s, i) => [450 + sp * 3.8 + th.off[i], 45 + i * 66]); }
   function upd() {
     const w = WAR(), Wr = W(), g = document.getElementById('th-g'); document.body.classList.toggle('th-war', !!w); document.body.classList.toggle('th-fx', !!w && fx());
     pill(w);
@@ -108,6 +108,7 @@
 
   /* contadores animados + explosiones (sin re-renderizar el juego) */
   const cur = {};
+  setInterval(() => { const w = WAR(); if (w && w.th && w.th.sp != null && Math.abs(w.prog - w.th.sp) > 0.05 && document.getElementById('th-g')) { w.th.sp += (w.prog - w.th.sp) * 0.12; upd(); } }, 90);
   setInterval(() => {
     const w = WAR(), root = document.getElementById('th-root'); pill(w);
     if (!w || !root) return;
@@ -127,6 +128,26 @@
     const th = w.th;
     p.innerHTML = '<i class="fa-solid fa-crosshairs mr-1"></i> GUERRA · frente ' + Math.round(w.prog) + '% · bajas ' + fmt(th ? th.ok : (w.baj || 0) * 180);
   }
+  function burst(n, label, col) {
+    const w = WAR(), b = document.getElementById('th-boom'); if (!w || !b || !fx()) return; const th = init(w), svg = 'http://www.w3.org/2000/svg';
+    for (let k = 0; k < n; k++) setTimeout(() => {
+      const i = Math.floor(Math.random() * SEC.length), p = frontPts(w, th)[i], e = document.createElementNS(svg, 'circle');
+      e.setAttribute('cx', p[0] + (Math.random() - .5) * 120); e.setAttribute('cy', p[1] + (Math.random() - .5) * 50); e.setAttribute('r', 3); e.setAttribute('fill', k % 3 ? '#fb923c' : '#fde047');
+      e.innerHTML = '<animate attributeName="r" from="3" to="26" dur="0.9s" fill="freeze"/><animate attributeName="opacity" from="1" to="0" dur="0.9s" fill="freeze"/>'; b.appendChild(e); setTimeout(() => e.remove(), 1000);
+    }, k * 90);
+    const t = document.createElementNS(svg, 'text'); t.setAttribute('x', 450); t.setAttribute('y', 215); t.setAttribute('text-anchor', 'middle'); t.setAttribute('font-size', 34); t.setAttribute('font-weight', 800); t.setAttribute('fill', col); t.setAttribute('stroke', '#000'); t.setAttribute('stroke-width', 1.2); t.textContent = label;
+    t.innerHTML += '<animate attributeName="opacity" from="1" to="0" dur="2.2s" fill="freeze"/><animate attributeName="y" from="215" to="170" dur="2.2s" fill="freeze"/>'; b.appendChild(t); setTimeout(() => t.remove(), 2300);
+    const root = document.getElementById('th-root'); if (root) { root.style.transition = 'none'; root.animate([{ transform: 'translate(0,0)' }, { transform: 'translate(-5px,3px)' }, { transform: 'translate(5px,-3px)' }, { transform: 'translate(0,0)' }], { duration: 380 }); }
+  }
+  const _op = window.warOp;
+  if (typeof _op === 'function') window.warOp = function (id, fromModal) {
+    const w0 = WAR(), p0 = w0 ? w0.prog : 0, b0 = w0 ? (w0.baj || 0) : 0, th = w0 ? init(w0) : null; if (th && th.sp == null) th.sp = p0;
+    const r = _op.apply(this, arguments), w = WAR(); if (!w || !th) return r;
+    const dp = w.prog - p0, dEn = Math.round(Math.abs(dp) * 260 + 400 + Math.random() * 600), dOw = Math.round(((w.baj || 0) - b0) * 180);
+    if (dp !== 0 || dEn) { th.ek += dEn; th.ok += Math.max(0, dOw); th.feed.unshift({ d: gameState.daysInOffice || 0, ok: dp >= 0, t: 'Operación: ' + (dp >= 0 ? 'avance de ' : 'retroceso de ') + Math.abs(dp).toFixed(1) + ' puntos · ' + fmt(dEn) + ' bajas enemigas' + (dOw > 0 ? ', ' + fmt(dOw) + ' propias' : '') }); th.feed = th.feed.slice(0, 12); }
+    setTimeout(() => { upd(); burst(Math.min(24, 8 + Math.round(Math.abs(dp) * 1.2)), (dp >= 0 ? '+' : '') + dp.toFixed(1) + ' FRENTE', dp >= 0 ? '#34d399' : '#f87171'); }, 80);
+    return r;
+  };
   window.THfx = () => { try { localStorage.setItem(FX_KEY, fx() ? '0' : '1'); } catch (e) { /* sin almacenamiento */ } render(); };
 
   const _rtc = renderTabContent;

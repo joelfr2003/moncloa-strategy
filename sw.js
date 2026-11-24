@@ -4,7 +4,7 @@ const CACHE = 'moncloa-' + VERSION;
 const COUNTRIES_DIR = 'Countries/';
 
 // Imprescindibles: si falta alguno, la instalación falla (igual que antes)
-const CORE = ['./', 'index.html', 'multijugador.js', 'demografia.js', 'calma.js','frente.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CORE = ['./', 'index.html', 'multijugador.js', 'demografia.js', 'calma.js','frente.js','nuclear.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 // Ficheros antiguos de la raíz: solo se precachean si no hay Countries/index.json
 const LEGACY = ['pais-espana.js', 'pais-marruecos.js'];
 

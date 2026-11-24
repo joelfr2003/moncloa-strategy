@@ -10067,7 +10067,7 @@ function playSound(n) {
   // País propio (España por defecto; otros países lo definen en COUNTRY_ECON.war)
   const OWN = (function () {
     const w = (window.MC && !MC.builtin && MC.war) || null;
-    return w ? { id: w.id, n: w.name, lat: w.lat, lon: w.lon, allied: new RegExp(w.allied), own: w.own, rel: w.rel || {} }
+    return w ? { id: w.id, n: w.name, lat: w.lat, lon: w.lon, allied: new RegExp(w.allied), own: w.own, rel: w.rel || {}, gens: w.gens }
              : { id: 724, n: 'España', lat: 40, lon: -4, allied: /UE|OTAN/, own: null, rel: {} };
   })();
   if (OWN.id !== 724) {
@@ -10215,7 +10215,7 @@ function playSound(n) {
   }
   window.warOpen = () => { const w = I().war; if (w) w.nextEv = (gameState.daysInOffice || 0) + 14; close(); };
 
-  const FL = { pos: ['Las tropas españolas avanzan sobre {c}.', 'Cae una base logística enemiga en {c}.', 'Los cazas españoles dominan el espacio aéreo de {c}.'], neg: ['{c} contraataca y recupera terreno.', 'Fuertes combates y retrocesos en el frente.', 'Las líneas españolas sufren una dura presión.'], mid: ['Frente estabilizado: combates de desgaste con {c}.', 'Escaramuzas y artillería sin cambios decisivos.'] };
+  const FL = { pos: ['Nuestras tropas avanzan sobre {c}.', 'Cae una base logística enemiga en {c}.', 'Nuestros cazas dominan el espacio aéreo de {c}.'], neg: ['{c} contraataca y recupera terreno.', 'Fuertes combates y retrocesos en el frente.', 'Nuestras líneas sufren una dura presión.'], mid: ['Frente estabilizado: combates de desgaste con {c}.', 'Escaramuzas y artillería sin cambios decisivos.'] };
   function tick() {
     if (gameState.step !== 4 || gameState.coupActive || !gameState.metrics) return;
     const W = I(), day = gameState.daysInOffice || 0, w = W.war, F = focusInit();
@@ -10275,6 +10275,7 @@ function playSound(n) {
     { id: 'bel', n: 'Gral. Ignacio Beltrán Soler', t: 'Jefe de Logística y Apoyo', d: 'Gana guerras de desgaste: las tropas aguantan más sin suministros.', fx: { t: 2, m: 2, a: 2 }, pow: 1, sup: .25, mil: 2, tag: '+2 a cada ejército · −25 % consumo de suministros' },
     { id: 'vil', n: 'Gral. Marcos Villalba Cortés', t: 'JEMAD afín al Gobierno', d: 'Político y leal al poder civil. Menos brillante en combate, pero calma los cuarteles.', fx: {}, pow: .97, sup: .05, mil: 10, tag: '+10 Estab. Militar · −3 % poder' }
   ];
+  if (OWN.gens && OWN.gens.length) GEN.splice(0, GEN.length, ...OWN.gens);   // jefes del Estado Mayor propios de cada país
   const genOf = W => GEN.find(g => g.id === W.gen);
   function openGen(canCancel) {
     const W = I(); W.speed = gameState.gameSpeed || 1; fxPlay('event');
@@ -10316,7 +10317,7 @@ function playSound(n) {
   function renderWar() {
     const W = I(), c = BY[W.sel], w = W.war, day = gameState.daysInOffice || 0, own = Math.round((W.t + W.m + W.a) / 3);
     const head = `<div class="grid grid-cols-2 md:grid-cols-6 gap-2 text-center">${chip('PODER MILITAR', own, 'text-amber-400')}${chip('MORAL', '×' + moral().toFixed(2))}${chip('TESORERÍA', fmt(money()) + ' M€')}${chip('TERRITORIOS', W.terr.length)}${chip('SANCIONES', W.sanc > day ? 'ACTIVAS' : 'No', W.sanc > day ? 'text-red-400' : 'text-slate-400')}${chip('GENERAL', genOf(W) ? genOf(W).n.split(' ').slice(-2).join(' ') : 'SIN ELEGIR', genOf(W) ? 'text-emerald-400 !text-sm' : 'text-red-400')}</div>`;
-    const tabs = [['op', 'Operaciones', 'fa-crosshairs'], ['army', 'Ejército y tecnología', 'fa-shield-halved'], ['ind', 'Industria militar', 'fa-industry'], ['gen', 'Mando', 'fa-star'], ['arch', 'Archivo', 'fa-book']].map(([k, n, ic]) => `<button onclick="warPane('${k}')" class="px-3 py-1.5 rounded text-[11px] cursor-pointer ${W.pane === k ? 'hoi-button-gold' : 'bg-slate-900 border border-slate-700 text-slate-300'}"><i class="fa-solid ${ic} mr-1"></i>${n}</button>`).join('');
+    const tabs = [['op', 'Operaciones', 'fa-crosshairs'], ['army', 'Ejército y tecnología', 'fa-shield-halved'], ['ind', 'Industria militar', 'fa-industry'], ['gen', 'Mando', 'fa-star'], ...(window.nucHas && window.nucHas() ? [['nuc', 'Arsenal nuclear', 'fa-radiation']] : []), ['arch', 'Archivo', 'fa-book']].map(([k, n, ic]) => `<button onclick="warPane('${k}')" class="px-3 py-1.5 rounded text-[11px] cursor-pointer ${W.pane === k ? 'hoi-button-gold' : 'bg-slate-900 border border-slate-700 text-slate-300'}"><i class="fa-solid ${ic} mr-1"></i>${n}</button>`).join('');
     let body = '';
     if (W.pane === 'op') {
       let info = '<p class="text-xs text-slate-500 font-sans">Pulsa un país del mapa para ver sus datos y actuar.</p>';
@@ -10356,6 +10357,8 @@ function playSound(n) {
         return `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2"><div class="flex justify-between text-xs"><span class="text-slate-100"><i class="fa-solid ${D.ic} text-amber-400 mr-1.5"></i>${D.n}</span><b class="text-amber-400">Nv. ${o.lvl}/3</b></div><div class="text-[10px] text-slate-400">${stock}</div>${bar(D.br === 'mun' ? W.mun : W[D.br], 'bg-amber-500')}${st}<div class="grid grid-cols-1 gap-1.5">${bt}</div>${up}</div>`;
       }).join('');
       body = `<div class="space-y-3"><p class="text-[11px] text-slate-400 font-sans">Fabrica armamento por lotes. Cada nivel industrial desbloquea una generación de material más avanzada y acorta los plazos. Las reservas de munición reducen el consumo de suministros en guerra (y se gastan mientras combates).</p><div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">${cards}</div></div>`;
+    } else if (W.pane === 'nuc' && window.nucPanel) {
+      body = window.nucPanel();
     } else if (W.pane === 'gen') {
       const g = genOf(W), cd = (W.genCd || 0) > day;
       const cur = g ? `<div class="bg-slate-950 border border-emerald-700 rounded-lg p-3 space-y-1"><b class="text-sm text-emerald-400"><i class="fa-solid fa-star mr-1.5"></i>${g.n}</b><div class="text-[11px] text-slate-300">${g.t}</div><div class="text-[11px] text-slate-400 font-sans">${g.d}</div><div class="text-[10px] text-amber-400">${g.tag}</div></div>` : '<div class="bg-slate-950 border border-red-700 rounded-lg p-3 text-xs text-red-400">No has nombrado a ningún general. No podrás declarar guerras.</div>';
@@ -11445,5 +11448,6 @@ function playSound(n) {
   <script src="demografia.js"></script>
   <script src="calma.js"></script>
   <script src="frente.js"></script>
+  <script src="nuclear.js"></script>
 </body>
 </html>
