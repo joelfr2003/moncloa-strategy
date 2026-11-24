@@ -24,6 +24,24 @@
       "name": "Francia",
       "flag": "FR",
       "file": "francia.js"
+    },
+    {
+      "id": "alemania",
+      "name": "Alemania",
+      "flag": "DE",
+      "file": "alemania.js"
+    },
+    {
+      "id": "rusia",
+      "name": "Rusia",
+      "flag": "RU",
+      "file": "rusia.js"
+    },
+    {
+      "id": "coreanorte",
+      "name": "Corea del Norte",
+      "flag": "KP",
+      "file": "coreanorte.js"
     }
   ]
 }
