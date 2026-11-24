@@ -608,6 +608,7 @@ main#app, footer {
         eu: b || ((e.terms || {}).sovereign === false),
         euL: e.eu || null,
         hideMin: e.hideMin || [],
+        regime: e.regime || null,
         soc: (!b && typeof COUNTRY_SOCIETY !== 'undefined') ? COUNTRY_SOCIETY : null,
         // Socios exteriores del país (COUNTRY_INTL). Si no existe, un país no español no muestra socios españoles.
         intl: (!b && typeof COUNTRY_INTL !== 'undefined') ? COUNTRY_INTL : (!b ? { partners: {}, base: {}, links: {}, actions: {}, map: {}, monthly: [], pop: [] } : null) };
@@ -4380,7 +4381,7 @@ function calculateDHondtResults() {
     p.prevSeats = p.seats !== undefined ? p.seats : (p.baseSeats || 10);
   });
 
-  const PARTY_BOUNDS = {};   // sin topes por partido: el resultado parte de los escaños de partida y se mueve con la gestión
+  const PARTY_BOUNDS = (window.MC && MC.regime && MC.regime.bounds) || {};   // sin topes por partido salvo regímenes con elecciones controladas (Rusia, Corea del Norte)
   const VB = voteBases(), OPP = mainOpposition();
 
   const apr = (gameState.metrics && gameState.metrics.apr !== undefined) ? gameState.metrics.apr : 50;
@@ -8830,6 +8831,8 @@ function playSound(n) {
     typeof PRESS_NEWS_BANK !== 'undefined' && PRESS_NEWS_BANK, typeof CAMPAIGN_HEADLINES !== 'undefined' && CAMPAIGN_HEADLINES,
     typeof DECISION_BANK !== 'undefined' && DECISION_BANK.ACTUAL
   ].filter(Array.isArray);
+  // Países fuera de la UE: se retiran los eventos de Bruselas / fondos europeos que el motor añade por defecto
+  if (!MC.builtin && !MC.eu) { const EU_T = /EUROPE|BRUSELAS|UNIÓN EUROPEA|\bUE\b|COMISIÓN EUROPEA|BCE\b|EUROZONA|SCHENGEN/i; POOLS.forEach(p => { for (let i = p.length - 1; i >= 0; i--) { const o = p[i]; if (o && !o.euOwn && EU_T.test([o.title, o.headline, o.category, o.cat].join(' '))) p.splice(i, 1); } }); }
   const FULL = POOLS.map(p => p.slice());
   let poolsFull = true;
   function related(o) {
@@ -9165,6 +9168,7 @@ function playSound(n) {
 
   // ---------- Interfaz: pestaña Unión Europea ----------
   function renderUeTab() {
+    if (!MC.eu) return '<div class="hoi-box p-5 rounded-xl font-hoi-tech"><h3 class="font-hoi-header text-xl text-amber-400">Sin relación con la Unión Europea</h3><p class="text-xs text-slate-400 font-sans mt-2">' + MC.t.nation + ' no es miembro de la UE.</p></div>';
     const u = U(), r = ratio(), day = gameState.daysInOffice || 0, mem = member(); goalsInit();
     const cap = Math.floor(gameState.goals.capital), left = Math.max(0, u.exitDay - day);
     const box = (l, v, c) => '<div class="bg-slate-950 border border-slate-800 rounded-lg p-3"><div class="text-[10px] text-slate-500">' + l + '</div><b class="' + (c || 'text-slate-100') + ' text-lg">' + v + '</b></div>';
@@ -9939,6 +9943,7 @@ function playSound(n) {
       ['La huelga paraliza puertos y transporte; la calle está dividida.', [O('Ofrecer una subida del salario mínimo', 2, { emp: 1 }, 500, 'Cesión'), O('Apelar a la ciudadanía por televisión', 1, { apr: 1 }, 0, 'Comunicación'), O('Mantener la firmeza', 0, { est: -2 }, 0, 'Firmeza')]],
       ['Hay un preacuerdo sobre la mesa.', [O('Firmarlo con foto de familia', 2, { apr: 2 }, 0, 'Acuerdo'), O('Rebajarlo con letra pequeña', 1, { eco: 1 }, 0, 'Astuto'), O('Romper la mesa', 0, { est: -3 }, 0, 'Ruptura')]]] }
   ];
+  if (MC.soc && MC.soc.crises && MC.soc.crises.length) CR.splice(0, CR.length, ...MC.soc.crises.map(c => Object.assign({}, c, { st: c.st.map(z => [z[0], z[1].map(o => Array.isArray(o) ? O(o[0], o[1], o[2], o[3], o[4]) : o)]) })));   // crisis propias de cada país
   const S = () => window.socInit();
   const fxPlay = n => { try { if (SND.muted) return; if (n in EFECTOS_ARCHIVO) { fxResolve(n).then(u => u ? playEffectFile(n) : (sndCtx(), SOUNDS[n] && SOUNDS[n]())); } else { sndCtx(); SOUNDS[n] && SOUNDS[n](); } } catch (e) {} };
   ['crisis', 'victoria', 'derrota'].forEach(k => { EFECTOS_ARCHIVO[k] = k; });   // si existe musica/efectos/crisis.mp3 (etc.) suena ese archivo
@@ -11454,5 +11459,6 @@ function playSound(n) {
   <script src="frente.js"></script>
   <script src="nuclear.js"></script>
   <script src="armamento.js"></script>
+  <script src="regimen.js"></script>
 </body>
 </html>
