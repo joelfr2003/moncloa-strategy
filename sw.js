@@ -1,5 +1,5 @@
 // Service worker de Moncloa Strategy. Sube el número de VERSION cuando publiques cambios.
-const VERSION = 'v49';
+const VERSION = 'v50';
 const CACHE = 'moncloa-' + VERSION;
 const COUNTRIES_DIR = 'Countries/';
 
