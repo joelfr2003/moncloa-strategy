@@ -6942,18 +6942,25 @@ const HUD_METRICS = [['eco', 'Economía', 'fa-chart-line'], ['est', 'Estabilidad
 window.LEAD_CACHE = window.LEAD_CACHE || {};
 // Nombres que se prueban (en este orden) y extensiones, en minúscula y mayúscula (en un servidor web distingue mayúsculas)
 function leaderCands(cid, p) {
-  const nz = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  const pid = String(p.id).toLowerCase().replace(/[^a-z0-9]/g, ''), full = nz(p.leader), parts = full.split('_').filter(Boolean), last = parts[parts.length - 1] || '', last2 = parts.slice(-2).join('_');
-  const bases = [cid + '_' + pid, pid, cid + '_' + full, full, cid + '_' + last, last, cid + '_' + last2, last2, String(p.id), cid + '_' + String(p.id)];
-  const ex = ['jpg', 'jpeg', 'png', 'webp', 'JPG', 'JPEG', 'PNG', 'WEBP'], out = [];
-  bases.filter((b, k) => b && bases.indexOf(b) === k).forEach(b => ex.forEach(e => out.push('portraits/' + b + '.' + e)));
+  const nz = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const pid = String(p.id).toLowerCase().replace(/[^a-z0-9]/g, ''), words = nz(p.leader).split(' ').filter(Boolean), last = words[words.length - 1] || '', last2 = words.slice(-2).join(' '), first = words[0] || '';
+  const cap = t => t.replace(/\b\w/g, c => c.toUpperCase());
+  const names = [cid + '_' + pid, pid, words.join(' '), last, last2, first + ' ' + last, cid + '_' + words.join(' '), cid + '_' + last, String(p.id), cid + ' ' + pid];
+  const bases = [];
+  names.forEach(n => { if (!n) return; [n.replace(/ /g, '_'), n.replace(/ /g, '-'), n.replace(/ /g, ''), n.replace(/ /g, ' '), cap(n).replace(/ /g, '_'), cap(n).replace(/ /g, ' '), cap(n).replace(/ /g, ''), n.toUpperCase().replace(/ /g, '_')].forEach(b => { if (bases.indexOf(b) < 0) bases.push(b); }); });
+  const ex = ['jpg', 'png', 'jpeg', 'webp', 'JPG', 'PNG', 'JPEG', 'WEBP'], out = [];
+  bases.forEach(b => ex.forEach(e => out.push('portraits/' + encodeURI(b) + '.' + e)));
   return out;
 }
 window.LEAD_TRY = window.LEAD_TRY || {};
 window.leaderImgErr = function (key, img) {
-  const L = window.LEAD_TRY[key] || [], n = (+img.dataset.n || 0) + 1;
-  if (n < L.length) { img.dataset.n = n; img.src = L[n]; return; }
-  window.LEAD_CACHE[key] = 0; img.remove();
+  // Primer fallo: se prueban TODOS los nombres posibles a la vez y se queda con el primero que exista
+  const L = window.LEAD_TRY[key] || []; img.remove();
+  if (window.LEAD_CACHE[key] === 0 || window.LEAD_PROBING === key) return;
+  window.LEAD_PROBING = key; let left = L.length, best = -1;
+  const done = () => { window.LEAD_PROBING = null; if (best >= 0) { window.LEAD_CACHE[key] = L[best]; if (typeof hudUpdate === 'function') hudUpdate(); } else window.LEAD_CACHE[key] = 0; };
+  if (!left) return done();
+  L.forEach((u, k) => { const im = new Image(); im.onload = () => { if (best < 0 || k < best) best = k; if (!--left) done(); }; im.onerror = () => { if (!--left) done(); }; im.src = u; });
 };
 // Clic en la cara: elige una foto de tu ordenador (se guarda en este navegador, sin depender de la carpeta)
 window.leaderPick = function (key) {
