@@ -10317,7 +10317,7 @@ function playSound(n) {
   function renderWar() {
     const W = I(), c = BY[W.sel], w = W.war, day = gameState.daysInOffice || 0, own = Math.round((W.t + W.m + W.a) / 3);
     const head = `<div class="grid grid-cols-2 md:grid-cols-6 gap-2 text-center">${chip('PODER MILITAR', own, 'text-amber-400')}${chip('MORAL', '×' + moral().toFixed(2))}${chip('TESORERÍA', fmt(money()) + ' M€')}${chip('TERRITORIOS', W.terr.length)}${chip('SANCIONES', W.sanc > day ? 'ACTIVAS' : 'No', W.sanc > day ? 'text-red-400' : 'text-slate-400')}${chip('GENERAL', genOf(W) ? genOf(W).n.split(' ').slice(-2).join(' ') : 'SIN ELEGIR', genOf(W) ? 'text-emerald-400 !text-sm' : 'text-red-400')}</div>`;
-    const tabs = [['op', 'Operaciones', 'fa-crosshairs'], ['army', 'Ejército y tecnología', 'fa-shield-halved'], ['ind', 'Industria militar', 'fa-industry'], ['gen', 'Mando', 'fa-star'], ...(window.nucHas && window.nucHas() ? [['nuc', 'Arsenal nuclear', 'fa-radiation']] : []), ['arch', 'Archivo', 'fa-book']].map(([k, n, ic]) => `<button onclick="warPane('${k}')" class="px-3 py-1.5 rounded text-[11px] cursor-pointer ${W.pane === k ? 'hoi-button-gold' : 'bg-slate-900 border border-slate-700 text-slate-300'}"><i class="fa-solid ${ic} mr-1"></i>${n}</button>`).join('');
+    const tabs = [['op', 'Operaciones', 'fa-crosshairs'], ['army', 'Ejército y tecnología', 'fa-shield-halved'], ['ind', 'Industria militar', 'fa-industry'], ['tree', 'Mejoras', 'fa-sitemap'], ['svc', 'Reclutamiento', 'fa-people-group'], ['gen', 'Mando', 'fa-star'], ...(window.nucHas && window.nucHas() ? [['nuc', 'Arsenal nuclear', 'fa-radiation']] : []), ['arch', 'Archivo', 'fa-book']].map(([k, n, ic]) => `<button onclick="warPane('${k}')" class="px-3 py-1.5 rounded text-[11px] cursor-pointer ${W.pane === k ? 'hoi-button-gold' : 'bg-slate-900 border border-slate-700 text-slate-300'}"><i class="fa-solid ${ic} mr-1"></i>${n}</button>`).join('');
     let body = '';
     if (W.pane === 'op') {
       let info = '<p class="text-xs text-slate-500 font-sans">Pulsa un país del mapa para ver sus datos y actuar.</p>';
@@ -10357,6 +10357,10 @@ function playSound(n) {
         return `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2"><div class="flex justify-between text-xs"><span class="text-slate-100"><i class="fa-solid ${D.ic} text-amber-400 mr-1.5"></i>${D.n}</span><b class="text-amber-400">Nv. ${o.lvl}/3</b></div><div class="text-[10px] text-slate-400">${stock}</div>${bar(D.br === 'mun' ? W.mun : W[D.br], 'bg-amber-500')}${st}<div class="grid grid-cols-1 gap-1.5">${bt}</div>${up}</div>`;
       }).join('');
       body = `<div class="space-y-3"><p class="text-[11px] text-slate-400 font-sans">Fabrica armamento por lotes. Cada nivel industrial desbloquea una generación de material más avanzada y acorta los plazos. Las reservas de munición reducen el consumo de suministros en guerra (y se gastan mientras combates).</p><div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">${cards}</div></div>`;
+    } else if (W.pane === 'tree' && window.armTree) {
+      body = window.armTree();
+    } else if (W.pane === 'svc' && window.armSvc) {
+      body = window.armSvc();
     } else if (W.pane === 'nuc' && window.nucPanel) {
       body = window.nucPanel();
     } else if (W.pane === 'gen') {
@@ -11449,5 +11453,6 @@ function playSound(n) {
   <script src="calma.js"></script>
   <script src="frente.js"></script>
   <script src="nuclear.js"></script>
+  <script src="armamento.js"></script>
 </body>
 </html>
