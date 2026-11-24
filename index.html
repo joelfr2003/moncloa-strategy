@@ -6949,7 +6949,7 @@ function leaderCands(cid, p) {
   const bases = [];
   names.forEach(n => { if (!n) return; [n.replace(/ /g, '_'), n.replace(/ /g, '-'), n.replace(/ /g, ''), n.replace(/ /g, ' '), cap(n).replace(/ /g, '_'), cap(n).replace(/ /g, ' '), cap(n).replace(/ /g, ''), n.toUpperCase().replace(/ /g, '_')].forEach(b => { if (bases.indexOf(b) < 0) bases.push(b); }); });
   const ex = ['jpg', 'png', 'jpeg', 'webp', 'JPG', 'PNG', 'JPEG', 'WEBP'], out = [];
-  bases.forEach(b => ex.forEach(e => out.push('portraits/' + encodeURI(b) + '.' + e)));
+  ['portraits/', 'portrait/'].forEach(d => bases.forEach(b => ex.forEach(e => out.push(d + encodeURI(b) + '.' + e))));
   return out;
 }
 window.LEAD_TRY = window.LEAD_TRY || {};
