@@ -625,7 +625,7 @@
     setTimeout(() => { if (!ok) toast('Supabase no responde tras 10 s: ¿proyecto pausado, URL mal o websockets bloqueados?'); }, 10000);
     ch.subscribe((st, err) => {
       if (st === 'SUBSCRIBED') { ok = true; L.subscribed = true; ch.track({ role }); }
-      else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') { L.subscribed = false; console.error('Supabase Realtime:', st, err); toast('Supabase: ' + st + (err && err.message ? ' — ' + err.message : '') + '. Revisa la URL y la clave (consola F12 para más detalle).'); }
+      else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') { L.subscribed = false; console.error('Supabase Realtime:', st, err); toast('Supabase: ' + st + (err && err.message ? ' — ' + err.message : '') + '. Si no has cambiado nada, lo más probable es que el proyecto gratuito esté PAUSADO por inactividad: entra en supabase.com, abre tu proyecto y pulsa «Restore project»; comprueba también que Realtime está activado. Mientras tanto puedes jugar con conexión directa (código de sala).'); }
     });
     return L;
   }
