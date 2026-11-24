@@ -335,7 +335,7 @@
   // Si atacas desde el mapa de Guerra al país del otro jugador: la relación se desploma, se rompen los pactos,
   // y el otro recibe el aviso, inicia una guerra defensiva en su partida y puede resistir con sus operaciones.
   // Cada 5 días los dos frentes se empujan entre sí; quien gana o pide paz lo comunica al otro.
-  const WISO = { espana: 724, marruecos: 504, eeuu: 840, francia: 250 };   // código del país en el mapa de Guerra (añade aquí los países nuevos)
+  const WISO = { espana: 724, marruecos: 504, eeuu: 840, francia: 250, alemania: 276, rusia: 643, coreanorte: 408 };   // código del país en el mapa de Guerra (añade aquí los países nuevos)
   const wiso = id => WISO[id] || ((window.COUNTRIES || []).filter(c => c.id === id)[0] || {}).iso;
   const WAR = () => gameState.wr && gameState.wr.war;
   const pvpTarget = id => { const m = S(); return !!(m && m.linked && m.other && wiso(m.other.id) === id); };
