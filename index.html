@@ -6940,22 +6940,50 @@ const HUD_METRICS = [['eco', 'Economía', 'fa-chart-line'], ['est', 'Estabilidad
 // ---- Retrato del líder en la barra superior (estilo Hearts of Iron) ----
 // Coloca las fotos en portraits/<pais>_<partido>.jpg|png|webp (p. ej. portraits/espana_psoe.jpg). Sin foto se muestran las iniciales.
 window.LEAD_CACHE = window.LEAD_CACHE || {};
+// Nombres que se prueban (en este orden) y extensiones, en minúscula y mayúscula (en un servidor web distingue mayúsculas)
+function leaderCands(cid, p) {
+  const nz = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const pid = String(p.id).toLowerCase().replace(/[^a-z0-9]/g, ''), full = nz(p.leader), parts = full.split('_').filter(Boolean), last = parts[parts.length - 1] || '', last2 = parts.slice(-2).join('_');
+  const bases = [cid + '_' + pid, pid, cid + '_' + full, full, cid + '_' + last, last, cid + '_' + last2, last2, String(p.id), cid + '_' + String(p.id)];
+  const ex = ['jpg', 'jpeg', 'png', 'webp', 'JPG', 'JPEG', 'PNG', 'WEBP'], out = [];
+  bases.filter((b, k) => b && bases.indexOf(b) === k).forEach(b => ex.forEach(e => out.push('portraits/' + b + '.' + e)));
+  return out;
+}
+window.LEAD_TRY = window.LEAD_TRY || {};
 window.leaderImgErr = function (key, img) {
-  const ex = ['.jpg', '.png', '.webp', '.jpeg'], cur = ex.findIndex(e => img.src.toLowerCase().endsWith(e)), nx = cur + 1;
-  if (nx < ex.length) { img.src = key + ex[nx]; return; }
+  const L = window.LEAD_TRY[key] || [], n = (+img.dataset.n || 0) + 1;
+  if (n < L.length) { img.dataset.n = n; img.src = L[n]; return; }
   window.LEAD_CACHE[key] = 0; img.remove();
+};
+// Clic en la cara: elige una foto de tu ordenador (se guarda en este navegador, sin depender de la carpeta)
+window.leaderPick = function (key) {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = () => {
+    const f = inp.files && inp.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { const im = new Image(); im.onload = () => {
+      const c = document.createElement('canvas'), S = 220, m = Math.min(im.width, im.height); c.width = c.height = S;
+      c.getContext('2d').drawImage(im, (im.width - m) / 2, (im.height - m) / 3 > 0 ? Math.max(0, (im.height - m) / 4) : 0, m, m, 0, 0, S, S);
+      try { localStorage.setItem('moncloa_face_' + key, c.toDataURL('image/jpeg', .85)); } catch (e) { alert('No se pudo guardar la foto (almacenamiento lleno).'); }
+      window.LEAD_CACHE[key] = undefined; if (typeof render === 'function') render(); };
+      im.src = r.result; };
+    r.readAsDataURL(f);
+  };
+  inp.click();
 };
 function leaderHud() {
   const g = gameState, p = (g.parties || []).find(x => x.id === g.leaderPartyId);
   if (!p || !p.leader) return '';
   const cid = (window.CURRENT_COUNTRY && CURRENT_COUNTRY.id) || 'espana';
-  const key = 'portraits/' + cid + '_' + String(p.id).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const cands = leaderCands(cid, p), key = cands[0].replace(/\.[A-Za-z]+$/, '');
+  window.LEAD_TRY[key] = cands;
   const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   const ini = p.leader.split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  let own = null; try { own = localStorage.getItem('moncloa_face_' + key); } catch (e) { /* sin almacenamiento */ }
   const cached = window.LEAD_CACHE[key];
-  const img = cached === 0 ? '' : `<img src="${cached || key + '.jpg'}" alt="" onload="LEAD_CACHE['${key}']=this.src" onerror="leaderImgErr('${key}',this)">`;
+  const img = own ? `<img src="${own}" alt="">` : cached === 0 ? '' : `<img src="${cached || cands[0]}" alt="" data-n="0" onload="LEAD_CACHE['${key}']=this.src" onerror="leaderImgErr('${key}',this)">`;
   const title = (window.MC && MC.t && MC.t.leader) || 'Presidente del Gobierno';
-  return `<div class="hud-leader" title="${esc(p.leader)} · ${esc(p.name)}"><div class="hud-face" style="border-color:${esc(p.color || '#d9a726')}"><span>${esc(ini)}</span>${img}</div><div class="hud-lname"><b>${esc(p.leader)}</b><small>${esc(title)} · ${esc(p.id)}</small></div></div><div class="hud-sep"></div>`;
+  return `<div class="hud-leader" title="${esc(p.leader)} · ${esc(p.name)} — clic en la cara para elegir una foto (o ${esc(cands[0])})"><div class="hud-face" style="border-color:${esc(p.color || '#d9a726')};cursor:pointer" onclick="leaderPick('${key}')"><span>${esc(ini)}</span>${img}</div><div class="hud-lname"><b>${esc(p.leader)}</b><small>${esc(title)} · ${esc(p.id)}</small></div></div><div class="hud-sep"></div>`;
 }
 
 function hudUpdate() {
