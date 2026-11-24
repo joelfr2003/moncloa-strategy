@@ -900,7 +900,7 @@ const COUNTRY_ECON = {
     lat: 51,
     lon: 10,
     allied: "OTAN|UE",
-    own: { t: 50, m: 34, a: 56 },
+    own: { t: 50, m: 34, a: 56 }, gens: [{"id": "tg", "n": "Generalleutnant Klaus-Dieter Hartmann", "t": "Inspector del Heer (Ejército de Tierra)", "d": "Estratega de maniobra terrestre; doctrina clásica y disciplina de hierro.", "fx": {"t": 6}, "pow": 1.05, "sup": 0, "mil": 3, "tag": "+6 Tierra · +5 % poder · +3 Estab. Militar"}, {"id": "mg", "n": "Vizeadmiral Jens Thorsten Brandvold", "t": "Inspector de la Marine", "d": "Controla el Báltico y el mar del Norte.", "fx": {"m": 8}, "pow": 1.02, "sup": 0.05, "mil": 2, "tag": "+8 Armada · +2 % poder · −5 % consumo de suministros"}, {"id": "ag", "n": "Generalleutnant Annette Vogelsang", "t": "Inspectora de la Luftwaffe", "d": "Superioridad aérea y guerra tecnológica.", "fx": {"a": 8}, "pow": 1.03, "sup": 0, "mil": 2, "tag": "+8 Aire · +3 % poder"}, {"id": "lg", "n": "Generalmajor Stefan Reichenbach", "t": "Jefe del Mando de Apoyo", "d": "Gana guerras de desgaste: las tropas aguantan más sin suministros.", "fx": {"t": 2, "m": 2, "a": 2}, "pow": 1, "sup": 0.25, "mil": 2, "tag": "+2 a cada ejército · −25 % consumo de suministros"}, {"id": "pg", "n": "General Matthias Eberhardt", "t": "Generalinspekteur afín a la Cancillería", "d": "Leal al poder civil. Menos brillante en combate, pero calma los cuarteles.", "fx": {}, "pow": 0.97, "sup": 0.05, "mil": 10, "tag": "+10 Estab. Militar · −3 % poder"}],
     add: [
       [
         724,

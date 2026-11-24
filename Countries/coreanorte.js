@@ -715,7 +715,7 @@ const COUNTRY_ECON = {
     lat: 40,
     lon: 127,
     allied: "—",
-    own: { t: 72, m: 28, a: 30 },
+    own: { t: 72, m: 28, a: 30 }, gens: [{"id": "tg", "n": "Mariscal Ri Yong Chol", "t": "Comandante del Ejército Popular de Corea", "d": "Estratega de maniobra terrestre; doctrina clásica y disciplina de hierro.", "fx": {"t": 6}, "pow": 1.05, "sup": 0, "mil": 3, "tag": "+6 Tierra · +5 % poder · +3 Estab. Militar"}, {"id": "mg", "n": "Almirante Kim Chol Min", "t": "Comandante de la Armada Popular", "d": "Defiende las costas con submarinos y lanchas lanzamisiles.", "fx": {"m": 8}, "pow": 1.02, "sup": 0.05, "mil": 2, "tag": "+8 Armada · +2 % poder · −5 % consumo de suministros"}, {"id": "ag", "n": "Gral. Pak Sun Hee", "t": "Comandante de la Fuerza Aérea y Antiaérea", "d": "Superioridad aérea y guerra tecnológica.", "fx": {"a": 8}, "pow": 1.03, "sup": 0, "mil": 2, "tag": "+8 Aire · +3 % poder"}, {"id": "lg", "n": "Gral. Choe Dong Gun", "t": "Jefe del Departamento General de Logística", "d": "Gana guerras de desgaste: las tropas aguantan más sin suministros.", "fx": {"t": 2, "m": 2, "a": 2}, "pow": 1, "sup": 0.25, "mil": 2, "tag": "+2 a cada ejército · −25 % consumo de suministros"}, {"id": "pg", "n": "Gral. Jang Min Ho", "t": "Director del Departamento Político General", "d": "Leal al Partido. Menos brillante en combate, pero calma los cuarteles.", "fx": {}, "pow": 0.97, "sup": 0.05, "mil": 10, "tag": "+10 Estab. Militar · −3 % poder"}],
     add: [
       [
         724,
