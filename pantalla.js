@@ -1,6 +1,6 @@
 /* PANTALLA.JS — Interfaz de pantalla completa (F11) para MONCLOA STRATEGY.
    · Portada: todo a la vista sin hacer scroll (7 países en una fila).
-   · Partida: menú de pestañas ARRIBA, barra de estado fija y el contenido ocupa el resto de la pantalla; solo se desplaza
+   · Partida: menú de pestañas a la izquierda, barra de estado fija y el contenido ocupa el resto de la pantalla; solo se desplaza
      el panel de dentro. Militar y Guerra va a dos columnas (teatro de operaciones | pestañas de gestión). */
 (function () {
   'use strict';
@@ -28,21 +28,8 @@
   @media (min-width: 821px) {
     html, body.hud-on { height: 100%; overflow: hidden !important; }
     body.hud-on { display: block !important; min-height: 0 !important; }
-    body.hud-on #top-hud { left: 0 !important; }
-    body.hud-on header { left: 0 !important; top: 56px !important; width: 100% !important; height: auto !important; max-height: 120px;
-      flex-direction: row !important; flex-wrap: wrap !important; align-items: center !important; gap: 6px 10px !important;
-      padding: 5px 12px !important; overflow: visible !important; border-right: 0 !important; border-bottom: 2px solid var(--hoi-border) !important; z-index: 8900 !important; }
-    body.hud-on header > div:first-child { display: none !important; }
-    body.hud-on header .sidebar-nav-list { flex-direction: row !important; flex-wrap: wrap !important; width: auto !important; flex: 1 1 0 !important; margin: 0 !important; gap: 4px !important; }
-    body.hud-on .nav-group { flex-direction: row !important; flex-wrap: wrap !important; margin: 0 !important; gap: 4px !important; }
-    body.hud-on .nav-group-title { display: none !important; }
-    body.hud-on .nav-group .nav-group-body { display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; padding: 0 !important; gap: 4px !important; }
-    body.hud-on .nav-tab-btn { width: auto !important; padding: 5px 10px !important; font-size: 11px !important; white-space: nowrap; }
-    body.hud-on header .mt-auto { margin: 0 0 0 auto !important; padding: 0 !important; border: 0 !important; display: flex !important; flex-direction: row !important; align-items: center; gap: 6px !important; flex: 0 0 auto; }
-    body.hud-on header .mt-auto > * { margin: 0 !important; width: auto !important; }
-    body.hud-on header .mt-auto #status-badge, body.hud-on header .mt-auto > div:last-child:not(:first-child) { display: none !important; }
-    body.hud-on main#app { position: fixed !important; top: calc(56px + var(--px-nav, 72px)) !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
-      width: auto !important; max-width: none !important; margin: 0 !important; padding: 8px 14px !important; overflow: hidden !important; }
+    body.hud-on main#app { position: fixed !important; top: 56px !important; left: 260px !important; right: 0 !important; bottom: 0 !important;
+      width: auto !important; max-width: none !important; margin: 0 !important; padding: 8px 14px !important; box-sizing: border-box !important; overflow: hidden !important; }
     body.hud-on footer { display: none !important; }
     body.hud-on #app > div.space-y-3 { height: 100%; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
     body.hud-on #app > div.space-y-3 > * { margin: 0 !important; flex: none; }
@@ -75,15 +62,10 @@
       body.append(l, r);
     } else rest.forEach(k => body.appendChild(k));
     w.appendChild(body);
-    const hd = document.querySelector('body > header'); if (hd) setNav(hd);
   }
-  function setNav(hd) { document.documentElement.style.setProperty('--px-nav', Math.round(hd.getBoundingClientRect().height) + 'px'); }
   function boot() {
     const app = document.getElementById('app'); if (!app) return;
     new MutationObserver(() => { try { organize(); } catch (e) { console.error('[pantalla]', e); } }).observe(app, { childList: true });
-    const hd = document.querySelector('body > header');
-    if (hd && window.ResizeObserver) new ResizeObserver(() => setNav(hd)).observe(hd);
-    window.addEventListener('resize', () => { if (hd) setNav(hd); });
     organize();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
