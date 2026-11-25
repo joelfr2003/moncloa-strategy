@@ -64,8 +64,8 @@
     const th = init(w), c = enemy(w), pts = frontPts(w, th), sup = w.sup == null ? 80 : w.sup;
     const ownDiv = Math.max(1, Math.round((Wr.t || 40) / 3.5) - Math.floor(th.ok / 9000)), enDiv = Math.max(1, Math.round((c.s || 30) / 3.2) - Math.floor(th.ek / 9000));
     const per = SEC.map((s, i) => ({ o: Math.max(1, Math.round(ownDiv / SEC.length + (i % 2))), e: Math.max(1, Math.round(enDiv / SEC.length + ((i + 1) % 2))) }));
-    const poly = pts.map(p => p.join(',')).join(' ');
-    let h = `<polygon points="0,0 ${poly.replace(/^(\S+)/, '$1')} 0,420" fill="rgba(16,185,129,.13)"/><polygon points="900,0 ${pts.map(p => p.join(',')).join(' ')} 900,420" fill="rgba(220,38,38,.14)"/>`;
+    const poly = pts.map(p => p.join(',')).join(' '), full = pts[0][0] + ',0 ' + poly + ' ' + pts[pts.length - 1][0] + ',420';
+    let h = `<polygon points="0,0 ${full} 0,420" fill="rgba(16,185,129,.13)"/><polygon points="900,0 ${full} 900,420" fill="rgba(220,38,38,.14)"/>`;
     h += `<polyline points="${poly}" fill="none" stroke="#fbbf24" stroke-width="3" class="th-line"/>`;
     pts.forEach((p, i) => {
       const adv = th.dir[i] > 0.15, ret = th.dir[i] < -0.15, y = p[1], sc = sup < 25 ? '#ef4444' : sup < 50 ? '#f59e0b' : '#38bdf8';
