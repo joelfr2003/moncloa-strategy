@@ -130,6 +130,38 @@
       + '<button onclick="govAutoDebt(' + (on ? 'false' : 'true') + ')" class="hoi-button px-2 py-0.5 rounded text-[10px] cursor-pointer">' + (on ? 'Desactivar' : 'Activar') + ' (ahora: ' + (on ? 'ACTIVADA' : 'DESACTIVADA') + ')</button></div>';
   }
 
+
+  // ============ 7) RELACIONES EXTERIORES: descuidarlas trae aranceles y guerras ============
+  const T = () => gameState.tariffs || (gameState.tariffs = {});
+  const big = c => c.s >= 40;
+  function diploMonth() {
+    const W = gameState.wr, C = window.WAR_C; if (!W || !W.rel || !C || day() < 90) return;
+    const list = C.filter(big), tf = T(); let good = 0, newT = [];
+    list.forEach(c => {
+      if (W.rel[c.id] == null) W.rel[c.id] = c.r0;
+      if (W.war && W.war.id === c.id) return;
+      W.rel[c.id] = Math.max(0, W.rel[c.id] - 0.8);            // las relaciones se enfrían si no se cuidan
+      const r = W.rel[c.id];
+      if (r <= 35 && !tf[c.id]) { tf[c.id] = { n: c.n, pct: r <= 20 ? 25 : 12, s: c.s }; newT.push(c.n); }
+      else if (r >= 50 && tf[c.id]) { toast('<i class="fa-solid fa-handshake text-emerald-400"></i> <b>' + tf[c.id].n + ' levanta los aranceles</b>', '#10b981'); delete tf[c.id]; }
+      else if (tf[c.id]) tf[c.id].pct = r <= 20 ? 25 : 12;
+      if (r >= 70) good++;
+    });
+    let cost = 0;
+    Object.keys(tf).forEach(k => { const t = tf[k]; cost += budget() * 0.0006 * t.pct / 10 * (t.s || 40) / 40; acc('eco', -0.25 * t.pct / 12); acc('emp', -0.12 * t.pct / 12); });
+    if (cost > 0) { try { registerFinancialTransaction('Aranceles impuestos por países hostiles', -Math.round(cost), 'economia'); } catch (e) { /* sin libro */ } }
+    if (good) acc('eco', Math.min(1, good * 0.12));
+    if (newT.length) toast('<i class="fa-solid fa-ban text-red-400"></i> <b>ARANCELES CONTRA ' + (window.MC && MC.t ? MC.t.nation.toUpperCase() : 'TU PAÍS') + '</b><br><span class="text-xs">' + newT.join(', ') + ' te imponen aranceles por la mala relación. Mejora la relación en Relaciones Exteriores (≥ 50 %) para levantarlos. Por debajo del 30 % pueden declararte la guerra.</span>', '#ef4444');
+  }
+  function diploBanner() {
+    const tf = T(), k = Object.keys(tf), W = gameState.wr || {}, C = window.WAR_C || [];
+    const hs = C.filter(c => big(c) && W.rel && W.rel[c.id] != null && W.rel[c.id] <= 40).sort((a, b) => W.rel[a.id] - W.rel[b.id]).slice(0, 6);
+    return '<div class="text-[11px] border border-red-800/50 bg-red-900/10 rounded px-3 py-1.5 mb-3 font-hoi-tech"><b class="text-red-300"><i class="fa-solid fa-ban mr-1"></i>ARANCELES Y TENSIÓN</b> '
+      + (k.length ? k.map(i => tf[i].n + ' (' + tf[i].pct + ' %)').join(' · ') + ' — cuestan economía, empleo y recaudación cada mes. ' : 'Sin aranceles ahora. ')
+      + 'Las relaciones se enfrían solas (−0,8 al mes): cuídalas con acciones diplomáticas. ≤ 35 %: aranceles · ≤ 30 %: riesgo de guerra · ≥ 70 %: ventaja comercial.'
+      + (hs.length ? '<br>Más tensas: ' + hs.map(c => c.n + ' ' + Math.round(W.rel[c.id]) + ' %').join(' · ') : '') + '</div>';
+  }
+
   // ============ ENGANCHES ============
   const _md = window.makeDecision;
   if (typeof _md === 'function') makeDecision = function () {
@@ -156,6 +188,7 @@
         if (d % 30 === 10) demoMonth();
         if (d % 30 === 15) socMonth();
         if (d % 30 === 20) annexMonth();
+        if (d % 30 === 25) diploMonth();
         debtWatch();
       } catch (e) { console.error(e); }
     }
@@ -180,6 +213,7 @@
       if (t === 'main' || t === 'boe' || t === 'media') return bar() + h;
       if (t === 'soc') return socBanner() + h;
       if (t === 'fin') return debtPanel() + h;
+      if (t === 'intl' || t === 'war') return diploBanner() + h;
       if (t === 'demo') return demoBanner() + h;
     } catch (e) { console.error(e); }
     return h;
