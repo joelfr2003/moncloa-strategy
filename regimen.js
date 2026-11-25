@@ -8,7 +8,7 @@
   const _tw = window.triggerElectionsWithModal;
   if (typeof _tw === 'function') triggerElectionsWithModal = function (title) {
     const r = R();
-    if (r && r.noEarly && !/FIN DE LA LEGISLATURA/i.test(String(title || ''))) { blocked = true; return; }
+    if (r && r.noEarly && !window.__earlyElec && !/FIN DE LA LEGISLATURA/i.test(String(title || ''))) { blocked = true; return; }
     return _tw.apply(this, arguments);
   };
   const _ct = window.checkTermEnd;
