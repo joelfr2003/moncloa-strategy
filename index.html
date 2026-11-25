@@ -10144,8 +10144,8 @@ function playSound(n) {
     if (LOADING || WORLD) return; LOADING = true;
     fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json').then(r => r.json()).then(t => { WORLD = decode(t); if (gameState.activeTab === 'war') render(); }).catch(() => { LOADING = false; WORLD = null; });
   }
-  const VIEWS = { w: '0 0 1000 395', e: '430 50 250 130', am: '120 60 320 340', as: '560 60 360 200' };
-  const VNAME = { w: 'Mundo', e: 'Europa y Mediterráneo', am: 'Américas', as: 'Asia' };
+  const VIEWS = { w: '0 0 1000 395', e: '430 50 250 130', am: '120 60 320 340', as: '560 60 360 200', af: '430 105 250 190' };
+  const VNAME = { w: 'Mundo', e: 'Europa y Mediterráneo', am: 'Américas', as: 'Asia', af: 'África' };
   const dstr = () => gameState.currentDate && gameState.currentDate.toLocaleDateString ? gameState.currentDate.toLocaleDateString('es-ES') : 'Día ' + (gameState.daysInOffice || 0);
   const log = t => { const W = I(); W.log.unshift(dstr() + ' · ' + t); W.log = W.log.slice(0, 12); };
   function col(id) {
@@ -10229,7 +10229,7 @@ function playSound(n) {
   window.warTerm = k => {
     const W = I(), c = BY[W.pend]; W.pend = null; focusMetricAdd('apr', 8); focusMetricAdd('mil', 6); cap().capital = Math.min(100, cap().capital + 12);
     if (k === 'rep') { registerFinancialTransaction('Reparaciones de guerra: ' + c.n, 8000); focusMetricAdd('apr', 2); }
-    if (k === 'anex') { W.terr.push({ id: c.id, n: c.n }); focusMetricAdd('eco', 3); focusMetricAdd('est', -3); Object.keys(W.rel).forEach(i => { if (ALLIED(BY[i])) W.rel[i] = Math.max(0, W.rel[i] - 10); }); }
+    if (k === 'anex') { W.terr.push({ id: c.id, n: c.n, s: c.s }); focusMetricAdd('eco', 3); focusMetricAdd('est', -3); Object.keys(W.rel).forEach(i => { if (ALLIED(BY[i])) W.rel[i] = Math.max(0, W.rel[i] - 10); }); }
     if (k === 'gob') { W.rel[c.id] = 85; focusMetricAdd('est', 2); }
     W.hist.unshift(c.n + ': VICTORIA (' + { rep: 'reparaciones', anex: 'anexión', gob: 'gobierno afín' }[k] + ')'); W.hist = W.hist.slice(0, 8); W.last = gameState.daysInOffice || 0;
     log('Victoria sobre ' + c.n + '.'); fxPlay('victoria'); goalsToast('<b>VICTORIA SOBRE ' + c.n.toUpperCase() + '</b>', '#10b981'); close();
@@ -11050,14 +11050,14 @@ function playSound(n) {
     registerFinancialTransaction(e.ord >= 0 ? 'Saldo fiscal del mes: recaudación tributaria y cotizaciones sobre pensiones y prestaciones' : 'Saldo fiscal del mes: pensiones y prestaciones por encima de la recaudación', e.ord, 'economia');
   }
   function financeMonth() {
-    const t = Number(gameState.treasury) || 0; if (t >= FLOOR) return;
+    const t = Number(gameState.treasury) || 0; if (t >= FLOOR || gameState.autoDebt === false) return;
     const e = E(), D = debtInit();
     if (ratioD() >= MARKET_CLOSE) {
       if (!e.closed) { e.closed = 1; goalsToast('<i class="fa-solid fa-triangle-exclamation text-red-400"></i> <b>LOS MERCADOS SE CIERRAN</b><br><span class="text-xs">Deuda del ' + Math.round(ratioD()) + ' % del PIB: el Tesoro no consigue financiarse.</span>', '#ef4444'); }
       focusMetricAdd('eco', -2); focusMetricAdd('est', -1); return;
     }
     e.closed = 0;
-    const x = Math.ceil((TARGET - t) / 5000) * 5000;
+    const x = Math.max(1000, Math.ceil((FLOOR + 5000 - t) / 1000) * 1000);
     D.amount += x; registerFinancialTransaction('Emisión de deuda del Tesoro para financiar el déficit', x, 'economia');
     goalsToast('<i class="fa-solid fa-landmark text-amber-400"></i> <b>El Tesoro emite ' + fmt(x) + ' M€ de deuda</b><br><span class="text-xs">Financia el déficit (deuda total: ' + ratioD().toFixed(1) + ' % del PIB).</span>', '#d9a726');
   }
@@ -11496,5 +11496,6 @@ function playSound(n) {
   <script src="armamento.js"></script>
   <script src="regimen.js"></script>
   <script src="pantalla.js"></script>
+<script src="gobierno.js"></script>
 </body>
 </html>
