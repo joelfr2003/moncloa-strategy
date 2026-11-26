@@ -22,6 +22,25 @@
       L: { USFP: 'Abderramán Yusufi', PI: 'Abbas El Fassi', PJD: 'Abdelilah Benkirán', PAM: '—', MDS: '—', FGD: '—' } },
     coreanorte: { w: { PTC: 607, SDP: 50, CHON: 22, IND: 8 }, L: {} }
   };
+  const N0 = {
+    espana: { JUNTS: 'Convergència i Unió', SUMAR: 'Izquierda Unida', PODEMOS: 'Podemos (aún no existe)', BILDU: 'Eusko Alkartasuna / HB', VOX: 'Vox (extraparlamentario)', ERC: 'Esquerra Republicana' },
+    francia: { LR: 'RPR-UDF', LFI: 'Parti Communiste Français', RN: 'Front National', ENS: 'Centristas (aún sin partido propio)', EELV: 'Les Verts' },
+    alemania: { LIN: 'PDS', AFD: 'AfD (aún no existe)', CDU: 'CDU/CSU' },
+    rusia: { ER: 'Unidad (Edinstvo)', SR: 'Rusia Justa (aún no existe)', NL: 'Gente Nueva (aún no existe)', IND: 'Yábloko / SPS' },
+    eeuu: { MAGA: 'Movimiento MAGA (aún no existe)', DEMP: 'Ala progresista (aún sin peso)', GOPT: 'Partido Republicano', DEMM: 'Partido Demócrata' },
+    marruecos: { PAM: 'PAM (aún no existe)', FGD: 'Izquierda radical (aún sin federación)' },
+    coreanorte: {}
+  };
+  /* [año, mes, id del partido, nuevo nombre] */
+  const NM = {
+    espana: [[2011, 10, 'BILDU', 'Bildu'], [2012, 6, 'BILDU', 'EH Bildu'], [2013, 3, 'VOX', 'Vox'], [2014, 1, 'PODEMOS', 'Podemos'], [2015, 6, 'JUNTS', 'Convergència (CDC)'], [2016, 7, 'JUNTS', 'PDeCAT'], [2016, 6, 'SUMAR', 'Unidas Podemos (IU + Podemos)'], [2020, 7, 'JUNTS', 'Junts per Catalunya'], [2023, 6, 'SUMAR', 'Sumar (Frente Amplio)']],
+    francia: [[2002, 11, 'LR', 'UMP'], [2010, 11, 'EELV', 'Europe Écologie Les Verts'], [2015, 5, 'LR', 'Les Républicains'], [2016, 2, 'LFI', 'La France Insoumise'], [2016, 4, 'ENS', 'En Marche!'], [2017, 9, 'ENS', 'La République en Marche'], [2018, 6, 'RN', 'Rassemblement National'], [2022, 5, 'ENS', 'Ensemble / Renaissance']],
+    alemania: [[2007, 6, 'LIN', 'Die Linke'], [2013, 4, 'AFD', 'AfD (Alternativa para Alemania)']],
+    rusia: [[2001, 12, 'ER', 'Rusia Unida'], [2006, 10, 'SR', 'Rusia Justa'], [2020, 8, 'NL', 'Gente Nueva'], [2012, 1, 'IND', 'Independientes']],
+    eeuu: [[2010, 2, 'MAGA', 'Tea Party → MAGA'], [2015, 6, 'MAGA', 'Movimiento MAGA'], [2016, 2, 'DEMP', 'Demócratas Progresistas']],
+    marruecos: [[2008, 8, 'PAM', 'Partido Autenticidad y Modernidad'], [2014, 1, 'FGD', 'Federación de la Izquierda Democrática']],
+    coreanorte: []
+  };
   const DEBT0 = { espana: 0.55, francia: 0.52, alemania: 0.95, eeuu: 0.46 };
   const NAMES = { espana: 'ESPAÑA', francia: 'FRANCIA', alemania: 'ALEMANIA', rusia: 'RUSIA', eeuu: 'ESTADOS UNIDOS', marruecos: 'MARRUECOS', coreanorte: 'COREA DEL NORTE' };
 
@@ -39,7 +58,7 @@
     sc.title = (NAMES[cid()] || 'PAÍS') + ' · AÑO 2000 · HISTORIA';
     sc.desc = 'Empieza en el año 2000 con el parlamento de la época. Irán apareciendo las crisis y cambios reales (11-S, crisis de 2008, nuevos partidos, pandemia, guerra de Ucrania…) y tú decides cómo responder: la historia del país puede cambiar, pero el mundo sigue su curso.';
     normalize(sc.parties, era.w);
-    sc.parties.forEach(p => { if (era.L[p.id]) p.leader = era.L[p.id]; });
+    sc.parties.forEach(p => { if (era.L[p.id]) p.leader = era.L[p.id]; if ((N0[cid()] || {})[p.id]) p.name = N0[cid()][p.id]; });
     SCENARIOS.H2000 = sc;
   }
 
@@ -67,9 +86,9 @@
     [2011, 12, 'h_dumas', '*', 'PROTESTAS POR EL FRAUDE ELECTORAL', 'Decenas de miles salen a la calle en Moscú por las irregularidades en las legislativas.', { est: -6, apr: -5 }, { KPRF: 15, ER: -45 }, [['Concesiones políticas', { apr: 3, est: 2, con: 2 }], ['Reforzar el control', { est: 3, apr: -3, mil: 2 }]], 'rusia'],
     [2011, 12, 'h_kim', '*', 'MUERE KIM JONG-IL', 'Kim Jong-un asume el poder en Pionyang.', { est: -3, mil: 3 }, {}, [['Consolidar al nuevo líder', { est: 4, mil: 4 }], ['Abrir un poco la economía', { eco: 4, est: -1 }]], 'coreanorte'],
     [2014, 3, 'h_crimea', '*', 'ANEXIÓN DE CRIMEA', 'Rusia se anexiona Crimea. Occidente responde con sanciones económicas.', { eco: -6, con: -8, apr: 8, mil: 5 }, {}, [['Mantener el pulso con Occidente', { apr: 4, eco: -3, mil: 3 }], ['Buscar un acuerdo y rebajar sanciones', { eco: 3, apr: -4, con: 4 }]], 'rusia'],
-    [2014, 5, 'h_podemos', '*', 'PODEMOS IRRUMPE EN EUROPA', 'Un partido nacido meses antes consigue cinco eurodiputados. Las encuestas empiezan a moverse.', { est: -3 }, { PODEMOS: 30, PSOE: -12, PP: -10, SUMAR: -8 }, [['Atender el malestar con reformas', { apr: 3, est: 1 }], ['Minimizar el fenómeno', { apr: -3 }]], 'espana'],
+    [2014, 5, 'h_podemos', '*', 'PODEMOS IRRUMPE EN EUROPA', 'Un partido nacido meses antes consigue cinco eurodiputados. Las encuestas empiezan a moverse.', { est: -3 }, { PODEMOS: 18, PSOE: -8, PP: -6, SUMAR: -4 }, [['Atender el malestar con reformas', { apr: 3, est: 1 }], ['Minimizar el fenómeno', { apr: -3 }]], 'espana'],
     [2015, 6, 'h_refugiados', '*', 'CRISIS DE REFUGIADOS', 'Cientos de miles de refugiados llegan a Europa. Se abre un debate sobre fronteras y acogida.', { est: -3, apr: -2 }, { AFD: 35, RN: 12, GRU: 6 }, [['Acoger con cuotas europeas', { apr: -1, con: 4, est: -1 }], ['Cerrar fronteras', { apr: 3, con: -4, est: 1 }]], 'alemania|francia|espana', EU],
-    [2015, 12, 'h_podemos2', '*', 'EL FIN DEL BIPARTIDISMO', 'Podemos y las nuevas fuerzas rompen el bipartidismo en las generales.', { est: -4, apr: -2 }, { PODEMOS: 45, PSOE: -20, PP: -22, SUMAR: 2 }, [['Abrir negociaciones con todas las fuerzas', { est: 3, apr: 1 }], ['Defender un gobierno en solitario', { est: -3 }]], 'espana'],
+    [2015, 12, 'h_podemos2', '*', 'EL FIN DEL BIPARTIDISMO', 'Podemos y las nuevas fuerzas rompen el bipartidismo en las generales.', { est: -4, apr: -2 }, { PODEMOS: 45, PSOE: -18, PP: -24, SUMAR: -3 }, [['Abrir negociaciones con todas las fuerzas', { est: 3, apr: 1 }], ['Defender un gobierno en solitario', { est: -3 }]], 'espana'],
     [2015, 11, 'h_bataclan', '*', 'ATENTADOS DE PARÍS', 'Los atentados de noviembre estremecen a Francia y a Europa y activan el estado de emergencia.', { est: -6, apr: -3, mil: 3 }, { RN: 20 }, [['Estado de emergencia y operaciones militares', { est: 3, mil: 4 }], ['Reforzar la cohesión y la inteligencia', { apr: 3, est: 2 }]], 'francia'],
     [2016, 6, 'h_brexit', '*', 'BREXIT', 'El Reino Unido vota abandonar la UE. Se abre una crisis de confianza en la integración europea.', { eco: -3, est: -3 }, { RN: 8, AFD: 8 }, [['Reforzar la unidad europea', { con: 3 }], ['Pedir reformas a Bruselas', { apr: 3, con: -2 }]], 'espana|francia|alemania', EU],
     [2016, 11, 'h_trump', '*', 'TRUMP GANA LAS ELECCIONES', 'Donald Trump rompe todos los pronósticos y transforma el Partido Republicano.', { est: -4, apr: -1 }, { MAGA: 80, GOPT: -50, DEMM: -20 }, [['Tender puentes con la nueva Administración', { con: 3, apr: 1 }], ['Plantar cara', { apr: 3, con: -3 }]], 'eeuu'],
@@ -133,6 +152,14 @@
     };
     try { render(); } catch (x) { /* sin render */ }
   }
+  function renames() {
+    const H0 = H(), L = NM[cid()] || [], d = gameState.currentDate; if (!d) return;
+    L.forEach((l, i) => {
+      const k = 'N' + i; if (H0.done[k] || d < new Date(l[0], l[1] - 1, 1)) return; H0.done[k] = true;
+      const p = (gameState.parties || []).find(x => x.id === l[2]); if (!p) return; const old = p.name; p.name = l[3];
+      try { goalsToast('<i class="fa-solid fa-landmark text-sky-400"></i> <b>MAPA POLÍTICO:</b> ' + (old.indexOf('aún') > 0 ? 'nace' : old + ' pasa a llamarse') + ' <b>' + l[3] + '</b>', '#38bdf8'); } catch (e) { /* sin aviso */ }
+    });
+  }
   function leaders() {
     const H0 = H(), L = LD[cid()] || [], d = gameState.currentDate; if (!d) return;
     L.forEach((l, i) => { const k = 'L' + i; if (H0.done[k]) return; if (d >= new Date(l[0], l[1] - 1, 1)) { H0.done[k] = true; const p = (gameState.parties || []).find(x => x.id === l[2]); if (p) p.leader = l[3]; } });
@@ -141,7 +168,7 @@
     if (!(gameState.scenario && gameState.scenario.hist) || !gameState.currentDate) return;
     const H0 = H();
     if (!H0.init) { const f = DEBT0[cid()]; if (!f) H0.init = true; else if (gameState.debt && gameState.debt.amount) { H0.init = true; gameState.debt.amount = Math.round(gameState.debt.amount * f); if (gameState.debt.legacy != null) gameState.debt.legacy = Math.round(gameState.debt.legacy * f); } }
-    leaders();
+    leaders(); renames();
     if (!ready()) return;
     const d = gameState.currentDate, me = cid(), eu = !!(window.MC && MC.eu);
     for (const e of TL) {
@@ -161,7 +188,13 @@
   };
   ['renderScenarioSelect', 'selectScenario'].forEach(n => {
     const f = window[n]; if (typeof f !== 'function') return;
-    window[n] = function () { try { injectScenarios(); } catch (e) { console.error(e); } return f.apply(this, arguments); };
+    window[n] = function () {
+      try { injectScenarios(); } catch (e) { console.error(e); }
+      // El juego empieza siempre en el año 2000
+      if (n === 'selectScenario' && SCENARIOS.H2000 && !(SCENARIOS[arguments[0]] && SCENARIOS[arguments[0]].hist)) return f.call(this, 'H2000');
+      if (n === 'renderScenarioSelect' && SCENARIOS.H2000) { const a = SCENARIOS.ACTUAL; if (a) { window.__actual = a; } }
+      return f.apply(this, arguments);
+    };
   });
   try { injectScenarios(); } catch (e) { /* los datos aún no están */ }
 })();
