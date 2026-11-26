@@ -275,7 +275,7 @@
   }
   function purgeEvents() {
     const e = gameState.activeDynamicEvent, n = gameState.activeNewsPopup; let hit = false;
-    if (e && incompatible(e) && e.id !== 'GOV_TRANS') { gameState.activeDynamicEvent = null; if (e.id && gameState.triggeredDynamicEvents) gameState.triggeredDynamicEvents = gameState.triggeredDynamicEvents.filter(x => x !== e.id); hit = true; }
+    if (e && incompatible(e) && e.id !== 'GOV_TRANS' && !/^H_/.test(e.id || '')) { gameState.activeDynamicEvent = null; if (e.id && gameState.triggeredDynamicEvents) gameState.triggeredDynamicEvents = gameState.triggeredDynamicEvents.filter(x => x !== e.id); hit = true; }
     if (n && incompatible(n)) { gameState.activeNewsPopup = null; hit = true; }
     if (hit) { if (!gameState.activeDynamicEvent && !gameState.activeNewsPopup && gameState.gameSpeed === 0) gameState.gameSpeed = 1; try { render(); } catch (e2) { /* sin render */ } }
   }
