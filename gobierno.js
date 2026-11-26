@@ -162,6 +162,30 @@
       + (hs.length ? '<br>Más tensas: ' + hs.map(c => c.n + ' ' + Math.round(W.rel[c.id]) + ' %').join(' · ') : '') + '</div>';
   }
 
+
+  // ============ 8) CRISIS SIN SENTIDO EN PAÍSES FUERA DE LA UE / SIN ELECCIONES ============
+  const _eu = window.showEuInterventionModal;
+  if (typeof _eu === 'function') showEuInterventionModal = function () {
+    if (window.MC && MC.eu) return _eu.apply(this, arguments);
+    gameState.euInterventionHandled = true;
+    const m = gameState.metrics; m.eco = Math.min(100, m.eco + 15); m.apr = Math.max(0, m.apr - 5);
+    toast('<i class="fa-solid fa-building-columns text-amber-400"></i> <b>COLAPSO ECONÓMICO</b><br><span class="text-xs">Sin Unión Europea que intervenga, un rescate de emergencia (aliados / organismos) estabiliza la economía a cambio de recortes: +15 economía, −5 aprobación.</span>', '#d9a726');
+    try { render(); } catch (e) { /* sin render */ } return;
+  };
+  const _mc = window.showMilitaryCoupModal;
+  if (typeof _mc === 'function') showMilitaryCoupModal = function () {
+    const r = _mc.apply(this, arguments);
+    if (window.MC && MC.regime && MC.regime.noEarly) {
+      document.querySelectorAll('#app button[onclick*="ELECCIONES"]').forEach(b => b.remove());
+    }
+    return r;
+  };
+  const _rmc = window.resolveMilitaryCoup;
+  if (typeof _rmc === 'function') resolveMilitaryCoup = function (a) {
+    if (a === 'ELECCIONES' && window.MC && MC.regime && MC.regime.noEarly) a = 'RESISTIR';
+    return _rmc.call(this, a);
+  };
+
   // ============ ENGANCHES ============
   const _md = window.makeDecision;
   if (typeof _md === 'function') makeDecision = function () {
