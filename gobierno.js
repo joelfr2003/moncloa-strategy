@@ -39,7 +39,7 @@
     return '<div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] border border-amber-700/40 bg-amber-900/10 rounded px-3 py-1.5 mb-3 font-hoi-tech">'
       + '<b class="text-amber-400"><i class="fa-solid fa-gears mr-1"></i>INICIATIVA DE GOBIERNO</b>' + c('d', 'Decisiones') + c('b', 'Decretos') + c('p', 'Prensa')
       + '<span class="text-sky-300">Racha <b>' + I.streak + '</b></span><span class="text-slate-500">cierra en ' + nxt + ' d · cada decisión da +1 capital político y algo de aprobación; semana completa: bonus; semanas en blanco: parálisis</span>'
-      + '<span class="flex-1"></span>' + earlyBtn() + '</div>';
+      + '<span class="flex-1"></span><button onclick="govReform()" class="hoi-button px-2 py-0.5 rounded text-[10px] cursor-pointer"><i class="fa-solid fa-landmark mr-1"></i>Reforma del Estado</button>' + earlyBtn() + '</div>';
   }
 
   // ============ 2) ELECCIONES ANTICIPADAS ============
@@ -186,6 +186,134 @@
     return _rmc.call(this, a);
   };
 
+
+  // ============ 9) REFORMA DEL ESTADO: cambiar nombre del país y régimen ============
+  const FORMS = {
+    monarquia: { n: 'Monarquía parlamentaria', d: 'Jefatura del Estado hereditaria y Parlamento elegido.', dem: true, fx: { est: 4, apr: -2 }, pre: '' },
+    republica: { n: 'República', d: 'Presidente de la República y Parlamento elegido. Ruptura institucional: −6 estabilidad.', dem: true, fx: { est: -6, mil: -4, apr: 3 }, pre: 'República' },
+    dictadura: { n: 'Dictadura militar', d: 'Junta militar, sin elecciones anticipadas, resultados controlados. Aislamiento internacional.', dem: false, fx: { est: 10, mil: 12, apr: -15, con: -25 }, pre: 'Estado' },
+    fascista: { n: 'Régimen fascista', d: 'Partido único y culto al líder. Aislamiento internacional y rechazo democrático.', dem: false, fx: { est: 12, mil: 8, apr: -10, con: -30 }, pre: 'Estado' },
+    socialista: { n: 'Estado socialista de partido único', d: 'Planificación estatal y partido único (estilo URSS). Aislamiento de las democracias.', dem: false, fx: { est: 8, mil: 6, apr: -8, con: -20 }, pre: 'Unión' }
+  };
+  const REG = () => gameState.reg || (gameState.reg = { name: null, form: null, ord: 0, last: -9999 });
+  const regime0 = () => (window.__regime0 === undefined ? (window.__regime0 = (window.MC && MC.regime) || null) : window.__regime0);
+  const nat0 = () => (window.__nat0 || (window.__nat0 = MC.t.nation));
+  function regApply() {
+    if (!window.MC || !MC.t) return; const R = REG(); regime0(); nat0();
+    MC.t.nation = R.name || window.__nat0;
+    if (R.form && FORMS[R.form]) {
+      if (FORMS[R.form].dem) MC.regime = window.__regime0 && !window.__regime0.custom ? window.__regime0 : null;
+      else if (!MC.regime || !MC.regime.custom) {
+        const my = gameState.leaderPartyId, T = (typeof SEATS_TOTAL === 'number' ? SEATS_TOTAL : 350), b = {};
+        if (my) b[my] = { minSeats: Math.ceil(T * 0.7), maxSeats: Math.ceil(T * 0.85) };
+        MC.regime = { noEarly: true, custom: true, msg: 'El aparato del régimen neutraliza la crisis con purgas y control del Parlamento.', bounds: b };
+      }
+    }
+    const au = !!(R.form && !FORMS[R.form].dem);
+    document.body.classList.toggle('reg-auth', au);
+    if (au && gameState.parties && !R.stash) {
+      R.stash = JSON.parse(JSON.stringify(gameState.parties)); R.stashCoal = (gameState.coalitionIds || []).slice();
+      const my = gameState.leaderPartyId, T = (typeof SEATS_TOTAL === 'number' ? SEATS_TOTAL : 350);
+      gameState.parties.forEach(p => { p.seats = p.id === my ? T : 0; }); gameState.coalitionIds = [my];
+    }
+    if (au) { gameState.isMinorityGov = false; if (['opposition', 'cis'].includes(gameState.activeTab)) { try { switchTab('main'); } catch (e) { /* sin pestaña */ } } }
+    const tt = document.querySelector('title'); if (tt && R.name) tt.textContent = R.name.toUpperCase() + ' · MONCLOA STRATEGY';
+  }
+  const ordinal = n => ['Primera', 'Segunda', 'Tercera', 'Cuarta', 'Quinta', 'Sexta', 'Séptima', 'Octava', 'Novena', 'Décima'][n - 1] || (n + 'ª');
+  window.govReform = function () {
+    const R = REG(), nat = window.__nat0 || MC.t.nation, cur = R.form ? FORMS[R.form].n : 'Régimen original';
+    const cd = Math.max(0, 365 - (day() - R.last));
+    const d = document.createElement('div'); d.id = 'gov-reform';
+    d.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:16px';
+    d.innerHTML = '<div style="max-width:620px;width:100%;background:#0f172a;border:2px solid #d9a726;border-radius:12px;padding:18px;color:#e2e8f0;font-family:system-ui,sans-serif;max-height:92vh;overflow:auto">'
+      + '<h3 style="font-size:20px;color:#fbbf24;margin:0 0 4px">REFORMA DEL ESTADO</h3><p style="font-size:12px;color:#94a3b8;margin:0 0 10px">Nombre actual: <b style="color:#e2e8f0">' + MC.t.nation + '</b> · Régimen: <b style="color:#e2e8f0">' + cur + '</b>. Cuesta 25 de capital político y solo se puede reformar una vez al año' + (cd ? ' (faltan ' + cd + ' d)' : '') + '.</p>'
+      + (R.form && !FORMS[R.form].dem ? '<p style="font-size:12px;color:#6ee7b7;margin:0 0 8px"><b>Transición democrática:</b> elige Monarquía parlamentaria o República. Los partidos vuelven y se convocan elecciones libres.</p>' : '')
+      + '<label style="font-size:11px;color:#94a3b8">Nombre del país (déjalo vacío para mantener / restaurar «' + nat + '»)</label>'
+      + '<input id="gov-name" value="' + (R.name || '').replace(/"/g, '') + '" placeholder="p. ej. URSS, República Española, Imperio…" style="width:100%;box-sizing:border-box;margin:4px 0 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;padding:7px;color:#f1f5f9">'
+      + '<div style="font-size:11px;color:#94a3b8;margin-bottom:4px">Régimen</div>'
+      + '<button onclick="govReformDo(\'\')" style="display:block;width:100%;text-align:left;margin-top:6px;background:#1e293b;border:1px solid #475569;border-radius:8px;padding:8px 10px;color:#f1f5f9;cursor:pointer"><b>Solo cambiar el nombre</b><div style="font-size:11px;color:#94a3b8">Sin tocar el régimen.</div></button>'
+      + Object.keys(FORMS).map(k => '<button onclick="govReformDo(\'' + k + '\')" style="display:block;width:100%;text-align:left;margin-top:6px;background:#1e293b;border:1px solid ' + (FORMS[k].dem ? '#475569' : '#b91c1c') + ';border-radius:8px;padding:8px 10px;color:#f1f5f9;cursor:pointer"><b>' + FORMS[k].n + '</b><div style="font-size:11px;color:#94a3b8">' + FORMS[k].d + '</div></button>').join('')
+      + '<button onclick="document.getElementById(\'gov-reform\').remove()" style="margin-top:12px;background:none;border:1px solid #475569;border-radius:6px;padding:6px 12px;color:#94a3b8;cursor:pointer">Cancelar</button></div>';
+    document.body.appendChild(d); try { uxClose(); } catch (e) { /* sin panel */ }
+  };
+  window.govReformDo = function (k) {
+    const R = REG(), nm = (document.getElementById('gov-name').value || '').trim().slice(0, 40);
+    const wasAuth = !!(R.form && !FORMS[R.form].dem), trans = wasAuth && k && FORMS[k].dem;
+    if (!trans && day() - R.last < 365 && R.last > -9000) { toast('Ya reformaste el Estado hace menos de un año.', '#d9a726'); return; }
+    goalsInit(); if ((gameState.goals.capital || 0) < 25) { toast('Necesitas 25 de capital político para una reforma del Estado.', '#ef4444'); return; }
+    if (!k && !nm && !R.name) { toast('Escribe un nombre o elige un régimen.', '#d9a726'); return; }
+    let name = nm || null;
+    if (k === 'republica' && !nm) { const n0 = window.__nat0 || MC.t.nation; name = n0 === 'España' ? 'Tercera República Española' : 'República de ' + n0.replace(/^(el|la|los|las) /i, ''); }
+    if (!k && !nm) name = null;
+    gameState.goals.capital -= 25; R.last = day();
+    if (name !== undefined) R.name = name;
+    if (k) { R.form = k; const f = FORMS[k].fx; Object.keys(f).forEach(m => { gameState.metrics[m] = Math.max(0, Math.min(100, (gameState.metrics[m] || 0) + f[m])); }); if (!FORMS[k].dem) { const W = gameState.wr; if (W && W.rel && window.WAR_C) window.WAR_C.forEach(c => { if (/OTAN|UE/.test(c.b || '') && W.rel[c.id] != null) W.rel[c.id] = Math.max(0, W.rel[c.id] - 15); }); } }
+    if (trans) {
+      if (R.stash) { gameState.parties = R.stash; gameState.coalitionIds = (R.stashCoal && R.stashCoal.length ? R.stashCoal : [gameState.leaderPartyId]); }
+      R.stash = null; gameState.oppositionLoyalty = {};
+    }
+    regApply();
+    const el = document.getElementById('gov-reform'); if (el) el.remove();
+    toast('<i class="fa-solid fa-landmark text-amber-400"></i> <b>REFORMA DEL ESTADO</b><br><span class="text-xs">' + MC.t.nation + (k ? ' · ' + FORMS[k].n : '') + '</span>', '#d9a726');
+    if (trans) { toast('<b>TRANSICIÓN DEMOCRÁTICA</b><br><span class="text-xs">Vuelven los partidos políticos y se convocan elecciones libres.</span>', '#10b981'); window.__earlyElec = true; try { triggerElectionsWithModal('ELECCIONES DE LA TRANSICIÓN DEMOCRÁTICA', 'Se restablecen los partidos y la libertad de voto.'); } finally { setTimeout(() => { window.__earlyElec = false; }, 50); } }
+    try { render(); } catch (e) { /* sin render */ }
+  };
+
+
+  // ============ 10) LA SITUACIÓN DEL PAÍS DECIDE QUÉ DECISIONES Y EVENTOS EXISTEN ============
+  const st2 = document.createElement('style');
+  st2.textContent = 'body.reg-auth #tab-btn-opposition,body.reg-auth #tab-btn-cis{display:none!important}';
+  document.head.appendChild(st2);
+  const RX_ROYAL = /\bRey\b|Majestad|Zarzuela|Casa Real|\bCorona\b|Príncipe|Princesa/i;
+  const RX_PARL = /oposici[oó]n|moci[oó]n de censura|investidura|Congreso|Cortes|elecciones|electoral|socios|coalici[oó]n|\bCIS\b|sondeo|escaños|diputad|Senado|Parlamento/i;
+  function incompatible(ev) {
+    const R = REG(); if (!R.form || !ev) return false;
+    const txt = [ev.cat, ev.title, ev.desc, ev.headline, ev.text].filter(Boolean).join(' ');
+    if (R.form !== 'monarquia' && (ev.cat === 'CASA REAL' || RX_ROYAL.test(txt))) return true;
+    if (!FORMS[R.form].dem && RX_PARL.test(txt)) return true;
+    return false;
+  }
+  function purgeEvents() {
+    const e = gameState.activeDynamicEvent, n = gameState.activeNewsPopup; let hit = false;
+    if (e && incompatible(e) && e.id !== 'GOV_TRANS') { gameState.activeDynamicEvent = null; if (e.id && gameState.triggeredDynamicEvents) gameState.triggeredDynamicEvents = gameState.triggeredDynamicEvents.filter(x => x !== e.id); hit = true; }
+    if (n && incompatible(n)) { gameState.activeNewsPopup = null; hit = true; }
+    if (hit) { if (!gameState.activeDynamicEvent && !gameState.activeNewsPopup && gameState.gameSpeed === 0) gameState.gameSpeed = 1; try { render(); } catch (e2) { /* sin render */ } }
+  }
+  // Oferta de transición democrática cuando el régimen autoritario se debilita
+  function transOffer() {
+    const R = REG(); if (!(R.form && !FORMS[R.form].dem) || gameState.activeDynamicEvent || gameState.activeNewsPopup) return;
+    const m = gameState.metrics; if (!(m.apr < 38 || m.est < 35 || (m.con != null && m.con < 25)) || (R.offer && day() - R.offer < 240) || Math.random() > 0.35) return;
+    R.offer = day(); gameState.gameSpeed = 0;
+    gameState.activeDynamicEvent = { id: 'GOV_TRANS', cat: 'RÉGIMEN', title: 'PRESIÓN PARA UNA TRANSICIÓN DEMOCRÁTICA', desc: 'El descontento social y el aislamiento internacional crecen. Sectores del propio régimen y potencias extranjeras piden apertura: legalizar los partidos y convocar elecciones libres.', condition: () => true,
+      options: [{ text: 'Abrir la transición democrática', cost: 0, stats: { apr: 6, con: 12 }, loyaltyImpact: {}, news: 'El régimen anuncia la legalización de los partidos y el inicio de una transición.' }, { text: 'Mantener el régimen y reprimir', cost: 0, stats: { est: 3, apr: -6, con: -6 }, loyaltyImpact: {}, news: 'El régimen rechaza cualquier apertura y refuerza el control.' }] };
+    try { render(); } catch (e) { /* sin render */ }
+  }
+  const _md2 = window.makeDecision;
+  if (typeof _md2 === 'function') makeDecision = function (i) {
+    const tr = gameState.activeDynamicEvent && gameState.activeDynamicEvent.id === 'GOV_TRANS';
+    const r = _md2.apply(this, arguments);
+    if (tr && Number(i) === 0) setTimeout(() => { try { govReform(); } catch (e) { console.error(e); } }, 200);
+    return r;
+  };
+  const _gt2 = window.gameTick;
+  if (typeof _gt2 === 'function') gameTick = function () {
+    const b = gameState.daysInOffice, r = _gt2.apply(this, arguments);
+    try { if (gameState.reg) { regApply(); purgeEvents(); if (gameState.daysInOffice !== b && live() && day() % 30 === 5) transOffer(); } } catch (e) { console.error(e); }
+    return r;
+  };
+  // En un régimen sin elecciones libres, el fin de legislatura es un plebiscito de adhesión
+  const _te2 = window.triggerElectionsWithModal;
+  if (typeof _te2 === 'function') triggerElectionsWithModal = function (title) {
+    const R = REG();
+    if (R.form && !FORMS[R.form].dem && !window.__earlyElec && /FIN DE LA LEGISLATURA|DIMISI/i.test(String(title || ''))) {
+      const sw = Math.round((Math.random() - 0.4) * 12), m = gameState.metrics; m.apr = Math.max(5, Math.min(100, m.apr + sw)); m.est = Math.min(100, m.est + 3);
+      gameState.daysInOffice = 1;
+      toast('<i class="fa-solid fa-landmark text-amber-400"></i> <b>PLEBISCITO DE ADHESIÓN</b><br><span class="text-xs">No hay elecciones libres: el régimen convoca un plebiscito controlado y se prorroga ' + (sw >= 0 ? 'con aparente respaldo' : 'entre protestas') + '.</span>', '#d9a726');
+      try { render(); } catch (e) { /* sin render */ } return;
+    }
+    return _te2.apply(this, arguments);
+  };
+
   // ============ ENGANCHES ============
   const _md = window.makeDecision;
   if (typeof _md === 'function') makeDecision = function () {
@@ -214,6 +342,7 @@
         if (d % 30 === 20) annexMonth();
         if (d % 30 === 25) diploMonth();
         debtWatch();
+        if (d % 10 === 0) regApply();
       } catch (e) { console.error(e); }
     }
     return r;
@@ -234,6 +363,7 @@
   if (typeof _rt === 'function') renderTabContent = function () {
     const t = gameState.activeTab, h = _rt.apply(this, arguments);
     try {
+      if (gameState.reg) regApply();
       if (t === 'main' || t === 'boe' || t === 'media') return bar() + h;
       if (t === 'soc') return socBanner() + h;
       if (t === 'fin') return debtPanel() + h;
@@ -256,7 +386,7 @@
       d.innerHTML = '<h4>LOGROS Y MANDATO</h4><div style="display:flex;gap:6px;flex-wrap:wrap">'
         + '<button class="ux-mode" onclick="switchTab(\'goals\');uxClose()"><i class="fa-solid fa-bullseye"></i> Mandato y objetivos</button>'
         + '<button class="ux-mode" onclick="switchTab(\'ach\');uxClose()"><i class="fa-solid fa-trophy"></i> Logros</button></div>'
-        + (earlyOk() ? '<h4>ELECCIONES</h4><button class="ux-mode" style="width:100%" onclick="govEarly()"><i class="fa-solid fa-person-booth"></i> Adelantar elecciones</button>' : '');
+        + '<h4>ESTADO</h4><button class="ux-mode" style="width:100%" onclick="govReform()"><i class="fa-solid fa-landmark"></i> Reforma del Estado (nombre y régimen)</button>' + (earlyOk() ? '<h4>ELECCIONES</h4><button class="ux-mode" style="width:100%" onclick="govEarly()"><i class="fa-solid fa-person-booth"></i> Adelantar elecciones</button>' : '');
       pop.appendChild(d);
       mo.observe(pop, { childList: true });
     });
