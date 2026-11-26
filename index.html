@@ -9152,7 +9152,7 @@ function playSound(n) {
     if (gameState.activeTab === 'ue' && day % 3 === 0) render();
     // 4) Eventos
     if (!canTriggerPopup()) return;
-    if (!u.heritage && day >= 4) { u.heritage = true; return fire(evHeritage()); }
+    if (!u.heritage && day >= 4) { u.heritage = true; const ev = evHeritage(); if (!MC.eu) ev.options = ev.options.filter(o => o.ue !== 'start'); return fire(ev); }
     if (u.stage === 'art50') {
       const span = Math.max(1, u.exitDay - u.startDay), el = day - u.startDay;
       if (!u.f.ult && el >= span * 0.33) { u.f.ult = true; return fire(evUltimatum()); }
