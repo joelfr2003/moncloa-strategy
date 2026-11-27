@@ -10980,7 +10980,7 @@ function playSound(n) {
     if (W.war || day < 45 || day % 15 !== 0 || day - (W.last || 0) < 90 || busy() || gameState.coupActive) return;
     const cands = FOES.map(f => [f, risk(f)]).filter(x => x[1] > 0 && relOf(x[0]) <= 15 && x[0][4] >= .5).sort((a, b) => b[1] - a[1]);
     if (cands.length && Math.random() < cands[0][1] * 0.55) {
-      const f = cands[0][0], msg = `${f[1]} DECLARA LA GUERRA A ESPAÑA tras la ruptura de relaciones`;
+      const f = cands[0][0], msg = `${f[1]} DECLARA LA GUERRA A ${MC.t.nation.toUpperCase()} tras la ruptura de relaciones`;
       gameState.lastNews = msg; gameState.latestNews = msg;
       try { addNewsToTicker(msg, 'EFE EXTERIOR'); } catch (e) {}
       window.warGo(f[0], 'def');
@@ -11498,5 +11498,6 @@ function playSound(n) {
   <script src="pantalla.js"></script>
 <script src="gobierno.js"></script>
 <script src="historia.js"></script>
+<script src="economia.js"></script>
 </body>
 </html>
