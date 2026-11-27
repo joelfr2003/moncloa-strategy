@@ -6945,7 +6945,10 @@ function leaderCands(cid, p) {
   const nz = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const pid = String(p.id).toLowerCase().replace(/[^a-z0-9]/g, ''), words = nz(p.leader).split(' ').filter(Boolean), last = words[words.length - 1] || '', last2 = words.slice(-2).join(' '), first = words[0] || '';
   const cap = t => t.replace(/\b\w/g, c => c.toUpperCase());
-  const names = [cid + '_' + pid, pid, words.join(' '), last, last2, first + ' ' + last, cid + '_' + words.join(' '), cid + '_' + last, String(p.id), cid + ' ' + pid];
+  const era = (typeof window.leaderEra === 'function' && gameState.scenario && gameState.scenario.hist) ? window.leaderEra(cid, p.id) : null;
+  const yn = era ? [cid + '_' + pid + '_' + era.year, cid + ' ' + pid + ' ' + era.year, pid + '_' + era.year] : [];
+  const gen = (!era || era.latest) ? [cid + '_' + pid, pid] : [];
+  const names = [...yn, ...gen, words.join(' '), last, last2, first + ' ' + last, cid + '_' + words.join(' '), cid + '_' + last, String(p.id), cid + ' ' + pid];
   const bases = [];
   names.forEach(n => { if (!n) return; [n.replace(/ /g, '_'), n.replace(/ /g, '-'), n.replace(/ /g, ''), n.replace(/ /g, ' '), cap(n).replace(/ /g, '_'), cap(n).replace(/ /g, ' '), cap(n).replace(/ /g, ''), n.toUpperCase().replace(/ /g, '_')].forEach(b => { if (bases.indexOf(b) < 0) bases.push(b); }); });
   const ex = ['jpg', 'png', 'jpeg', 'webp', 'JPG', 'PNG', 'JPEG', 'WEBP'], out = [];
