@@ -58,6 +58,9 @@
     rent: { n: 'Mercado de la vivienda', d: '+ intervenir (alquiler regulado, vivienda pública) · − liberalizar suelo y alquiler.', eff: { apr: 0.05, est: 0.02, eco: -0.03 }, cost: 0.0004 },
     pens: { n: 'Pensiones', d: 'Revalorizar (+) o congelar/recortar (−).', eff: { apr: 0.05, est: 0.03, eco: 0.01 }, cost: 0.0010 },
     tax: { n: 'Presión fiscal', d: '+ subir impuestos (más ingresos, menos apoyo) · − bajarlos.', eff: { apr: -0.05, eco: -0.02, emp: -0.01 }, cost: -0.0012 }
+    ,fdi: { n: 'Atracción de inversión extranjera', d: '+ incentivos, zonas francas y menos trabas para que vengan empresas de fuera · − endurecer condiciones.', eff: { eco: 0.04, emp: 0.04, est: -0.005 }, cost: 0.0007 },
+    champ: { n: 'Apoyo a empresas nacionales', d: '+ ayudas y garantías a nuestras grandes empresas · − dejar que compitan solas.', eff: { emp: 0.035, eco: 0.02, apr: 0.02 }, cost: 0.0009 },
+    rnd: { n: 'I+D y tejido empresarial', d: '+ inversión en innovación, parques tecnológicos y pymes · − recortes.', eff: { eco: 0.045, emp: 0.015, apr: 0.005 }, cost: 0.0008 }
   };
   const EC = () => gameState.ec || (gameState.ec = { jobs: 0, wage: 0, minw: 0, rent: 0, pens: 0, tax: 0, cd: {}, pop: false });
   function flows() {
@@ -73,7 +76,9 @@
     cpAdd(-2); E[k] = nv; E.cd[k] = day();
     toast('<b>' + L.n + '</b>: nivel ' + (nv > 0 ? '+' : '') + nv, '#10b981'); window.ecoOpen();
   };
+  const CHAMP = { espana: 'SEAT, Telefónica, Iberdrola o Inditex', francia: 'Renault, Airbus, TotalEnergies o L\'Oréal', alemania: 'Volkswagen, Siemens, BASF o Bosch', rusia: 'Gazprom, Rosneft, Sberbank o Rostec', eeuu: 'Ford, Boeing, Intel o Apple', marruecos: 'OCP, Attijariwafa, Renault Tánger o Maroc Telecom', coreanorte: 'las empresas estatales y las zonas económicas especiales' };
   window.ecoOpen = function () {
+    LV.champ.d = '+ ayudas y garantías a ' + (CHAMP[cid()] || CHAMP.espana) + ' · − dejar que compitan solas.';
     const E = EC(), old = document.getElementById('eco-modal'); if (old) old.remove();
     const g = gameState.ecoMacro ? gameState.ecoMacro.g : 0;
     const d = document.createElement('div'); d.id = 'eco-modal';
