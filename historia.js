@@ -117,6 +117,7 @@
     coreanorte: []
   };
 
+  window.HIST_TL = TL;
   const H = () => gameState.hist || (gameState.hist = { done: {}, init: false });
   const clamp = v => Math.max(0, Math.min(100, v));
   function shift(sh) {
@@ -148,7 +149,7 @@
     const when = gameState.currentDate ? gameState.currentDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }) : '';
     gameState.activeDynamicEvent = {
       id: 'H_' + id, cat: 'HISTORIA · ' + when.toUpperCase(), title, desc, condition: () => true,
-      options: opts.map(o => ({ text: o[0], cost: o[2] || 0, stats: o[1] || {}, loyaltyImpact: {}, news: title + ': ' + o[0] + '.' }))
+      options: opts.map(o => ({ text: o[0], cost: o[2] || 0, stats: o[1] || {}, loyaltyImpact: {}, news: title + ': ' + o[0] + '.', debt: o[3] || 0 }))
     };
     try { render(); } catch (x) { /* sin render */ }
   }
