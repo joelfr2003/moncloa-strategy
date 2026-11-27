@@ -10153,24 +10153,25 @@ function playSound(n) {
   const log = t => { const W = I(); W.log.unshift(dstr() + ' · ' + t); W.log = W.log.slice(0, 12); };
   function col(id) {
     const W = I(), c = BY[id];
-    if (id === OWN.id || (OWN.id === 504 && id === 732)) return '#15803d';
-    if (!c) return '#1e293b';
+    if (id === OWN.id || (OWN.id === 504 && id === 732)) return '#22c55e';
+    if (!c) return '#e3dcc6';
     if (W.war && W.war.id === id) return '#ef4444';
-    if (W.terr.some(t => t.id === id)) return '#a16207';
-    const r = rel(c); return r >= 70 ? '#1d4ed8' : r <= 30 ? '#991b1b' : '#475569';
+    if (W.terr.some(t => t.id === id)) return '#eab308';
+    const r = rel(c); return r >= 70 ? '#7fb2f0' : r <= 30 ? '#e08a7e' : '#e3dcc6';
   }
   function mapSvg() {
     const W = I(), w = W.war; load(); const zoom = W.view !== 'w', sp = [X(OWN.lon), Y(OWN.lat)];
     let base;
-    if (WORLD) base = WORLD.map(p => `<path d="${p.d}" fill="${col(p.id)}" stroke="${W.sel === p.id ? '#fbbf24' : '#0f172a'}" stroke-width="${W.sel === p.id ? 1.4 : .4}" ${BY[p.id] ? `onclick="warSel(${p.id})" style="cursor:pointer"` : ''}><title>${p.id === OWN.id ? OWN.n : BY[p.id] ? BY[p.id].n : ''}</title></path>`).join('');
-    else base = `<text x="500" y="14" fill="#64748b" font-size="10" text-anchor="middle">${LOADING ? 'Cargando mapa mundial…' : 'Mapa simplificado (sin conexión)'}</text>` + C.map(c => `<circle cx="${X(c.lon)}" cy="${Y(c.lat)}" r="${4 + c.s / 14}" fill="${col(c.id)}" stroke="${W.sel === c.id ? '#fbbf24' : '#0f172a'}" stroke-width="1.5" onclick="warSel(${c.id})" style="cursor:pointer"><title>${c.n}</title></circle>`).join('');
-    const lab = C.filter(c => zoom || c.id === W.sel || (w && w.id === c.id)).map(c => `<text x="${X(c.lon)}" y="${Y(c.lat) + 2}" font-size="${zoom ? 5.5 : 8}" fill="#e2e8f0" text-anchor="middle" style="pointer-events:none;paint-order:stroke;stroke:#020617;stroke-width:1.2px">${c.n}</text>`).join('');
+    if (WORLD) base = WORLD.map(p => `<path d="${p.d}" fill="${col(p.id)}" stroke="${W.sel === p.id ? '#b45309' : '#8d8671'}" stroke-width="${W.sel === p.id ? 1.6 : .35}" stroke-linejoin="round" ${BY[p.id] ? `onclick="warSel(${p.id})" style="cursor:pointer"` : ''}><title>${p.id === OWN.id ? OWN.n : BY[p.id] ? BY[p.id].n : ''}</title></path>`).join('');
+    else base = `<text x="500" y="14" fill="#334155" font-size="10" text-anchor="middle">${LOADING ? 'Cargando mapa mundial…' : 'Mapa simplificado (sin conexión)'}</text>` + C.map(c => `<circle cx="${X(c.lon)}" cy="${Y(c.lat)}" r="${4 + c.s / 14}" fill="${col(c.id)}" stroke="${W.sel === c.id ? '#fbbf24' : '#0f172a'}" stroke-width="1.5" onclick="warSel(${c.id})" style="cursor:pointer"><title>${c.n}</title></circle>`).join('');
+    const lab = C.filter(c => zoom || c.id === W.sel || (w && w.id === c.id)).map(c => `<text x="${X(c.lon)}" y="${Y(c.lat) + 2}" font-size="${zoom ? 5.5 : 8}" font-weight="600" fill="#1e293b" text-anchor="middle" style="pointer-events:none;paint-order:stroke;stroke:#ffffff;stroke-width:1.6px">${c.n}</text>`).join('');
     let over = `<circle cx="${sp[0]}" cy="${sp[1]}" r="3.5" fill="#22c55e" stroke="#fff" stroke-width="1"/>`;
     if (w) { const c = BY[w.id], tx = X(c.lon), ty = Y(c.lat), f = (w.prog + 100) / 200;
       over += `<line x1="${sp[0]}" y1="${sp[1]}" x2="${tx}" y2="${ty}" stroke="#fbbf24" stroke-width="1.2" stroke-dasharray="4 3"><animate attributeName="stroke-dashoffset" from="14" to="0" dur="1s" repeatCount="indefinite"/></line>
       <circle cx="${tx}" cy="${ty}" r="6" fill="none" stroke="#ef4444" stroke-width="1.5"><animate attributeName="r" from="4" to="16" dur="1.4s" repeatCount="indefinite"/><animate attributeName="opacity" from="1" to="0" dur="1.4s" repeatCount="indefinite"/></circle>
       <circle cx="${sp[0] + (tx - sp[0]) * f}" cy="${sp[1] + (ty - sp[1]) * f}" r="3.5" fill="#fff" stroke="#ef4444" stroke-width="1.5"/>`; }
-    return `<svg viewBox="${VIEWS[W.view]}" class="w-full bg-slate-950 rounded border border-slate-800" style="aspect-ratio:${W.view === 'w' ? '1000/395' : '16/9'}">${base}${over}${lab}</svg>`;
+    const grat = [-60,-30,0,30,60].map(l => `<line x1="0" x2="1000" y1="${Y(l)}" y2="${Y(l)}" stroke="#ffffff" stroke-opacity=".35" stroke-width=".5"/>`).join('') + [-120,-60,0,60,120].map(l => `<line y1="0" y2="400" x1="${X(l)}" x2="${X(l)}" stroke="#ffffff" stroke-opacity=".35" stroke-width=".5"/>`).join('');
+    return `<svg viewBox="${VIEWS[W.view]}" class="w-full rounded border" style="aspect-ratio:${W.view === 'w' ? '1000/395' : '16/9'};background:linear-gradient(#8fc3e8,#b8dcf2);border-color:#7ab0d4"><rect x="-50" y="-50" width="1200" height="600" fill="#a9d3ee"/>${grat}${base}${over}${lab}</svg>`;
   }
 
   // ---------- diálogos ----------
@@ -10379,7 +10380,7 @@ function playSound(n) {
         <button onclick="warPeace()" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer">Negociar la paz</button></div>`;
       const views = Object.keys(VIEWS).map(k => `<button onclick="warView('${k}')" class="px-2 py-1 rounded text-[10px] cursor-pointer ${W.view === k ? 'hoi-button-gold' : 'bg-slate-900 border border-slate-700 text-slate-300'}">${VNAME[k]}</button>`).join('');
       body = `<div class="grid grid-cols-1 lg:grid-cols-3 gap-4"><div class="lg:col-span-2 space-y-2"><div class="flex flex-wrap gap-1.5">${views}</div>${mapSvg()}
-        <div class="text-[10px] text-slate-500 font-sans">Verde: ${OWN.n} · azul: aliados · rojo oscuro: hostiles · rojo vivo: enemigo · ocre: territorio anexionado.</div>
+        <div class="text-[10px] text-slate-500 font-sans">Verde: ${OWN.n} · azul: aliados · salmón: hostiles · rojo vivo: enemigo · amarillo: territorio anexionado.</div>
         <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1"><b class="text-sm text-slate-100"><i class="fa-solid fa-radio mr-1.5 text-amber-400"></i>Parte de guerra</b>${W.log.length ? W.log.slice(0, 6).map(x => `<div class="text-[11px] text-slate-300">${x}</div>`).join('') : '<div class="text-[11px] text-slate-500">Sin novedades.</div>'}</div></div>
         <div class="space-y-3"><div class="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1">${info}</div>${wp}</div></div>`;
     } else if (W.pane === 'army') {
