@@ -77,6 +77,18 @@
     toast('<b>' + L.n + '</b>: nivel ' + (nv > 0 ? '+' : '') + nv, '#10b981'); window.ecoOpen();
   };
   const CHAMP = { espana: 'SEAT, Telefónica, Iberdrola o Inditex', francia: 'Renault, Airbus, TotalEnergies o L\'Oréal', alemania: 'Volkswagen, Siemens, BASF o Bosch', rusia: 'Gazprom, Rosneft, Sberbank o Rostec', eeuu: 'Ford, Boeing, Intel o Apple', marruecos: 'OCP, Attijariwafa, Renault Tánger o Maroc Telecom', coreanorte: 'las empresas estatales y las zonas económicas especiales' };
+  const NMF = { eco: 'economía', emp: 'empleo', apr: 'aprobación', est: 'estabilidad' };
+  function rows(keys, title, intro) {
+    const E = EC();
+    return '<div style="margin-top:12px;font-size:12px;letter-spacing:1px;color:#fbbf24;font-weight:700">' + title + '</div>' + (intro ? '<div style="font-size:11px;color:#94a3b8;margin-top:2px">' + intro + '</div>' : '')
+      + keys.map(k => { const L = LV[k], v = E[k] || 0;
+        const fx = Object.keys(L.eff).map(m => { const x = L.eff[m] * (v || 1) * (v ? 1 : 1); const val = (L.eff[m] * (v || 1)); return '<span style="color:' + (val >= 0 ? '#6ee7b7' : '#fca5a5') + '">' + (val >= 0 ? '+' : '') + val.toFixed(2) + ' ' + (NMF[m] || m) + '</span>'; }).join(' · ');
+        const c = L.cost * (v || 1);
+        return '<div style="display:flex;align-items:center;gap:10px;margin-top:8px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 10px"><div style="flex:1"><b>' + L.n + '</b><div style="font-size:11px;color:#94a3b8">' + L.d + '</div>'
+          + '<div style="font-size:10px;color:#94a3b8;margin-top:3px">' + (v ? 'Ahora, cada mes: ' : 'Cada nivel +1 da, por mes: ') + fx + (c ? ' · ' + (c > 0 ? 'cuesta dinero al tesoro' : 'ingresa dinero al tesoro') : '') + '</div></div>'
+          + '<button onclick="ecoSet(\'' + k + '\',-1)" style="width:28px;height:28px;border-radius:6px;background:#0f172a;border:1px solid #475569;color:#f1f5f9;cursor:pointer">−</button><b style="min-width:28px;text-align:center;color:' + (v > 0 ? '#6ee7b7' : v < 0 ? '#fca5a5' : '#e2e8f0') + '">' + (v > 0 ? '+' : '') + v + '</b>'
+          + '<button onclick="ecoSet(\'' + k + '\',1)" style="width:28px;height:28px;border-radius:6px;background:#0f172a;border:1px solid #475569;color:#f1f5f9;cursor:pointer">+</button></div>'; }).join('');
+  }
   window.ecoOpen = function () {
     LV.champ.d = '+ ayudas y garantías a ' + (CHAMP[cid()] || CHAMP.espana) + ' · − dejar que compitan solas.';
     const E = EC(), old = document.getElementById('eco-modal'); if (old) old.remove();
@@ -84,10 +96,10 @@
     const d = document.createElement('div'); d.id = 'eco-modal';
     d.style.cssText = 'position:fixed;inset:0;z-index:9997;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:16px';
     d.innerHTML = '<div style="max-width:680px;width:100%;background:#0f172a;border:2px solid #d9a726;border-radius:12px;padding:18px;color:#e2e8f0;font-family:system-ui,sans-serif;max-height:92vh;overflow:auto">'
-      + '<h3 style="font-size:20px;color:#fbbf24;margin:0 0 4px">POLÍTICA ECONÓMICA</h3><p style="font-size:12px;color:#94a3b8;margin:0 0 10px">Coyuntura real de ' + (gameState.currentDate ? year() : '') + ': PIB <b style="color:' + (g >= 0 ? '#6ee7b7' : '#fca5a5') + '">' + (g >= 0 ? '+' : '') + g + ' %</b>. Cada palanca va de −2 a +2 y actúa cada mes sobre economía, empleo, estabilidad, apoyo y Tesorería. Cambiar una cuesta 2 de capital político (tienes ' + Math.round(cpGet()) + ').</p>'
-      + Object.keys(LV).map(k => { const L = LV[k], v = E[k] || 0; return '<div style="display:flex;align-items:center;gap:10px;margin-top:8px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 10px"><div style="flex:1"><b>' + L.n + '</b><div style="font-size:11px;color:#94a3b8">' + L.d + '</div></div>'
-        + '<button onclick="ecoSet(\'' + k + '\',-1)" style="width:28px;height:28px;border-radius:6px;background:#0f172a;border:1px solid #475569;color:#f1f5f9;cursor:pointer">−</button><b style="min-width:28px;text-align:center;color:' + (v > 0 ? '#6ee7b7' : v < 0 ? '#fca5a5' : '#e2e8f0') + '">' + (v > 0 ? '+' : '') + v + '</b>'
-        + '<button onclick="ecoSet(\'' + k + '\',1)" style="width:28px;height:28px;border-radius:6px;background:#0f172a;border:1px solid #475569;color:#f1f5f9;cursor:pointer">+</button></div>'; }).join('')
+      + '<h3 style="font-size:20px;color:#fbbf24;margin:0 0 4px">ECONOMÍA, EMPRESAS E INDUSTRIA</h3><p style="font-size:12px;color:#94a3b8;margin:0 0 10px">Coyuntura real de ' + (gameState.currentDate ? year() : '') + ': PIB <b style="color:' + (g >= 0 ? '#6ee7b7' : '#fca5a5') + '">' + (g >= 0 ? '+' : '') + g + ' %</b>. Cada palanca va de −2 a +2 y actúa cada mes sobre economía, empleo, estabilidad, apoyo y Tesorería. Cambiar una cuesta 2 de capital político (tienes ' + Math.round(cpGet()) + ').</p>'
+      + '<div style="font-size:12px;background:#1e293b;border-radius:8px;padding:8px 10px;margin:0 0 4px;color:#cbd5e1;line-height:1.45"><b style="color:#fbbf24">Cómo funciona:</b> cada palanca va de −2 a +2. Cambiarla cuesta <b>2 de capital político</b> y no se puede volver a tocar en 30 días. Mientras esté puesta, <b>cada mes</b> aplica los efectos que ves debajo de cada una y su coste (o ingreso) en el tesoro.</div>'
+      + rows(['jobs', 'wage', 'minw', 'rent', 'pens', 'tax'], 'ECONOMÍA Y EMPLEO PÚBLICO', '')
+      + rows(['fdi', 'champ', 'rnd'], 'EMPRESAS E INDUSTRIA', 'Aquí decides si tu país atrae empresas de fuera (inversión extranjera), cuida a sus grandes empresas (' + (CHAMP[cid()] || CHAMP.espana) + ') y apuesta por la innovación. Además, cada pocos meses te llegarán decisiones concretas sobre esas empresas (cierres, ayudas, nuevas fábricas…). Suben el empleo y la economía, y mejoran las «fuerzas productivas» de la pestaña Demografía.')
       + '<button onclick="document.getElementById(\'eco-modal\').remove()" style="margin-top:14px;background:none;border:1px solid #475569;border-radius:6px;padding:6px 12px;color:#94a3b8;cursor:pointer">Cerrar</button></div>';
     document.body.appendChild(d); try { uxClose(); } catch (e) { /* sin panel */ }
   };

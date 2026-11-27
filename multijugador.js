@@ -20,6 +20,7 @@
   const FLAGS = { espana: '🇪🇸', marruecos: '🇲🇦' };
   const INTL_KEY = { espana: 'es', marruecos: 'ma', eeuu: 'us' };   // clave de la relación bilateral en gameState.intl.rel (si existe)
   const myC = () => window.CURRENT_COUNTRY || { id: 'espana', name: 'España' };
+  const myNm = () => (window.MC && MC.t && MC.t.nation) || myC().name;
   const flagOf = id => FLAGS[id] || '🏳️';
   // Bandera como imagen (flagcdn.com; si no carga, flags/<iso>.png; y por último el emoji)
   const isoOf = id => { const c = (window.COUNTRIES || []).filter(x => x.id === id)[0]; return c && c.flag ? String(c.flag).toLowerCase().replace(/[^a-z-]/g, '') : ''; };
@@ -245,9 +246,10 @@
   function onData(d) {
     const m = S(); if (!m || !d || typeof d.t !== 'string') return;
     X.seen = Date.now();
+    if (d.t === 'name') { if (m.other) { m.other.name = String(d.n || m.other.name).slice(0, 40); toast('<b>' + esc(m.other.user || m.other.name) + '</b> ahora gobierna: <b>' + esc(m.other.name) + '</b>', '#38bdf8'); try { render(); } catch (e) { /* sin render */ } } return; }
     if (d.t === 'hello') {
       m.linked = true; R.n = 0;
-      if (!d.re) tx({ t: 'hello', re: true, c: myC().id, n: myC().name, u: USER });   // el otro (re)entra: se le contesta para que sepa que estás ahí
+      if (!d.re) tx({ t: 'hello', re: true, c: myC().id, n: myNm(), u: USER });   // el otro (re)entra: se le contesta para que sepa que estás ahí
       m.other = { id: String(d.c || '').slice(0, 24), name: String(d.n || d.c || 'Otro país').slice(0, 30), user: String(d.u || '').slice(0, 16) };
       if (m.role === 'host') {   // el anfitrión arbitra el valor inicial de la relación (el de su propia partida, si existe)
         try { const k = INTL_KEY[m.other.id], I = intlInit(); if (k && I.rel && I.rel[k] != null) m.rel = clamp(I.rel[k]); } catch (e) { /* sin INTL */ }
@@ -275,7 +277,7 @@
     }
     if (d.t === 'go') { if (m.role === 'guest' && L.on) startGame(); return; }
     if (d.t === 'wdec' || d.t === 'wst' || d.t === 'wabs' || d.t === 'wend') { onWar(d); return; }
-    if (d.t === 'wpz' || d.t === 'wterm' || d.t === 'wdebt' || d.t === 'wtrib') { onPeace(d); return; }
+    if (d.t === 'wpz' || d.t === 'wterm' || d.t === 'wdebt' || d.t === 'wtrib' || d.t === 'wocc') { onPeace(d); return; }
     if (d.t === 'wown') { const v = Number(d.s); if (isFinite(v)) m.rivalScore = Math.max(0, Math.min(100, v)); return; }
     if (d.t === 'wpact') {   // el otro jugador te paga un pacto de cooperación: el dinero llega a tu tesorería
       const amt = Math.max(0, Math.min(400, Number(d.amt) || 0));
@@ -394,6 +396,10 @@
       log('Pagas ' + fmt(pay) + ' M€ de deuda a ' + oname() + ' (quedan ' + fmt(m.debt.left) + ').');
     }
     if (m.annexIncome && d % 30 === 0) cash(m.annexIncome, 'Administración del territorio anexionado');
+    if (m.occupied && d % 30 === 0 && m.linked) {
+      if (d >= m.occupied.until) { m.occupied = null; log('Termina la anexión: recuperas el control de tu país.'); }
+      else { const tr = Math.round(800 * kEco()); cash(-tr, 'Tributo a ' + oname() + ' (país anexionado)'); tx({ t: 'wtrib', amt: tr }); }
+    }
   }
   function termsModal() {
     const m = S(); if (!m || !m.terms) return;
@@ -401,7 +407,7 @@
     ov('<span class="bg-emerald-500 text-black text-[10px] px-2 py-0.5 rounded font-bold">VICTORIA</span><h3 class="font-hoi-header text-2xl text-emerald-400">Términos de paz con ' + esc(oname()) + '</h3>'
       + obtn("MPW.terms('rep')", 'Exigir una deuda de guerra', 'Pagará ' + fmt(6000 * kEco()) + ' M€ en pagos mensuales hasta fin de legislatura. Conserva a su presidente.')
       + obtn("MPW.terms('gob')", 'Cambiar al presidente', 'Su presidente es sustituido por su ministro de Exteriores (o uno de su gabinete al azar). Sigue siendo ' + esc(oname()) + ' quien gobierna, y te paga ' + fmt(9000 * kEco()) + ' M€ hasta fin de legislatura.')
-      + obtn("MPW.terms('anex')", 'Anexionar el país', 'Pasa a ser tuyo: administras sus territorios (ingresos mensuales) y el otro jugador pierde su partida.'));
+      + obtn("MPW.terms('anex')", 'Anexionar el país', 'Pasa a ser tuyo hasta las próximas elecciones: controlas sus recursos (ingresos mensuales y tributo) y restringes sus decisiones de gobierno. Puedes liberarlo convocando elecciones.'));
   }
   function applyTerms(k) {   // en el vencedor
     const m = S(); if (!m) return; m.terms = false; ovClose();
@@ -415,11 +421,25 @@
     try { if (W) { W.hist = W.hist || []; W.hist.unshift(oname() + ': VICTORIA (' + { rep: 'deuda de guerra', gob: 'cambio de presidente', anex: 'anexión' }[k] + ')'); W.hist = W.hist.slice(0, 8); } } catch (e) { /* sin historial */ }
     render();
   }
-  function annexed() {   // en el perdedor: el país es anexionado y la partida termina
-    const m = S(); if (m) log(oname() + ' anexiona tu país.');
-    const why = oname() + ' ha ganado la guerra y anexiona tu país. Tu partida termina aquí.', ttl = 'PAÍS ANEXIONADO';
-    try { if (gameState.campaign) diffForceEnd(why, ttl); else { gameState.endReason = why; gameState.endTitle = ttl; showEpilogue(true); } } catch (e) { toast(why); }
+  function annexed() {   // en el perdedor: el país queda ANEXIONADO hasta que se convoquen elecciones (el vencedor decide por él)
+    const m = S(); if (!m) return;
+    m.occupied = { by: oname(), until: (gameState.daysInOffice || 0) + legLeft() };
+    log(oname() + ' anexiona tu país hasta las próximas elecciones.');
+    try { fxPlay('event'); } catch (e) { /* sin audio */ }
+    ov('<span class="bg-red-600 text-black text-[10px] px-2 py-0.5 rounded font-bold">PAÍS ANEXIONADO</span><h3 class="font-hoi-header text-xl text-red-300">' + oflag() + ' ' + esc(oname()) + ' controla tu país</h3>'
+      + '<p class="text-xs text-slate-300 font-sans">Hasta que se convoquen elecciones (como máximo ' + legLeft() + ' días) ' + esc(oname()) + ' administra tus recursos: te exige un tributo mensual y <b>decide por ti</b> los decretos, nombramientos, presupuestos, deuda, proyectos y operaciones militares. Solo puedes atender las crisis y noticias que surjan.</p>'
+      + obtn('MPW.close()', 'Entendido', 'La partida continúa.'));
+    toast(oflag() + ' <b>País anexionado</b> por ' + esc(oname()), '#ef4444'); render();
   }
+  const OCC = () => { const m = S(); return m && m.occupied && (gameState.daysInOffice || 0) < m.occupied.until ? m.occupied : null; };
+  function occBlock(name) {
+    const o = OCC(); if (!o) return false;
+    toast('<i class="fa-solid fa-lock"></i> País anexionado: ' + name + ' lo decide ' + esc(o.by) + ' hasta que se convoquen elecciones.', '#ef4444'); return true;
+  }
+  ['enactPolicy|Decretos', 'updateMinister|Nombramientos', 'abolishMinistry|Ministerios', 'restoreMinistry|Ministerios', 'submitBudget|Presupuestos', 'debtIssue|Deuda', 'debtRepay|Deuda', 'goalsAct|Grandes decisiones', 'warBuild|Rearme', 'warTech|Investigación militar', 'warOp|Operaciones militares', 'warAsk|Declaraciones de guerra', 'adelantarElecciones|Elecciones anticipadas'].forEach(x => {
+    const [fn, nm] = x.split('|'), o = window[fn]; if (typeof o !== 'function') return;
+    window[fn] = function () { if (occBlock(nm)) return; return o.apply(this, arguments); };
+  });
   // Mensajería de paz y términos
   function onPeace(d) {
     const m = S(); if (!m) return;
@@ -440,6 +460,9 @@
       else if (d.k === 'refuse') { ovClose(); log(oname() + ' rechaza tu condición.'); toast(oflag() + ' ' + esc(oname()) + ' rechaza la condición: la guerra continúa'); }
     } else if (d.t === 'wterm') {
       if (d.k === 'anex') annexed(); else takeTerms(d.k);
+    } else if (d.t === 'wocc') {
+      if (d.k === 'release') { m.occupied = null; ovClose(); log(oname() + ' convoca elecciones y te devuelve el control de tu país.'); toast(oflag() + ' <b>' + esc(oname()) + ' pone fin a la anexión</b>: vuelves a gobernar', '#10b981'); try { fxPlay('ok'); } catch (e) { /* sin audio */ } }
+      else if (d.k === 'tribute') { const a = Math.max(0, Math.min(1e6, Number(d.amt) || 0)); cash(-a, 'Tributo extraordinario a ' + oname()); log(oname() + ' te exige un tributo extraordinario de ' + fmt(a) + ' M€.'); tx({ t: 'wtrib', amt: a }); }
     } else if (d.t === 'wdebt') {
       m.debtIn = { total: d.total, monthly: d.monthly, left: d.total }; if (d.puppet) m.puppetOther = d.puppet;
       log(oname() + ' deberá pagarte ' + fmt(d.total) + ' M€.'); toast(oflag() + ' ' + esc(oname()) + ' te pagará <b>' + fmt(d.total) + ' M€</b>' + (d.puppet ? ' y su presidente pasa a ser <b>' + esc(d.puppet) + '</b>' : ''), '#10b981');
@@ -483,6 +506,7 @@
       if (m.puppet) rows.push(['fa-user-lock', 'PAÍS TÍTERE de ' + m.puppet.by + ' hasta fin de legislatura (' + legLeft() + ' d) · presidente impuesto: ' + m.puppet.name, '#ef4444']);
       if (m.debt && m.debt.left > 0) rows.push(['fa-coins', 'Deuda con ' + m.debt.to + ': quedan ' + fmt(m.debt.left) + ' de ' + fmt(m.debt.total) + ' M€ (' + fmt(m.debt.monthly) + '/mes)', '#d9a726']);
       if (m.debtIn && m.debtIn.left > 0) rows.push(['fa-hand-holding-dollar', 'Tutelas a ' + oname() + (m.puppetOther ? ' (presidente: ' + m.puppetOther + ')' : '') + ' hasta fin de legislatura · te debe ' + fmt(m.debtIn.left) + ' de ' + fmt(m.debtIn.total) + ' M€ (' + fmt(m.debtIn.monthly) + '/mes)', '#10b981']);
+      if (OCC()) rows.push(['fa-lock', 'ANEXIONADO por ' + OCC().by + ': decisiones de gobierno restringidas hasta elecciones', '#ef4444']);
       if (m.annexIncome) rows.push(['fa-flag', 'Has anexionado ' + oname() + ': +' + fmt(m.annexIncome) + ' M€/mes', '#10b981']);
     }
     let b = document.getElementById('mp-status');
@@ -497,6 +521,10 @@
       if (k === 'yes') { m.pvp = null; realPeace(); setRel(m.rel + 15); tx({ t: 'wpz', k: 'yes' }); log('Aceptas el alto el fuego con ' + oname() + '.'); }
       else if (k === 'no') { setRel(m.rel - 2); tx({ t: 'wpz', k: 'no' }); log('Rechazas la paz con ' + oname() + '.'); }
       else { m.waitCond = true; tx({ t: 'wpz', k: 'demand' }); log('Exiges a ' + oname() + ' que cambie de presidente.'); }
+      render(); },
+    occ: k => { const m = S(); if (!m || !m.annexIncome) return;
+      if (k === 'tribute') { const a = Math.round(1500 * kEco()); if ((m.occCd || 0) > (gameState.daysInOffice || 0)) return toast('Tributo extraordinario en enfriamiento.', '#ef4444'); m.occCd = (gameState.daysInOffice || 0) + 60; tx({ t: 'wocc', k: 'tribute', amt: a }); log('Exiges a ' + oname() + ' un tributo extraordinario de ' + fmt(a) + ' M€.'); }
+      else { m.annexIncome = 0; tx({ t: 'wocc', k: 'release' }); log('Convocas elecciones en ' + oname() + ': recupera su soberanía.'); toast(oflag() + ' ' + esc(oname()) + ' recupera su soberanía', '#10b981'); try { if (gameState.wr) gameState.wr.terr = (gameState.wr.terr || []).filter(t => t.n !== oname()); } catch (e) { /* sin territorios */ } }
       render(); },
     cond: ok => { const m = S(); if (!m) return; ovClose();
       if (ok) { m.pvp = null; takeTerms('gob'); tx({ t: 'wpz', k: 'agree' }); realPeace(); } else tx({ t: 'wpz', k: 'refuse' });
@@ -584,7 +612,8 @@
     if (m.puppet) o.push('PAÍS TÍTERE de ' + esc(m.puppet.by) + ' hasta el final de la legislatura (' + legLeft() + ' días). Presidente impuesto: <b class="text-red-300">' + esc(m.puppet.name) + '</b>');
     if (m.debt) o.push('Debes ' + fmt(m.debt.left) + ' M€ de ' + fmt(m.debt.total) + ' · pagado ' + fmt(m.debt.total - m.debt.left) + ' M€ · pago mensual ' + fmt(m.debt.monthly) + ' M€');
     if (m.debtIn) o.push((m.puppetOther ? 'Tienes a ' + esc(oname()) + ' como país títere hasta fin de legislatura (' + legLeft() + ' días) · su presidente ahora es ' + esc(m.puppetOther) + '. ' : '') + 'Te deben ' + fmt(m.debtIn.left) + ' M€ de ' + fmt(m.debtIn.total) + ' · cobrado ' + fmt(m.debtIn.total - m.debtIn.left) + ' M€ · ' + fmt(m.debtIn.monthly) + ' M€/mes');
-    if (m.annexIncome) o.push('Territorio anexionado: +' + fmt(m.annexIncome) + ' M€/mes');
+    if (m.annexIncome) o.push('Territorio anexionado: +' + fmt(m.annexIncome) + ' M€/mes · ' + esc(oname()) + ' queda bajo tu control (decretos, ministros, presupuesto y ejército) hasta que se convoquen elecciones. <span class="inline-flex gap-2 mt-1"><button class="hoi-button-gold px-2 py-1 rounded text-[10px] cursor-pointer" onclick="MPW.occ(\'tribute\')">Exigir tributo extraordinario</button><button class="bg-slate-800 border border-slate-600 px-2 py-1 rounded text-[10px] cursor-pointer" onclick="MPW.occ(\'release\')">Convocar elecciones y liberar</button></span>');
+    if (m.occupied && (gameState.daysInOffice || 0) < m.occupied.until) o.push('PAÍS ANEXIONADO por <b class="text-red-300">' + esc(m.occupied.by) + '</b>: paga un tributo mensual y no puede tomar decretos, nombramientos, presupuestos, deuda ni operaciones militares hasta que se convoquen elecciones.');
     return o.length ? '<div class="bg-slate-900 border border-amber-500/50 rounded-lg p-3 text-[11px] text-slate-200 space-y-1 font-hoi-tech"><b class="text-amber-300">TÉRMINOS DE LA GUERRA</b>' + o.map(x => '<div>' + x + '</div>').join('') + '</div>' : '';
   }
   function warBox(m) {
@@ -644,7 +673,7 @@
   function wire(c) {
     link = c;
     const mine = () => c === link;   // ignora eventos de conexiones viejas
-    c.on('open', () => { if (!mine()) return; const m = ensure(); m.linked = true; R.n = 0; resetClock(); tx({ t: 'hello', c: myC().id, n: myC().name, u: USER }); render(); });
+    c.on('open', () => { if (!mine()) return; const m = ensure(); m.linked = true; R.n = 0; resetClock(); tx({ t: 'hello', c: myC().id, n: myNm(), u: USER }); render(); });
     c.on('data', d => { if (mine()) onData(d); });
     c.on('error', err => { if (mine()) console.warn('Error de enlace:', err); });
     c.on('close', () => {
@@ -886,6 +915,7 @@
       <div class="lb-err">${esc(L.err)}</div>`;
   }
 
+  window.MP_sendName = () => { try { if (S() && link && link.open) tx({ t: 'name', n: myNm() }); } catch (e) { /* sin enlace */ } };
   window.MP = {
     host, act, answer,
     join: c => join(c), enter: c => { L.code = (c || '').toUpperCase(); join(L.code); },

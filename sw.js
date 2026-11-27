@@ -1,10 +1,10 @@
 // Service worker de Moncloa Strategy. Sube el número de VERSION cuando publiques cambios.
-const VERSION = 'v65';
+const VERSION = 'v66';
 const CACHE = 'moncloa-' + VERSION;
 const COUNTRIES_DIR = 'Countries/';
 
 // Imprescindibles: si falta alguno, la instalación falla (igual que antes)
-const CORE = ['./', 'index.html', 'multijugador.js', 'demografia.js', 'calma.js','frente.js','nuclear.js','armamento.js','regimen.js','pantalla.js', 'gobierno.js', 'historia.js', 'economia.js', 'interfaz.js', 'empresa.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CORE = ['./', 'index.html', 'multijugador.js', 'demografia.js', 'calma.js','frente.js','nuclear.js','armamento.js','regimen.js','pantalla.js', 'gobierno.js', 'historia.js', 'economia.js', 'interfaz.js', 'empresa.js', 'epoca.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 // Ficheros antiguos de la raíz: solo se precachean si no hay Countries/index.json
 const LEGACY = ['pais-espana.js', 'pais-marruecos.js'];
 

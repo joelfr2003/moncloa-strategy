@@ -49,7 +49,7 @@
     const P = PR(), eff = (P.img - 50) * 0.05, col = P.img >= 55 ? '#10b981' : P.img >= 35 ? '#d9a726' : '#ef4444';
     return '<div class="rounded px-3 py-2 mb-3 font-hoi-tech" style="border:1px solid ' + col + '66;background:' + col + '14"><div class="flex flex-wrap items-center gap-3 text-[11px]"><b style="color:' + col + '"><i class="fa-solid fa-newspaper mr-1"></i>IMAGEN EN PRENSA ' + Math.round(P.img) + '/100</b>'
       + '<span>efecto mensual en aprobación: <b>' + (eff >= 0 ? '+' : '') + eff.toFixed(2) + '</b>' + (P.img < 30 ? ' · <b style="color:#ef4444">crisis de imagen</b>' : '') + '</span></div>'
-      + '<div class="flex flex-wrap gap-2 mt-2">' + Object.keys(ACTS).map(k => { const a = ACTS[k], w = Math.max(0, a.cd - (day() - (P.cd[k] || -999))); return '<button onclick="prAct(\'' + k + '\')" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer" title="' + a.d + '" ' + (w ? 'style="opacity:.5"' : '') + '>' + a.n + (a.cp ? ' · ' + a.cp + ' CP' : '') + (a.eur ? ' · ' + a.eur + ' M€' : '') + (w ? ' (' + w + ' d)' : '') + '</button>'; }).join('') + '</div></div>';
+      + '<div class="flex flex-wrap gap-2 mt-2">' + Object.keys(ACTS).map(k => { const a = ACTS[k], w = Math.max(0, a.cd - (day() - (P.cd[k] || -999))); return '<button onclick="prAct(\'' + k + '\')" class="hoi-button px-2 py-1 rounded text-[10px] cursor-pointer" title="' + a.d + '" ' + (w ? 'style="opacity:.5"' : '') + '>' + a.n + (a.cp ? ' · ' + a.cp + ' CP' : '') + (a.eur ? ' · ' + a.eur + ' M€' : '') + (w ? ' (' + w + ' d)' : '') + '</button>'; }).join('') + '</div>' + prRewards() + '</div>';
   }
 
   // ================= EMPRESAS: decisiones sobre grandes empresas =================
@@ -122,12 +122,73 @@
     return '<div class="rounded px-3 py-2 mb-3 font-hoi-tech text-[11px]" style="border:1px solid #0ea5e966;background:#0ea5e914"><b style="color:#0ea5e9"><i class="fa-solid fa-industry mr-1"></i>FUERZAS PRODUCTIVAS</b> población activa ' + f.act.toFixed(1) + ' M (' + Math.round(f.work * 100) + ' %) · tecnología ×' + f.tech.toFixed(2) + ' · capacidad productiva ' + (f.rel >= 0 ? '+' : '') + (f.rel * 100).toFixed(1) + ' % → cada mes: ' + s(f.eco, 'economía') + ' · ' + s(f.emp, 'empleo') + ' · ' + s(f.est, 'estabilidad') + '<br><span style="color:#94a3b8">Si la población activa crece (natalidad, inmigración) y la invertes en I+D, inversión extranjera y empresas, el país produce más; si envejece o se queda sin trabajadores, la producción cae.</span></div>';
   }
 
+
+  // ================= PRENSA: incentivos reales =================
+  // Escudo mediático: con buena imagen, las medidas impopulares duelen menos; con mala imagen, duelen más.
+  const _md = window.makeDecision;
+  if (typeof _md === 'function') makeDecision = function (i) {
+    const ev = gameState.activeDynamicEvent, o = ev && ev.options && ev.options[Number(i)], m = M(), before = m ? m.apr : 0;
+    const r = _md.apply(this, arguments);
+    try {
+      const P = PR();
+      if (o && o.prv) { P.img = clamp(P.img + o.prv); }
+      if (m && live()) {
+        const d = before - m.apr;
+        if (d > 0.5) {
+          if (P.img >= 60) { m.apr = clamp(m.apr + d * 0.5); toast('<i class="fa-solid fa-shield text-emerald-400"></i> <b>Escudo mediático</b><br><span class="text-xs">La prensa te apoya: el golpe en aprobación se reduce a la mitad (+' + Math.round(d * 0.5) + ').</span>', '#10b981'); }
+          else if (P.img < 35) { m.apr = clamp(m.apr - d * 0.3); toast('<i class="fa-solid fa-newspaper text-red-400"></i> <b>La prensa lo amplifica</b><br><span class="text-xs">Con tu mala imagen, el golpe es un 30 % peor.</span>', '#ef4444'); }
+        }
+      }
+    } catch (e) { console.error(e); }
+    return r;
+  };
+  const ATAQUES = [
+    ['UN GRAN DIARIO CRITICA TU GESTIÓN ECONÓMICA', 'Un reportaje de portada cuestiona tus cifras de empleo y crecimiento y la oposición lo recoge.'],
+    ['TITULAR HOSTIL SOBRE TU GOBIERNO', 'Las tertulias de la mañana abren con una polémica sobre tu gabinete y piden explicaciones.'],
+    ['FILTRACIÓN DE UN DOCUMENTO INTERNO', 'Un medio publica un informe reservado que deja mal a tu equipo.'],
+    ['UN PROGRAMA DE MÁXIMA AUDIENCIA TE DEJA EN EVIDENCIA', 'Un presentador muy seguido ironiza sobre tu último anuncio.']
+  ];
+  function pressEvent() {
+    if (gameState.activeDynamicEvent || gameState.activeNewsPopup || document.getElementById('xm-modal')) return;
+    const P = PR(), a = ATAQUES[Math.floor(Math.random() * ATAQUES.length)], good = P.img > 65 && Math.random() < 0.5;
+    gameState.gameSpeed = 0;
+    if (good) gameState.activeDynamicEvent = { id: 'B_PRENSA_' + day(), cat: 'PRENSA', title: 'PORTADA FAVORABLE Y OFERTA DE ENTREVISTA', desc: 'Tu buena imagen abre puertas: un gran medio te ofrece una entrevista en profundidad.', condition: () => true, options: [
+      { text: 'Aceptar la entrevista (+10 imagen, +2 aprobación)', cost: 0, stats: { apr: 2 }, loyaltyImpact: {}, news: 'Entrevista del presidente en un gran medio.', prv: 10 },
+      { text: 'Declinar con elegancia', cost: 0, stats: {}, loyaltyImpact: {}, news: 'El presidente declina una entrevista.', prv: 0 }] };
+    else gameState.activeDynamicEvent = { id: 'B_PRENSA_' + day(), cat: 'PRENSA', title: a[0], desc: a[1] + ' Tu imagen en prensa está en juego.', condition: () => true, options: [
+      { text: 'Responder con una rueda de prensa (+8 imagen)', cost: 0, stats: { apr: 1 }, loyaltyImpact: {}, news: 'El Gobierno responde en rueda de prensa.', prv: 8 },
+      { text: 'Pagar una campaña de comunicación (+14 imagen)', cost: Math.round(400 * budget() / 100000), stats: {}, loyaltyImpact: {}, news: 'El Gobierno lanza una campaña informativa.', prv: 14 },
+      { text: 'Ignorarlo (−10 imagen, −2 aprobación)', cost: 0, stats: { apr: -2 }, loyaltyImpact: {}, news: 'El Gobierno prefiere no responder.', prv: -10 }] };
+    try { render(); } catch (e) { /* sin render */ }
+  }
+  function prDividend() {
+    const P = PR(); let cp = 0;
+    if (P.img >= 80) cp = 2; else if (P.img >= 65) cp = 1;
+    if (cp) { cpAdd(cp); toast('<i class="fa-solid fa-newspaper text-emerald-400"></i> <b>Buena prensa: +' + cp + ' capital político</b>', '#10b981'); }
+  }
+  function prRewards() {
+    return '<div class="text-[11px] mt-2" style="color:#94a3b8"><b>Para qué sirve:</b> con imagen ≥ 60 tienes <b>escudo mediático</b> (las medidas impopulares duelen la mitad); ≥ 65 te da <b>+1 capital político al mes</b> (+2 si ≥ 80); ≤ 35 la prensa amplifica tus errores (−30 %) y pierdes aprobación y estabilidad cada mes. Cada acción de prensa cuenta en tu cuota de Iniciativa semanal.</div>';
+  }
+
+  // ================= SOCIEDAD: dividendo =================
+  function socAvg() { const S = gameState.soc; if (!S || !S.sat) return null; const v = Object.keys(S.sat).map(k => S.sat[k]); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; }
+  function socDividend() {
+    const a = socAvg(); if (a == null) return;
+    if (a >= 60) { const cp = a >= 75 ? 2 : 1; cpAdd(cp); acc('apr', 0.4); toast('<i class="fa-solid fa-people-group text-emerald-400"></i> <b>Paz social: +' + cp + ' capital político</b><br><span class="text-xs">Los colectivos están contentos (' + Math.round(a) + ' % de media).</span>', '#10b981'); }
+    else if (a < 35) { acc('est', -0.8); acc('apr', -0.4); }
+  }
+  function socBanner() {
+    const a = socAvg(); if (a == null) return '';
+    const col = a >= 60 ? '#10b981' : a >= 35 ? '#d9a726' : '#ef4444';
+    return '<div class="rounded px-3 py-2 mb-3 font-hoi-tech text-[11px]" style="border:1px solid ' + col + '66;background:' + col + '14"><b style="color:' + col + '"><i class="fa-solid fa-people-group mr-1"></i>SATISFACCIÓN MEDIA ' + Math.round(a) + ' %</b> · Con ≥ 60 % cobras cada mes <b>+1 capital político</b> y +0,4 aprobación (+2 CP si ≥ 75 %). Por debajo de 35 %: −0,8 estabilidad al mes y riesgo de huelgas. Usa las <b>mesas de diálogo</b> en los colectivos más descontentos.</div>';
+  }
+
   // ================= Enganches =================
   const _gt = window.gameTick;
   if (typeof _gt === 'function') gameTick = function () {
     const b = gameState.daysInOffice, r = _gt.apply(this, arguments);
     if (gameState.daysInOffice !== b && live()) {
-      try { const d = day(); if (d % 30 === 7) prMonth(); if (d % 30 === 12) prod(); if (d % 75 === 40) bizEvent(); } catch (e) { console.error(e); }
+      try { const d = day(); if (d % 30 === 7) { prMonth(); prDividend(); } if (d % 30 === 9) socDividend(); if (d % 50 === 22 && Math.random() < 0.7) pressEvent(); if (d % 30 === 12) prod(); if (d % 75 === 40) bizEvent(); } catch (e) { console.error(e); }
     }
     return r;
   };
@@ -136,6 +197,7 @@
     const t = gameState.activeTab, h = _rt.apply(this, arguments);
     try {
       if (t === 'media') return prBanner() + h;
+      if (t === 'soc') return socBanner() + h;
       if (t === 'demo') return prodBanner() + h;
     } catch (e) { console.error(e); }
     return h;

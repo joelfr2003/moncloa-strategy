@@ -131,6 +131,26 @@
   body.theme-light input, body.theme-light select, body.theme-light textarea { background: #fff !important; color: #0f172a !important; border-color: #d6cbb0 !important; }
   body.theme-light .nav-tab-btn, body.theme-light header button { color: #334155 !important; }
   body.theme-light #ux-pop, body.theme-light .ux-pop { background: #fffdf7 !important; color: #1e293b !important; }
+  /* ===== Tema crepúsculo: tono medio azul pizarra, ni blanco ni negro ===== */
+  body.theme-dusk { --hoi-bg: #2a3a4d; --hoi-panel: #34475c; --hoi-border: #4a6078; background: #2a3a4d !important; background-image: none !important; color: #e8eef5; }
+  body.theme-dusk header { background: #223142 !important; border-right: 1px solid #3f566e !important; box-shadow: 4px 0 16px rgba(0,0,0,.25) !important; }
+  body.theme-dusk #top-hud { background: #223142 !important; border-bottom: 1px solid #3f566e !important; }
+  body.theme-dusk #top-hud .hud-lname b, body.theme-dusk #top-hud .hud-value { color: #f8fafc !important; }
+  body.theme-dusk #top-hud .hud-lname small, body.theme-dusk #top-hud .hud-label, body.theme-dusk #top-hud .hud-metric .row { color: #b6c4d4 !important; }
+  body.theme-dusk #top-hud .hud-bar { background: #1a2634 !important; border-color: #3f566e !important; }
+  body.theme-dusk #top-hud .hud-sep { background: #3f566e !important; }
+  body.theme-dusk .hoi-box { background: #34475c !important; border-color: #4a6078 !important; box-shadow: 0 4px 16px rgba(0,0,0,.22) !important; color: #e8eef5; }
+  body.theme-dusk .hoi-button { background: #3e5369 !important; border-color: #587089 !important; color: #eef3f8 !important; }
+  body.theme-dusk .hoi-button:hover { background: #4b627a !important; }
+  body.theme-dusk .hoi-button:disabled, body.theme-dusk .hoi-button[disabled] { color: #9fb0c2 !important; opacity: .85 !important; }
+  body.theme-dusk [class*="bg-slate-9"], body.theme-dusk [class*="bg-black"], body.theme-dusk [class*="bg-gray-9"] { background-color: #2c3e52 !important; }
+  body.theme-dusk [class*="bg-slate-8"], body.theme-dusk [class*="bg-gray-8"] { background-color: #3a4f66 !important; }
+  body.theme-dusk [class*="bg-slate-7"] { background-color: #46607a !important; }
+  body.theme-dusk [class*="text-slate-5"], body.theme-dusk [class*="text-slate-6"], body.theme-dusk [class*="text-gray-5"], body.theme-dusk [class*="text-gray-6"] { color: #b6c4d4 !important; }
+  body.theme-dusk [class*="text-slate-4"], body.theme-dusk [class*="text-gray-4"] { color: #cbd6e2 !important; }
+  body.theme-dusk [class*="border-slate-"], body.theme-dusk [class*="border-gray-"] { border-color: #4a6078 !important; }
+  body.theme-dusk input, body.theme-dusk select, body.theme-dusk textarea { background: #263648 !important; color: #f1f5f9 !important; border-color: #587089 !important; }
+  body.theme-dusk #ux-pop, body.theme-dusk .ux-pop { background: #2c3e52 !important; color: #e8eef5 !important; }
   `;
   document.head.appendChild(css);
 
@@ -139,11 +159,11 @@
     const setup = gameState && gameState.step >= 1 && gameState.step <= 3 && !document.body.classList.contains('title-screen');
     document.body.classList.toggle('px-setup', !!setup);
     let th; try { th = localStorage.getItem('moncloa_theme'); } catch (e) { th = null; }
-    document.body.classList.toggle('theme-light', (th || 'light') === 'light' && !setup ? true : false);
+    th = th || 'dusk'; document.body.classList.toggle('theme-light', th === 'light' && !setup); document.body.classList.toggle('theme-dusk', th === 'dusk' && !setup);
   }
   window.themeToggle = function () {
-    let th; try { th = localStorage.getItem('moncloa_theme') || 'light'; } catch (e) { th = 'light'; }
-    const n = th === 'light' ? 'dark' : 'light'; try { localStorage.setItem('moncloa_theme', n); } catch (e) { /* sin almacenamiento */ }
+    let th; try { th = localStorage.getItem('moncloa_theme') || 'dusk'; } catch (e) { th = 'dusk'; }
+    const n = th === 'dusk' ? 'light' : th === 'light' ? 'dark' : 'dusk'; try { localStorage.setItem('moncloa_theme', n); } catch (e) { /* sin almacenamiento */ }
     body(); try { uxClose(); } catch (e) { /* sin panel */ }
   };
   const app = document.getElementById('app');
@@ -156,7 +176,7 @@
     const mo = new MutationObserver(() => {
       if (pop.querySelector('#theme-box')) return; mo.disconnect();
       const d = document.createElement('div'); d.id = 'theme-box';
-      d.innerHTML = '<h4>ASPECTO</h4><button class="ux-mode" style="width:100%" onclick="themeToggle()"><i class="fa-solid fa-circle-half-stroke"></i> Cambiar tema claro / oscuro</button>';
+      d.innerHTML = '<h4>ASPECTO</h4><button class="ux-mode" style="width:100%" onclick="themeToggle()"><i class="fa-solid fa-circle-half-stroke"></i> Cambiar tema (crepúsculo · claro · oscuro)</button>';
       pop.appendChild(d); mo.observe(pop, { childList: true });
     });
     mo.observe(pop, { childList: true });

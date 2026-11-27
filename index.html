@@ -9873,7 +9873,7 @@ function playSound(n) {
   const S = () => window.socInit();
   const effText = p => {
     const parts = [];
-    if (p.per) Object.keys(p.per).forEach(k => { const v = Math.round(p.per[k] * p.d); parts.push((v > 0 ? '+' : '') + v + ' ' + NAME[k]); });
+    if (p.per) Object.keys(p.per).forEach(k => { const v = Math.round(p.per[k] * p.d * 1.6); parts.push((v > 0 ? '+' : '') + v + ' ' + NAME[k]); });
     if (p.now) Object.keys(p.now).forEach(k => parts.push((p.now[k] > 0 ? '+' : '') + p.now[k] + ' ' + NAME[k]));
     return parts.join(' · ') + (p.per ? ' en ' + p.d + ' días' : '');
   };
@@ -9907,10 +9907,10 @@ function playSound(n) {
       <span class="bg-sky-500 text-black text-[10px] px-2 py-0.5 rounded font-bold"><i class="fa-solid fa-landmark mr-1"></i>CONSEJO DE MINISTROS</span>
       <h3 class="font-hoi-header text-2xl text-sky-300">Informe del Gabinete</h3>
       <div class="flex flex-wrap gap-1.5">${['eco', 'est', 'emp', 'apr', 'mil'].map(chip).join('')}</div>
-      <p class="text-xs text-slate-300 font-sans">Presidente, el Gabinete propone estas medidas según la situación actual. Elige una (o aplaza el asunto).</p>
+      <p class="text-xs text-slate-300 font-sans">Presidente, el Gabinete propone estas medidas según la situación actual. Elige una: los efectos son un 60 % mayores que por el BOE y ganas +3 de capital político. Si aplazas, la presión mediática sube.</p>
       ${s.opts.map((p, i) => `<button onclick="councilChoose(${i})" class="w-full text-left p-3 rounded bg-slate-900 hover:bg-slate-800 border border-sky-900/60 hover:border-sky-400 cursor-pointer">
         <div class="flex justify-between"><b class="text-sm text-slate-100"><i class="fa-solid ${p.ic} text-sky-400 mr-1.5"></i>${p.t}</b><span class="text-[10px] text-amber-300">${costText(p)}</span></div>
-        <div class="text-[11px] text-slate-400 mt-1">${p.txt || effText(p)}</div></button>`).join('')}
+        <div class="text-[11px] text-slate-400 mt-1">${p.txt || effText(p)} <b class="text-emerald-400">· +3 capital político por decidir</b></div></button>`).join('')}
       <button onclick="councilChoose(-1)" class="w-full text-left p-2 rounded bg-slate-950 hover:bg-slate-900 border border-slate-700 text-[11px] text-slate-400 cursor-pointer">Aplazar el asunto (la presión mediática sube un poco)</button></div>`;
     document.body.appendChild(d);
   }
@@ -9922,7 +9922,7 @@ function playSound(n) {
       if (p.gain) registerFinancialTransaction('Consejo de Ministros: ' + p.t, p.gain);
       if (p.cap) gameState.goals.capital = Math.max(0, gameState.goals.capital - p.cap);
       if (p.now) Object.keys(p.now).forEach(k => focusMetricAdd(k, p.now[k]));
-      if (p.per) (s.buffs = s.buffs || []).push({ t: p.t, per: p.per, left: p.d });
+      if (p.per) { const pp = {}; Object.keys(p.per).forEach(k => pp[k] = p.per[k] * 1.6); (s.buffs = s.buffs || []).push({ t: p.t, per: pp, left: p.d }); }
       if (p.dlg) { s.sat[p.dlg] = Math.min(100, s.sat[p.dlg] + 18); s.cd[p.dlg] = 45; }
       s.used[p.id] = day; s.decided = (s.decided || 0) + 1;
       gameState.goals.capital = Math.min(100, gameState.goals.capital + 3);   // recompensa por gobernar activamente
@@ -11505,5 +11505,6 @@ function playSound(n) {
 <script src="economia.js"></script>
 <script src="interfaz.js"></script>
 <script src="empresa.js"></script>
+<script src="epoca.js"></script>
 </body>
 </html>

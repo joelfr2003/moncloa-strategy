@@ -200,7 +200,7 @@
   const nat0 = () => (window.__nat0 || (window.__nat0 = MC.t.nation));
   function regApply() {
     if (!window.MC || !MC.t) return; const R = REG(); regime0(); nat0();
-    MC.t.nation = R.name || window.__nat0;
+    MC.t.nation = R.name || window.__nat0; try { if (window.MP_sendName) MP_sendName(); } catch (e) { /* sin multijugador */ }
     if (R.form && FORMS[R.form]) {
       if (FORMS[R.form].dem) MC.regime = window.__regime0 && !window.__regime0.custom ? window.__regime0 : null;
       else if (!MC.regime || !MC.regime.custom) {
