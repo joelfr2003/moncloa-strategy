@@ -58,7 +58,7 @@
     sc.title = (NAMES[cid()] || 'PAÍS') + ' · AÑO 2000 · HISTORIA';
     sc.desc = 'Empieza en el año 2000 con el parlamento de la época. Irán apareciendo las crisis y cambios reales (11-S, crisis de 2008, nuevos partidos, pandemia, guerra de Ucrania…) y tú decides cómo responder: la historia del país puede cambiar, pero el mundo sigue su curso.';
     normalize(sc.parties, era.w);
-    sc.parties.forEach(p => { if (era.L[p.id]) p.leader = era.L[p.id]; if ((N0[cid()] || {})[p.id]) p.name = N0[cid()][p.id]; });
+    sc.parties.forEach(p => { if (era.L[p.id]) { p.leader = era.L[p.id]; p.leaderYear = 2000; } if ((N0[cid()] || {})[p.id]) p.name = N0[cid()][p.id]; });
     SCENARIOS.H2000 = sc;
   }
 
@@ -108,8 +108,8 @@
   ];
   // Cambios de líderes (solo nombre en el parlamento)
   const LD = {
-    espana: [[2000, 7, 'PSOE', 'José Luis Rodríguez Zapatero'], [2004, 4, 'PP', 'Mariano Rajoy'], [2012, 2, 'PSOE', 'Alfredo Pérez Rubalcaba'], [2014, 7, 'PSOE', 'Pedro Sánchez'], [2014, 5, 'PODEMOS', 'Pablo Iglesias'], [2018, 7, 'PP', 'Pablo Casado'], [2018, 12, 'VOX', 'Santiago Abascal'], [2022, 4, 'PP', 'Alberto Núñez Feijóo']],
-    francia: [[2002, 5, 'RN', 'Jean-Marie Le Pen'], [2011, 5, 'RN', 'Marine Le Pen'], [2017, 6, 'ENS', 'Emmanuel Macron'], [2012, 5, 'PS', 'François Hollande']],
+    espana: [[2000, 7, 'PSOE', 'José Luis Rodríguez Zapatero'], [2000, 11, 'SUMAR', 'Gaspar Llamazares'], [2008, 10, 'SUMAR', 'Cayo Lara'], [2016, 2, 'SUMAR', 'Alberto Garzón'], [2023, 6, 'SUMAR', 'Yolanda Díaz'], [2016, 7, 'JUNTS', 'Carles Puigdemont'], [2012, 11, 'ERC', 'Oriol Junqueras'], [2004, 4, 'PP', 'Mariano Rajoy'], [2012, 2, 'PSOE', 'Alfredo Pérez Rubalcaba'], [2014, 7, 'PSOE', 'Pedro Sánchez'], [2014, 5, 'PODEMOS', 'Pablo Iglesias'], [2018, 7, 'PP', 'Pablo Casado'], [2018, 12, 'VOX', 'Santiago Abascal'], [2022, 4, 'PP', 'Alberto Núñez Feijóo']],
+    francia: [[2004, 11, 'LR', 'Nicolas Sarkozy'], [2012, 11, 'LR', 'Jean-François Copé'], [2002, 5, 'RN', 'Jean-Marie Le Pen'], [2011, 5, 'RN', 'Marine Le Pen'], [2017, 6, 'ENS', 'Emmanuel Macron'], [2012, 5, 'PS', 'François Hollande']],
     alemania: [[2005, 11, 'CDU', 'Angela Merkel'], [2013, 5, 'AFD', 'Bernd Lucke'], [2021, 12, 'SPD', 'Olaf Scholz'], [2022, 1, 'CDU', 'Friedrich Merz']],
     rusia: [[2008, 5, 'ER', 'Dmitri Medvédev · Putin'], [2012, 5, 'ER', 'Vladímir Putin']],
     eeuu: [[2009, 1, 'DEMM', 'Barack Obama'], [2017, 1, 'GOPT', 'Donald Trump'], [2021, 1, 'DEMM', 'Joe Biden'], [2025, 1, 'MAGA', 'Donald Trump']],
@@ -118,6 +118,11 @@
   };
 
   window.HIST_TL = TL;
+  // Época del líder actual de un partido: año en que asumió y si es el último de la tabla (para nombrar su foto: pais_partido_AÑO)
+  window.leaderEra = function (c, pid) {
+    const p = (gameState.parties || []).find(x => x.id === pid), L = (LD[c] || []).filter(l => l[2] === pid);
+    return { year: (p && p.leaderYear) || 2000, latest: !L.length || (p && p.leaderYear === Math.max.apply(null, L.map(l => l[0]))) };
+  };
   const H = () => gameState.hist || (gameState.hist = { done: {}, init: false });
   const clamp = v => Math.max(0, Math.min(100, v));
   function shift(sh) {
@@ -163,7 +168,7 @@
   }
   function leaders() {
     const H0 = H(), L = LD[cid()] || [], d = gameState.currentDate; if (!d) return;
-    L.forEach((l, i) => { const k = 'L' + i; if (H0.done[k]) return; if (d >= new Date(l[0], l[1] - 1, 1)) { H0.done[k] = true; const p = (gameState.parties || []).find(x => x.id === l[2]); if (p) p.leader = l[3]; } });
+    L.forEach((l, i) => { const k = 'L' + i; if (H0.done[k]) return; if (d >= new Date(l[0], l[1] - 1, 1)) { H0.done[k] = true; const p = (gameState.parties || []).find(x => x.id === l[2]); if (p) { p.leader = l[3]; p.leaderYear = l[0]; } } });
   }
   function check() {
     if (!(gameState.scenario && gameState.scenario.hist) || !gameState.currentDate) return;
