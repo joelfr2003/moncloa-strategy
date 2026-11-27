@@ -104,6 +104,17 @@
   body.theme-light header { background: #fbf8f0 !important; box-shadow: 4px 0 16px rgba(120,90,20,.12) !important; border-right: 1px solid #e2d9c5 !important; }
   body.theme-light #top-hud { background: #fbf8f0 !important; border-bottom: 1px solid #e2d9c5 !important; color: #1e293b !important; }
   body.theme-light .hoi-box { background: #ffffff !important; border-color: #e2d9c5 !important; box-shadow: 0 2px 10px rgba(120,90,20,.08) !important; color: #1e293b; }
+  body.theme-light #top-hud .hud-lname b { color: #0f172a !important; }
+  body.theme-light #top-hud .hud-lname small, body.theme-light #top-hud .hud-label, body.theme-light #top-hud .hud-metric .row { color: #475569 !important; }
+  body.theme-light #top-hud .hud-value { color: #0f172a !important; }
+  body.theme-light #top-hud .hud-bar { background: #e2e8f0 !important; border-color: #cbd5e1 !important; }
+  body.theme-light #top-hud .hud-sep { background: #d6cbb0 !important; }
+  body.theme-light #top-hud .hud-face { background: #e9e2d0 !important; } body.theme-light #top-hud .hud-face span { color: #334155 !important; }
+  body.theme-light .hoi-button:disabled, body.theme-light .hoi-button[disabled] { color: #64748b !important; opacity: 1 !important; background: #f1ede2 !important; }
+  body.theme-light .hoi-box [class*="text-gray-"], body.theme-light .hoi-box [class*="text-slate-"], body.theme-light .hoi-box [class*="text-zinc-"] { color: #475569 !important; }
+  body.theme-light .hoi-box .text-white, body.theme-light .hoi-box [class*="text-gray-100"], body.theme-light .hoi-box [class*="text-gray-200"], body.theme-light .hoi-box [class*="text-gray-300"] { color: #0f172a !important; }
+  body.theme-light #app :is(h1,h2,h3,h4) { color: #0f172a; }
+  body.theme-light #app .text-amber-100, body.theme-light #app .text-yellow-100, body.theme-light #app .text-yellow-200, body.theme-light #app .text-amber-200 { color: #92400e !important; }
   body.theme-light .hoi-button { background: #faf6ec !important; border-color: #d6cbb0 !important; color: #334155 !important; }
   body.theme-light .hoi-button:hover { background: #f1e7c8 !important; }
   body.theme-light .hoi-button-gold { background: #b45309 !important; color: #fff !important; }
