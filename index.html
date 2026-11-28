@@ -8242,7 +8242,7 @@ function playSound(n) {
       <p class="text-xs text-slate-400 font-sans">Estimación de voto y escaños si hubiera elecciones hoy. Se actualiza cada 15 días y depende de cómo vaya el país y de tus decisiones.</p></div>
       <div class="text-[10px] text-slate-500 text-right">Último barómetro: ${cur.date || 'día ' + cur.day}<br>Muestra simulada · margen de error orientativo</div></div>
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3"><svg viewBox="0 0 500 250" class="w-full">${hemi}<text x="250" y="215" text-anchor="middle" fill="#e2e8f0" font-size="26" font-weight="bold">${coSeats}</text><text x="250" y="232" text-anchor="middle" fill="#94a3b8" font-size="10">escaños del Gobierno (estimación)</text></svg>
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3"><svg viewBox="0 0 600 300" class="w-full">${hemi}<text x="300" y="262" text-anchor="middle" fill="#e2e8f0" font-size="26" font-weight="bold">${coSeats}</text><text x="300" y="284" text-anchor="middle" fill="#94a3b8" font-size="12">escaños del Gobierno (estimación)</text></svg>
           <div class="text-center text-[11px] ${maj ? 'text-emerald-400' : 'text-red-400'}">${maj ? '✔ Mayoría absoluta estimada (' + SEATS_MAJ + ')' : '✖ Sin mayoría absoluta estimada · faltan ' + (SEATS_MAJ - coSeats)}</div></div>
         <div class="bg-slate-950 border border-slate-800 rounded-lg p-3"><b class="text-xs text-slate-100">Evolución de escaños estimados</b>${lineChart(C)}</div>
       </div>
